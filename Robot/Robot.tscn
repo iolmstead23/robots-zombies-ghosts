@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3 uid="uid://igjwcrgg3x8v"]
+
+[ext_resource type="PackedScene" uid="uid://ctcqe31x6a1gn" path="res://Player.tscn" id="1_ikhc4"]
+[ext_resource type="PackedScene" uid="uid://853viroiqi14" path="res://Environment/Terrain/Dungeon_Tilemap.tscn" id="2_vjpiu"]
+
+[node name="Node2D" type="Node2D"]
+
+[node name="Player" parent="." instance=ExtResource("1_ikhc4")]
+
+[node name="TileMapLayer" parent="." instance=ExtResource("2_vjpiu")]
