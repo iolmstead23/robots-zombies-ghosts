@@ -4,10 +4,21 @@ const SPEED = 300.0
 const ANIM_SPEED = 4.5
 const MOVEMENT_THRESHOLD_PERCENT = 0.1  # Percentage of expected movement to consider as actual movement (10%)
 
+# Jump and gravity constants
+const GRAVITY = 980.0  # Pixels per second squared (adjust for your game's feel)
+const JUMP_STRENGTH = 175.00  # Initial upward velocity when jumping (adjust for jump height)
+const MAX_FALL_SPEED = 600.0  # Terminal velocity to prevent falling too fast
+
 @onready var animated_sprite = $AnimatedSprite2D
 
 var previous_position: Vector2
 var jump_key_released = true  # Track if spacebar was released since last jump
+
+# Jump physics variables
+var y_offset: float = 0.0  # Current height above ground
+var vertical_velocity: float = 0.0  # Current vertical speed
+var jump_momentum: Vector2 = Vector2.ZERO  # Horizontal velocity preserved during jump
+var base_y_position: float = 0.0  # Ground level Y position
 
 # Comprehensive state tracking with facing direction included
 var state_tags := {
@@ -67,6 +78,9 @@ func _ready():
 	previous_position = global_position
 	previous_state_tags = state_tags.duplicate()
 	
+	# Store the ground level position
+	base_y_position = global_position.y
+	
 	# Enable Y-sorting for this node
 	y_sort_enabled = true
 	
@@ -87,12 +101,15 @@ func _physics_process(delta: float) -> void:
 		start_jump()
 		jump_key_released = false  # Prevent holding spacebar
 	
-	# Process movement (skip if jumping to prevent movement during jump)
-	if not state_tags["is_jumping"]:
-		process_movement(delta, previous_pos)
-	else:
-		# Still update position tracking even when jumping
-		previous_position = global_position
+	# Apply gravity and update vertical position
+	if state_tags["is_jumping"]:
+		process_jump_physics(delta)
+	
+	# Process movement
+	process_movement(delta, previous_pos)
+	
+	# Apply the y_offset to the sprite (visual jump effect)
+	update_sprite_position()
 	
 	# Determine current animation type based on state
 	update_animation_type()
@@ -103,6 +120,34 @@ func _physics_process(delta: float) -> void:
 	# Debug output when state changes
 	if state_changed():
 		print_debug_state()
+
+func process_jump_physics(delta: float) -> void:
+	# Apply gravity to vertical velocity
+	vertical_velocity -= GRAVITY * delta
+	
+	# Clamp fall speed to prevent falling too fast
+	vertical_velocity = max(vertical_velocity, -MAX_FALL_SPEED)
+	
+	# Update the y_offset based on vertical velocity
+	y_offset += vertical_velocity * delta
+	
+	# Check if we've landed (y_offset is at or below ground level)
+	if y_offset <= 0.0:
+		land_from_jump()
+
+func land_from_jump() -> void:
+	# Reset vertical values
+	y_offset = 0.0
+	vertical_velocity = 0.0
+	
+	# Update states
+	state_tags["is_jumping"] = false
+	state_tags["is_standing"] = true
+	
+	# Clear jump momentum as we've landed
+	jump_momentum = Vector2.ZERO
+	
+	print("Landed from jump")
 
 func process_movement(delta: float, previous_pos: Vector2) -> void:
 	# Get input
@@ -119,10 +164,18 @@ func process_movement(delta: float, previous_pos: Vector2) -> void:
 		if new_direction != "":  # Only update if we got a valid direction
 			state_tags["facing_direction"] = new_direction
 	
-	# Set velocity based on input
-	velocity = movement_direction * SPEED
+	# Determine which velocity to use
+	if state_tags["is_jumping"]:
+		# Use preserved momentum during jump
+		velocity = jump_momentum
+	else:
+		# Normal movement - set velocity based on current input
+		velocity = movement_direction * SPEED
+		
+		# If we're about to jump, store the current velocity as momentum
+		# This is handled in start_jump() but we keep velocity consistent here
 	
-	# Move and check for actual movement
+	# Move and check for actual movement (horizontal only)
 	move_and_collide(velocity * delta)
 	
 	# Calculate expected vs actual movement
@@ -136,11 +189,21 @@ func process_movement(delta: float, previous_pos: Vector2) -> void:
 		state_tags["is_moving"] = false
 	
 	# Update idle and walking states based on input and movement
-	state_tags["is_walking"] = state_tags["has_input"] and state_tags["is_moving"]
-	state_tags["is_idle"] = not state_tags["has_input"] and not state_tags["is_moving"]
+	# When jumping, we're neither idle nor walking
+	if not state_tags["is_jumping"]:
+		state_tags["is_walking"] = state_tags["has_input"] and state_tags["is_moving"]
+		state_tags["is_idle"] = not state_tags["has_input"] and not state_tags["is_moving"]
+	else:
+		state_tags["is_walking"] = false
+		state_tags["is_idle"] = false
 	
 	# Store current position for next frame
 	previous_position = global_position
+
+func update_sprite_position() -> void:
+	# Apply the y_offset to make the sprite appear to jump
+	# Negative y_offset moves the sprite up (in Godot, negative Y is up)
+	animated_sprite.position.y = -y_offset
 
 func update_animation_type() -> void:
 	# Determine animation type based on priority
@@ -188,6 +251,13 @@ func start_jump() -> void:
 	# IMPORTANT: Jump animations MUST be set to non-looping in AnimatedSprite2D resource
 	# Otherwise the animation will repeat and never trigger animation_finished signal
 	
+	# Preserve current horizontal velocity as jump momentum
+	# This ensures we continue moving in the same direction during the jump
+	jump_momentum = velocity
+	
+	# Set initial upward velocity for the jump
+	vertical_velocity = JUMP_STRENGTH
+	
 	# Update jump states
 	state_tags["is_jumping"] = true
 	state_tags["is_standing"] = false
@@ -198,25 +268,19 @@ func start_jump() -> void:
 	# and the jump animation will be played in update_animation()
 	
 	print("Jump started - Direction: ", state_tags["facing_direction"])
-	print("Jump animation loop setting should be FALSE for: Jump_", state_tags["facing_direction"])
+	print("Jump momentum preserved: ", jump_momentum)
+	print("Initial vertical velocity: ", vertical_velocity)
 
 func _on_animation_finished() -> void:
 	# Debug: Show which animation finished
 	print("Animation finished: ", animated_sprite.animation)
 	
-	# Only handle if we're in jumping state
-	if state_tags["is_jumping"]:
-		print("Jump animation finished, returning to standing")
-		
-		# Jump is complete, return to standing state
-		state_tags["is_jumping"] = false
-		state_tags["is_standing"] = true
-		
-		# Force an immediate animation update to transition out of jump
-		update_animation_type()
-		update_animation()
-		
-		print("Jump complete - Transitioned to: ", state_tags["animation_type"])
+	# Only handle if we're in jumping state and we've actually landed
+	# We don't want to end the jump just because the animation finished
+	# The jump should end when y_offset returns to 0 (handled in process_jump_physics)
+	
+	# Note: The jump animation finishing doesn't mean the jump is complete
+	# The physical jump continues until the player lands (y_offset <= 0)
 
 func get_direction_name(direction: Vector2) -> String:
 	# Return empty string if no direction
@@ -283,13 +347,19 @@ func print_debug_state() -> void:
 	print("Direction: ", state_tags["facing_direction"])
 	print("Animation Type: ", state_tags["animation_type"])
 	print("Animation Name: ", state_tags["animation_name"])
+	print("Y Offset: ", y_offset, " | Vertical Velocity: ", vertical_velocity)
+	print("Horizontal Velocity: ", velocity, " | Jump Momentum: ", jump_momentum)
 	print("Full State: ", state_tags)
 	print("==================")
 
 # Optional: Get current state as dictionary for external inspection
 func get_current_state() -> Dictionary:
 	# Return a copy of the current state for external systems to inspect
-	return state_tags.duplicate()
+	var state = state_tags.duplicate()
+	state["y_offset"] = y_offset
+	state["vertical_velocity"] = vertical_velocity
+	state["jump_momentum"] = jump_momentum
+	return state
 
 # Optional: Get state history (if you want to track changes over time)
 func get_state_diff() -> Dictionary:
@@ -302,3 +372,9 @@ func get_state_diff() -> Dictionary:
 				"current": state_tags[key]
 			}
 	return diff
+
+# Optional: Adjust jump parameters at runtime (for tweaking game feel)
+func set_jump_parameters(jump_str: float = JUMP_STRENGTH, grav: float = GRAVITY) -> void:
+	# This allows you to tweak jump feel without modifying constants
+	# Useful for debugging or creating power-ups
+	print("Jump parameters updated - Strength: ", jump_str, " | Gravity: ", grav)

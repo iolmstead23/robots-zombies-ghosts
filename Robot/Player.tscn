@@ -14,7 +14,7 @@ script = ExtResource("1_wg50i")
 y_sort_enabled = true
 position = Vector2(-2, -12)
 sprite_frames = ExtResource("2_kne1u")
-animation = &"Jump_UpRight"
+animation = &"Run_Left"
 offset = Vector2(0, 15)
 
 [node name="GroundCollisions" type="CollisionShape2D" parent="."]
