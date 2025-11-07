@@ -20,6 +20,7 @@ var y_offset: float = 0.0  # Current height above ground
 var vertical_velocity: float = 0.0  # Current vertical speed
 var jump_momentum: Vector2 = Vector2.ZERO  # Horizontal velocity preserved during jump
 var base_y_position: float = 0.0  # Ground level Y position
+var was_running_when_jumped: bool = false  # Track if player was running when jump started
 
 # Comprehensive state tracking with facing direction included
 var state_tags := {
@@ -79,6 +80,26 @@ var animation_map := {
 		"down_right": "Jump_DownRight",
 		"right": "Jump_Right",
 		"up_right": "Jump_UpRight"
+	},
+	"run_jump": {
+		"up": "RunJump_Up",
+		"up_left": "RunJump_UpLeft",
+		"left": "RunJump_Left",
+		"down_left": "RunJump_DownLeft",
+		"down": "RunJump_Down",
+		"down_right": "RunJump_DownRight",
+		"right": "RunJump_Right",
+		"up_right": "RunJump_UpRight"
+	},
+	"idle_aim": {
+		"up": "IdleAim_Up",
+		"up_left": "IdleAim_UpLeft",
+		"left": "IdleAim_Left",
+		"down_left": "IdleAim_DownLeft",
+		"down": "IdleAim_Down",
+		"down_right": "IdleAim_DownRight",
+		"right": "IdleAim_Right",
+		"up_right": "IdleAim_UpRight"
 	}
 }
 
@@ -159,6 +180,9 @@ func land_from_jump() -> void:
 	# Clear jump momentum as we've landed
 	jump_momentum = Vector2.ZERO
 	
+	# Reset the running jump flag
+	was_running_when_jumped = false
+	
 	print("Landed from jump")
 
 func process_movement(delta: float, previous_pos: Vector2) -> void:
@@ -234,7 +258,11 @@ func update_animation_type() -> void:
 	# Determine animation type based on priority
 	# Jump has highest priority, then run, then walk, then idle
 	if state_tags["is_jumping"]:
-		state_tags["animation_type"] = "jump"
+		# Choose between run_jump and regular jump based on how the jump started
+		if was_running_when_jumped:
+			state_tags["animation_type"] = "run_jump"
+		else:
+			state_tags["animation_type"] = "jump"
 	elif state_tags["is_running"]:
 		state_tags["animation_type"] = "run"
 	elif state_tags["is_walking"]:
@@ -269,7 +297,7 @@ func apply_animation(animation_name: String) -> void:
 	elif not animated_sprite.is_playing():
 		# Animation stopped - only restart if it's NOT a jump animation
 		# Jump animations should play once and stop (handled by _on_animation_finished)
-		if state_tags["animation_type"] != "jump":
+		if state_tags["animation_type"] != "jump" and state_tags["animation_type"] != "run_jump":
 			# Restart looping animations (idle, walk, run)
 			animated_sprite.play(animation_name, ANIM_SPEED)
 		# For jump animations, let them stay stopped until state changes
@@ -277,6 +305,9 @@ func apply_animation(animation_name: String) -> void:
 func start_jump() -> void:
 	# IMPORTANT: Jump animations MUST be set to non-looping in AnimatedSprite2D resource
 	# Otherwise the animation will repeat and never trigger animation_finished signal
+	
+	# Capture whether player was running when jump started
+	was_running_when_jumped = state_tags["is_running"]
 	
 	# Preserve current horizontal velocity as jump momentum
 	# This ensures we continue moving in the same direction during the jump
@@ -296,6 +327,7 @@ func start_jump() -> void:
 	# and the jump animation will be played in update_animation()
 	
 	print("Jump started - Direction: ", state_tags["facing_direction"])
+	print("Was running: ", was_running_when_jumped)
 	print("Jump momentum preserved: ", jump_momentum)
 	print("Initial vertical velocity: ", vertical_velocity)
 
@@ -389,6 +421,7 @@ func get_current_state() -> Dictionary:
 	state["y_offset"] = y_offset
 	state["vertical_velocity"] = vertical_velocity
 	state["jump_momentum"] = jump_momentum
+	state["was_running_when_jumped"] = was_running_when_jumped
 	return state
 
 # Optional: Get state history (if you want to track changes over time)
