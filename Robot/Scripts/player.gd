@@ -1,7 +1,7 @@
 extends CharacterBody2D
 
-const SPEED = 300.0
-const RUN_SPEED_MULTIPLIER = 1.25  # Run speed is 1.25x normal speed
+const SPEED = 275.00
+const RUN_SPEED_MULTIPLIER = 1.5  # Run speed is 1.5x normal speed
 const ANIM_SPEED = 4.5
 const MOVEMENT_THRESHOLD_PERCENT = 0.1  # Percentage of expected movement to consider as actual movement (10%)
 
