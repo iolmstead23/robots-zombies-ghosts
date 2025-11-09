@@ -1,364 +1,219 @@
 extends CharacterBody2D
 
-const SPEED = 275.00
-const RUN_SPEED_MULTIPLIER = 1.5  # Run speed is 1.5x normal speed
+# Movement constants
+const SPEED = 275.0
+const RUN_SPEED_MULTIPLIER = 1.5
 const ANIM_SPEED = 4.5
-const MOVEMENT_THRESHOLD_PERCENT = 0.1  # Percentage of expected movement to consider as actual movement (10%)
+const MOVEMENT_THRESHOLD = 1.0  # Minimum pixels moved to consider as "moving"
 
-# Jump and gravity constants
-const GRAVITY = 980.0  # Pixels per second squared (adjust for your game's feel)
-const JUMP_STRENGTH = 175.00  # Initial upward velocity when jumping (adjust for jump height)
-const MAX_FALL_SPEED = 600.0  # Terminal velocity to prevent falling too fast
+# Jump constants
+const GRAVITY = 980.0
+const JUMP_STRENGTH = 175.0
+const MAX_FALL_SPEED = 600.0
 
 @onready var animated_sprite = $AnimatedSprite2D
 
-var previous_position: Vector2
-var jump_key_released = true  # Track if spacebar was released since last jump
+# Position tracking for movement detection
+var previous_position: Vector2 = Vector2.ZERO
 
-# Jump physics variables
-var y_offset: float = 0.0  # Current height above ground
-var vertical_velocity: float = 0.0  # Current vertical speed
-var jump_momentum: Vector2 = Vector2.ZERO  # Horizontal velocity preserved during jump
-var base_y_position: float = 0.0  # Ground level Y position
-var was_running_when_jumped: bool = false  # Track if player was running when jump started
+# Jump physics
+var y_offset: float = 0.0
+var vertical_velocity: float = 0.0
+var jump_momentum: Vector2 = Vector2.ZERO
+var base_y_position: float = 0.0
+var was_running_when_jumped: bool = false
+var jump_key_released: bool = true
 
-# Comprehensive state tracking with facing direction included
-var state_tags := {
-	"has_input": false,      # Player is pressing movement keys
-	"is_moving": false,      # Player position is actually changing
-	"is_idle": true,         # Player is idle (no input and not moving)
-	"is_walking": false,     # Player is walking (has input and moving)
-	"is_running": false,     # Player is running (shift + input and moving)
-	"is_jumping": false,     # Player is currently jumping
-	"is_standing": true,     # Player is standing on the ground
-	"facing_direction": "down",  # Current facing direction
-	"animation_type": "idle",     # Current animation type (idle, walk, jump)
-	"animation_name": "Idle_Down" # Current animation being played
+# Current state - single source of truth
+var state := {
+	"facing_direction": "down",
+	"is_moving": false,          # Actually changing position
+	"has_input": false,          # Pressing movement keys
+	"is_running": false,         # Running (shift + moving)
+	"is_jumping": false,         # In air
+	"animation_type": "idle"     # Current animation category
 }
 
-# Previous state for comparison and caching
-var previous_state_tags := {}
+# Cached previous state for change detection
+var prev_state := {}
 
-# Animation mappings organized by type
-var animation_map := {
+# Animation mappings
+var animations := {
 	"idle": {
-		"up": "Idle_Up",
-		"up_left": "Idle_UpLeft",
-		"left": "Idle_Left",
-		"down_left": "Idle_DownLeft",
-		"down": "Idle_Down",
-		"down_right": "Idle_DownRight",
-		"right": "Idle_Right",
-		"up_right": "Idle_UpRight"
+		"up": "Idle_Up", "up_left": "Idle_UpLeft", "left": "Idle_Left",
+		"down_left": "Idle_DownLeft", "down": "Idle_Down", "down_right": "Idle_DownRight",
+		"right": "Idle_Right", "up_right": "Idle_UpRight"
 	},
 	"walk": {
-		"up": "Walk_Up",
-		"up_left": "Walk_UpLeft",
-		"left": "Walk_Left",
-		"down_left": "Walk_DownLeft",
-		"down": "Walk_Down",
-		"down_right": "Walk_DownRight",
-		"right": "Walk_Right",
-		"up_right": "Walk_UpRight"
+		"up": "Walk_Up", "up_left": "Walk_UpLeft", "left": "Walk_Left",
+		"down_left": "Walk_DownLeft", "down": "Walk_Down", "down_right": "Walk_DownRight",
+		"right": "Walk_Right", "up_right": "Walk_UpRight"
 	},
 	"run": {
-		"up": "Run_Up",
-		"up_left": "Run_UpLeft",
-		"left": "Run_Left",
-		"down_left": "Run_DownLeft",
-		"down": "Run_Down",
-		"down_right": "Run_DownRight",
-		"right": "Run_Right",
-		"up_right": "Run_UpRight"
+		"up": "Run_Up", "up_left": "Run_UpLeft", "left": "Run_Left",
+		"down_left": "Run_DownLeft", "down": "Run_Down", "down_right": "Run_DownRight",
+		"right": "Run_Right", "up_right": "Run_UpRight"
 	},
 	"jump": {
-		"up": "Jump_Up",
-		"up_left": "Jump_UpLeft",
-		"left": "Jump_Left",
-		"down_left": "Jump_DownLeft",
-		"down": "Jump_Down",
-		"down_right": "Jump_DownRight",
-		"right": "Jump_Right",
-		"up_right": "Jump_UpRight"
+		"up": "Jump_Up", "up_left": "Jump_UpLeft", "left": "Jump_Left",
+		"down_left": "Jump_DownLeft", "down": "Jump_Down", "down_right": "Jump_DownRight",
+		"right": "Jump_Right", "up_right": "Jump_UpRight"
 	},
 	"run_jump": {
-		"up": "RunJump_Up",
-		"up_left": "RunJump_UpLeft",
-		"left": "RunJump_Left",
-		"down_left": "RunJump_DownLeft",
-		"down": "RunJump_Down",
-		"down_right": "RunJump_DownRight",
-		"right": "RunJump_Right",
-		"up_right": "RunJump_UpRight"
-	},
-	"idle_aim": {
-		"up": "IdleAim_Up",
-		"up_left": "IdleAim_UpLeft",
-		"left": "IdleAim_Left",
-		"down_left": "IdleAim_DownLeft",
-		"down": "IdleAim_Down",
-		"down_right": "IdleAim_DownRight",
-		"right": "IdleAim_Right",
-		"up_right": "IdleAim_UpRight"
+		"up": "RunJump_Up", "up_left": "RunJump_UpLeft", "left": "RunJump_Left",
+		"down_left": "RunJump_DownLeft", "down": "RunJump_Down", "down_right": "RunJump_DownRight",
+		"right": "RunJump_Right", "up_right": "RunJump_UpRight"
 	}
 }
 
-func _ready():
-	# Start at idle frame
+func _ready() -> void:
 	animated_sprite.stop()
 	animated_sprite.frame = 0
-	
 	previous_position = global_position
-	previous_state_tags = state_tags.duplicate()
-	
-	# Store the ground level position
 	base_y_position = global_position.y
-	
-	# Enable Y-sorting for this node
 	y_sort_enabled = true
-	
-	# Connect to animation finished signal for jump handling
 	animated_sprite.animation_finished.connect(_on_animation_finished)
+	
+	# Initialize cached state
+	prev_state = state.duplicate()
 
 func _physics_process(delta: float) -> void:
-	# Store previous states for comparison
-	previous_state_tags = state_tags.duplicate()
-	var previous_pos = previous_position
+	# Cache previous state for comparison
+	prev_state = state.duplicate()
+	var start_position = global_position
 	
-	# Track spacebar release for jump input
+	# Handle jump input
 	if not Input.is_action_pressed("ui_accept"):
 		jump_key_released = true
 	
-	# Handle jump input (spacebar) - only when standing and key was released
-	if Input.is_action_pressed("ui_accept") and state_tags["is_standing"] and jump_key_released:
-		start_jump()
-		jump_key_released = false  # Prevent holding spacebar
+	if Input.is_action_pressed("ui_accept") and not state.is_jumping and jump_key_released:
+		_start_jump()
+		jump_key_released = false
 	
-	# Apply gravity and update vertical position
-	if state_tags["is_jumping"]:
-		process_jump_physics(delta)
+	# Update jump physics
+	if state.is_jumping:
+		_process_jump_physics(delta)
 	
-	# Process movement
-	process_movement(delta, previous_pos)
+	# Process horizontal movement
+	_process_movement(delta)
 	
-	# Apply the y_offset to the sprite (visual jump effect)
-	update_sprite_position()
+	# Determine if player actually moved
+	var distance_moved = global_position.distance_to(start_position)
+	state.is_moving = distance_moved >= MOVEMENT_THRESHOLD
 	
-	# Determine current animation type based on state
-	update_animation_type()
+	# Update sprite vertical offset for jump
+	animated_sprite.position.y = -y_offset
 	
-	# ALWAYS update animation every frame (continuous animation)
-	update_animation()
-	
-	# Debug output when state changes
-	if state_changed():
-		print_debug_state()
+	# Update state and animation if anything changed
+	_update_state()
+	_update_animation()
 
-func process_jump_physics(delta: float) -> void:
-	# Apply gravity to vertical velocity
-	vertical_velocity -= GRAVITY * delta
+func _process_movement(_delta: float) -> void:
+	# Get input direction
+	var input_dir = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
+	var is_shift_pressed = Input.is_action_pressed("ui_run")
 	
-	# Clamp fall speed to prevent falling too fast
-	vertical_velocity = max(vertical_velocity, -MAX_FALL_SPEED)
+	# Update input state
+	state.has_input = input_dir.length() > 0.1
 	
-	# Update the y_offset based on vertical velocity
-	y_offset += vertical_velocity * delta
+	# Update facing direction when there's input
+	if state.has_input:
+		var new_direction = _get_direction_name(input_dir.normalized())
+		if new_direction != "":
+			state.facing_direction = new_direction
 	
-	# Check if we've landed (y_offset is at or below ground level)
-	if y_offset <= 0.0:
-		land_from_jump()
-
-func land_from_jump() -> void:
-	# Reset vertical values
-	y_offset = 0.0
-	vertical_velocity = 0.0
-	
-	# Update states
-	state_tags["is_jumping"] = false
-	state_tags["is_standing"] = true
-	
-	# Clear jump momentum as we've landed
-	jump_momentum = Vector2.ZERO
-	
-	# Reset the running jump flag
-	was_running_when_jumped = false
-	
-	print("Landed from jump")
-
-func process_movement(delta: float, previous_pos: Vector2) -> void:
-	# Get input
-	var input_2d = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
-	var movement_direction = Vector2(input_2d.x, input_2d.y)
-	
-	# Check if shift is pressed for running
-	var is_shift_pressed = Input.is_action_pressed("ui_run")  # Left Shift
-	
-	# Update has_input state
-	state_tags["has_input"] = movement_direction != Vector2.ZERO
-	
-	# Update facing direction if there's input
-	if state_tags["has_input"]:
-		movement_direction = movement_direction.normalized()
-		var new_direction = get_direction_name(movement_direction)
-		if new_direction != "":  # Only update if we got a valid direction
-			state_tags["facing_direction"] = new_direction
-	
-	# Determine speed based on whether running or not
-	var current_speed = SPEED
-	if is_shift_pressed and state_tags["has_input"] and not state_tags["is_jumping"]:
-		current_speed = SPEED * RUN_SPEED_MULTIPLIER
-	
-	# Determine which velocity to use
-	if state_tags["is_jumping"]:
-		# Use preserved momentum during jump
+	# Calculate velocity
+	if state.is_jumping:
+		# Use preserved jump momentum
 		velocity = jump_momentum
 	else:
-		# Normal movement - set velocity based on current input and speed
-		velocity = movement_direction * current_speed
-		
-		# If we're about to jump, store the current velocity as momentum
-		# This is handled in start_jump() but we keep velocity consistent here
+		# Normal movement
+		var speed = SPEED * RUN_SPEED_MULTIPLIER if is_shift_pressed else SPEED
+		velocity = input_dir.normalized() * speed if state.has_input else Vector2.ZERO
 	
-	# Move and check for actual movement (horizontal only)
-	move_and_collide(velocity * delta)
-	
-	# Calculate expected vs actual movement
-	var expected_movement = velocity.length() * delta
-	var actual_movement = global_position.distance_to(previous_pos)
-	
-	# Determine if actually moving (with threshold)
-	if expected_movement > 0:
-		state_tags["is_moving"] = actual_movement >= (expected_movement * MOVEMENT_THRESHOLD_PERCENT)
-	else:
-		state_tags["is_moving"] = false
-	
-	# Update idle, walking, and running states based on input and movement
-	# When jumping, we're neither idle, walking, nor running
-	if not state_tags["is_jumping"]:
-		# Check if running (shift + input + moving)
-		state_tags["is_running"] = is_shift_pressed and state_tags["has_input"] and state_tags["is_moving"]
-		# Walking is when moving but not running
-		state_tags["is_walking"] = state_tags["has_input"] and state_tags["is_moving"] and not state_tags["is_running"]
-		# Idle when no input and not moving
-		state_tags["is_idle"] = not state_tags["has_input"] and not state_tags["is_moving"]
-	else:
-		state_tags["is_running"] = false
-		state_tags["is_walking"] = false
-		state_tags["is_idle"] = false
-	
-	# Store current position for next frame
-	previous_position = global_position
+	# Move the character
+	move_and_slide()
 
-func update_sprite_position() -> void:
-	# Apply the y_offset to make the sprite appear to jump
-	# Negative y_offset moves the sprite up (in Godot, negative Y is up)
-	animated_sprite.position.y = -y_offset
-
-func update_animation_type() -> void:
-	# Determine animation type based on priority
-	# Jump has highest priority, then run, then walk, then idle
-	if state_tags["is_jumping"]:
-		# Choose between run_jump and regular jump based on how the jump started
-		if was_running_when_jumped:
-			state_tags["animation_type"] = "run_jump"
-		else:
-			state_tags["animation_type"] = "jump"
-	elif state_tags["is_running"]:
-		state_tags["animation_type"] = "run"
-	elif state_tags["is_walking"]:
-		state_tags["animation_type"] = "walk"
-	else:
-		state_tags["animation_type"] = "idle"
-
-func update_animation() -> void:
-	# Get the animation name based on current type and direction
-	var anim_type = state_tags["animation_type"]
-	var direction = state_tags["facing_direction"]
+func _process_jump_physics(delta: float) -> void:
+	# Apply gravity
+	vertical_velocity -= GRAVITY * delta
+	vertical_velocity = max(vertical_velocity, -MAX_FALL_SPEED)
 	
-	# Check if we have the animation for this type and direction
-	if anim_type in animation_map and direction in animation_map[anim_type]:
-		var animation_name = animation_map[anim_type][direction]
-		
-		# Update the animation name in state for tracking
-		state_tags["animation_name"] = animation_name
-		
-		# Apply animation atomically - same pattern for all animation types
-		apply_animation(animation_name)
+	# Update vertical offset
+	y_offset += vertical_velocity * delta
+	
+	# Check for landing
+	if y_offset <= 0.0:
+		_land_from_jump()
 
-func apply_animation(animation_name: String) -> void:
-	# Unified animation application logic
-	# This ensures all animations follow the same atomic design pattern
-	
-	# Check if we need to change the animation
-	if animated_sprite.animation != animation_name:
-		# Different animation needed - start it
-		animated_sprite.play(animation_name, ANIM_SPEED)
-		animated_sprite.frame = 0
-	elif not animated_sprite.is_playing():
-		# Animation stopped - only restart if it's NOT a jump animation
-		# Jump animations should play once and stop (handled by _on_animation_finished)
-		if state_tags["animation_type"] != "jump" and state_tags["animation_type"] != "run_jump":
-			# Restart looping animations (idle, walk, run)
-			animated_sprite.play(animation_name, ANIM_SPEED)
-		# For jump animations, let them stay stopped until state changes
-
-func start_jump() -> void:
-	# IMPORTANT: Jump animations MUST be set to non-looping in AnimatedSprite2D resource
-	# Otherwise the animation will repeat and never trigger animation_finished signal
-	
-	# Capture whether player was running when jump started
-	was_running_when_jumped = state_tags["is_running"]
-	
-	# Preserve current horizontal velocity as jump momentum
-	# This ensures we continue moving in the same direction during the jump
+func _start_jump() -> void:
+	was_running_when_jumped = state.is_running
 	jump_momentum = velocity
-	
-	# Set initial upward velocity for the jump
 	vertical_velocity = JUMP_STRENGTH
-	
-	# Update jump states
-	state_tags["is_jumping"] = true
-	state_tags["is_standing"] = false
-	state_tags["is_idle"] = false
-	state_tags["is_walking"] = false
-	state_tags["is_running"] = false
-	
-	# Animation type will be updated in update_animation_type()
-	# and the jump animation will be played in update_animation()
-	
-	print("Jump started - Direction: ", state_tags["facing_direction"])
-	print("Was running: ", was_running_when_jumped)
-	print("Jump momentum preserved: ", jump_momentum)
-	print("Initial vertical velocity: ", vertical_velocity)
+	state.is_jumping = true
 
-func _on_animation_finished() -> void:
-	# Debug: Show which animation finished
-	print("Animation finished: ", animated_sprite.animation)
-	
-	# Only handle if we're in jumping state and we've actually landed
-	# We don't want to end the jump just because the animation finished
-	# The jump should end when y_offset returns to 0 (handled in process_jump_physics)
-	
-	# Note: The jump animation finishing doesn't mean the jump is complete
-	# The physical jump continues until the player lands (y_offset <= 0)
+func _land_from_jump() -> void:
+	y_offset = 0.0
+	vertical_velocity = 0.0
+	state.is_jumping = false
+	jump_momentum = Vector2.ZERO
+	was_running_when_jumped = false
 
-func get_direction_name(direction: Vector2) -> String:
-	# Return empty string if no direction
+func _update_state() -> void:
+	# Determine animation type based on current state
+	if state.is_jumping:
+		state.animation_type = "run_jump" if was_running_when_jumped else "jump"
+		state.is_running = false
+	elif state.is_moving:
+		# Only show run/walk animations if actually moving
+		if state.has_input and Input.is_action_pressed("ui_run"):
+			state.animation_type = "run"
+			state.is_running = true
+		elif state.has_input:
+			state.animation_type = "walk"
+			state.is_running = false
+		else:
+			# Moving but no input (sliding/momentum)
+			state.animation_type = "idle"
+			state.is_running = false
+	else:
+		# Not moving at all
+		state.animation_type = "idle"
+		state.is_running = false
+
+func _update_animation() -> void:
+	# Only update animation if state actually changed
+	if not _state_changed():
+		return
+	
+	var anim_type = state.animation_type
+	var direction = state.facing_direction
+	
+	# Get animation name from mapping
+	if anim_type in animations and direction in animations[anim_type]:
+		var anim_name = animations[anim_type][direction]
+		
+		# Only change animation if it's different
+		if animated_sprite.animation != anim_name:
+			animated_sprite.play(anim_name, ANIM_SPEED)
+			animated_sprite.frame = 0
+		elif not animated_sprite.is_playing():
+			# Restart animation if it stopped (but not for jump animations)
+			if not state.is_jumping:
+				animated_sprite.play(anim_name, ANIM_SPEED)
+
+func _get_direction_name(direction: Vector2) -> String:
 	if direction.length() < 0.1:
 		return ""
 	
-	# Convert the direction vector to one of 8 directions
 	var angle = direction.angle()
-	
-	# Convert angle to degrees for easier understanding
 	var degrees = rad_to_deg(angle)
 	
-	# Normalize to 0-360 range
+	# Normalize to 0-360
 	if degrees < 0:
 		degrees += 360
 	
-	# Determine which of the 8 directions we're closest to
-	# Each direction has a 45-degree range (360/8 = 45)
+	# Map to 8 directions
 	if degrees >= 337.5 or degrees < 22.5:
 		return "right"
 	elif degrees >= 22.5 and degrees < 67.5:
@@ -373,71 +228,29 @@ func get_direction_name(direction: Vector2) -> String:
 		return "up_left"
 	elif degrees >= 247.5 and degrees < 292.5:
 		return "up"
-	else:  # 292.5 to 337.5
+	else:
 		return "up_right"
 
-func state_changed() -> bool:
-	# Check if any state has changed
-	for key in state_tags:
-		if state_tags[key] != previous_state_tags.get(key, null):
+func _state_changed() -> bool:
+	# Check if any state property changed
+	for key in state:
+		if state[key] != prev_state.get(key):
 			return true
 	return false
 
-func print_debug_state() -> void:
-	# Comprehensive state output for debugging and inspection
-	var status = []
-	
-	# Build status array
-	if state_tags["has_input"]:
-		status.append("Input")
-	if state_tags["is_moving"]:
-		status.append("Moving")
-	if state_tags["is_walking"]:
-		status.append("Walking")
-	if state_tags["is_running"]:
-		status.append("Running")
-	if state_tags["is_jumping"]:
-		status.append("Jumping")
-	if state_tags["is_standing"]:
-		status.append("Standing")
-	if state_tags["is_idle"]:
-		status.append("Idle")
-	
-	# Print comprehensive state information
-	print("=== STATE DEBUG ===")
-	print("Status: ", " + ".join(status) if status.size() > 0 else "None")
-	print("Direction: ", state_tags["facing_direction"])
-	print("Animation Type: ", state_tags["animation_type"])
-	print("Animation Name: ", state_tags["animation_name"])
-	print("Y Offset: ", y_offset, " | Vertical Velocity: ", vertical_velocity)
-	print("Horizontal Velocity: ", velocity, " | Jump Momentum: ", jump_momentum)
-	print("Full State: ", state_tags)
+func _on_animation_finished() -> void:
+	# Handle jump animation completion if needed
+	pass
+
+# Debug helper - call this to see current state
+func print_state() -> void:
+	print("=== Player State ===")
+	print("Position: ", global_position)
+	print("Is Moving: ", state.is_moving)
+	print("Has Input: ", state.has_input)
+	print("Is Running: ", state.is_running)
+	print("Is Jumping: ", state.is_jumping)
+	print("Direction: ", state.facing_direction)
+	print("Animation: ", state.animation_type)
+	print("Current Anim: ", animated_sprite.animation)
 	print("==================")
-
-# Optional: Get current state as dictionary for external inspection
-func get_current_state() -> Dictionary:
-	# Return a copy of the current state for external systems to inspect
-	var state = state_tags.duplicate()
-	state["y_offset"] = y_offset
-	state["vertical_velocity"] = vertical_velocity
-	state["jump_momentum"] = jump_momentum
-	state["was_running_when_jumped"] = was_running_when_jumped
-	return state
-
-# Optional: Get state history (if you want to track changes over time)
-func get_state_diff() -> Dictionary:
-	# Return what changed between previous and current state
-	var diff = {}
-	for key in state_tags:
-		if state_tags[key] != previous_state_tags.get(key, null):
-			diff[key] = {
-				"previous": previous_state_tags.get(key, null),
-				"current": state_tags[key]
-			}
-	return diff
-
-# Optional: Adjust jump parameters at runtime (for tweaking game feel)
-func set_jump_parameters(jump_str: float = JUMP_STRENGTH, grav: float = GRAVITY) -> void:
-	# This allows you to tweak jump feel without modifying constants
-	# Useful for debugging or creating power-ups
-	print("Jump parameters updated - Strength: ", jump_str, " | Gravity: ", grav)
