@@ -108,7 +108,7 @@ func _physics_process(delta: float) -> void:
 	_update_state()
 	_update_animation()
 
-func _process_movement(_delta: float) -> void:
+func _process_movement(delta: float) -> void:
 	# Get input direction
 	var input_dir = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 	var is_shift_pressed = Input.is_action_pressed("ui_run")
@@ -132,7 +132,7 @@ func _process_movement(_delta: float) -> void:
 		velocity = input_dir.normalized() * speed if state.has_input else Vector2.ZERO
 	
 	# Move the character
-	move_and_slide()
+	move_and_collide(velocity * delta)
 
 func _process_jump_physics(delta: float) -> void:
 	# Apply gravity
