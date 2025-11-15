@@ -122,9 +122,11 @@ func set_movement_mode(new_mode: String) -> void:
 	if new_mode == movement_mode:
 		return
 	if new_mode == "direct":
+		print("PlayerController: Exiting pathfinding mode, entering direct control mode")
 		movement_component.input_handler = input_handler
 		movement_mode = "direct"
 	elif new_mode == "pathfinding":
+		print("PlayerController: Entering pathfinding mode")
 		movement_component.input_handler = pathfinding_input_handler
 		movement_mode = "pathfinding"
 
@@ -132,6 +134,7 @@ func set_movement_mode(new_mode: String) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if movement_mode == "pathfinding" and event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var click_pos = get_global_mouse_position()
+		print("PlayerController: Player requested pathfinding to (%.2f, %.2f)" % [click_pos.x, click_pos.y])
 		pathfinding_input_handler.set_destination(click_pos)
 
 func _on_jump_started() -> void:

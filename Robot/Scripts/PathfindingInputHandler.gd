@@ -14,13 +14,22 @@ func _ready() -> void:
 		agent = get_parent().get_node_or_null("NavigationAgent2D")
 	set_process(true)
 
+	# Connect arrival signal if agent present
+	if agent and agent.has_signal("navigation_finished"):
+		agent.connect("navigation_finished", Callable(self, "_on_navigation_finished"))
+
 func set_navigation_agent(a: NavigationAgent2D) -> void:
 	agent = a
 
 func set_destination(point: Vector2) -> void:
+	var was_active = agent and not agent.is_navigation_finished()
 	destination = point
+	print("PathfindingInputHandler: Player set new target to (%.2f, %.2f)" % [point.x, point.y])
 	if agent:
 		agent.set_target_position(destination)
+		print("PathfindingInputHandler: NavigationAgent2D target set to (%.2f, %.2f)" % [destination.x, destination.y])
+		if was_active:
+			print("PathfindingInputHandler: Path recalculated to (%.2f, %.2f)" % [destination.x, destination.y])
 
 func _process(_delta: float) -> void:
 	if agent and agent.is_navigation_finished() == false:
@@ -33,6 +42,17 @@ func _process(_delta: float) -> void:
 			movement_vector = Vector2.ZERO
 	else:
 		movement_vector = Vector2.ZERO
+
+## Called when NavigationAgent2D arrives at its target
+func _on_navigation_finished() -> void:
+	print("PathfindingInputHandler: Arrived at target (%.2f, %.2f)" % [destination.x, destination.y])
+
+## Cancel pathfinding (if called from game logic)
+func cancel_pathfinding() -> void:
+	if agent:
+		agent.set_target_position(agent.global_position)
+		print("PathfindingInputHandler: Pathfinding cancelled by player")
+	destination = agent.global_position if agent else Vector2.ZERO
 
 ## --- API: match InputHandler for walking movement only ---
 
