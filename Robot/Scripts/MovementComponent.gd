@@ -12,7 +12,7 @@ const MOVEMENT_THRESHOLD := 1.0
 # Component references
 var player: CharacterBody2D
 var state_manager: StateManager
-var input_handler: InputHandler
+var input_handler: BaseInputHandler
 
 # Current movement state
 var current_velocity := Vector2.ZERO
@@ -22,7 +22,7 @@ var current_speed := SPEED
 signal velocity_calculated(velocity: Vector2)
 signal speed_changed(new_speed: float)
 
-func initialize(player_ref: CharacterBody2D, state_ref: StateManager, input_ref: InputHandler) -> void:
+func initialize(player_ref: CharacterBody2D, state_ref: StateManager, input_ref: BaseInputHandler) -> void:
 	player = player_ref
 	state_manager = state_ref
 	input_handler = input_ref

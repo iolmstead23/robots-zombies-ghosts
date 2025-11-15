@@ -1,4 +1,4 @@
-extends Node
+extends BaseInputHandler
 class_name InputHandler
 
 ## Centralized input handling system that provides clean input interface for other components
