@@ -133,7 +133,7 @@ func _physics_process(delta: float) -> void:
 			print("PlayerController: Current velocity: ", velocity, " | Position: ", global_position)
 	
 	# CRITICAL: Actually move the character!
-	move_and_slide()
+	move_and_collide(velocity * delta)
 
 	# Check if actually moved
 	var distance_moved := global_position.distance_to(start_position)

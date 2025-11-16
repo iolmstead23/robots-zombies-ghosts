@@ -6,6 +6,11 @@
 [ext_resource type="PackedScene" uid="uid://bmdgbb7lsxnxm" path="res://Environment/Dungeon Objects/Breakable/barrels.tscn" id="4_1bvp3"]
 [ext_resource type="Texture2D" uid="uid://dq3cucr1dt6m3" path="res://Environment/Walls/Stone/stone_wall.png" id="5_lquwl"]
 
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_lquwl"]
+vertices = PackedVector2Array(607.03906, -498.78906, 1229.8672, -187.85938, 342.14063, 268.6797, 415.28125, -250.79688, 503.1172, -445.64844, 399.25, -221.40625, 381.0703, -369.3828, 396.40625, -288.53906, 308.4922, -177.09375, 278.22656, -175.92188, -250.25781, -54.789063, -200.50781, -85.859375, 245.03906, -189.4375, 349.75, -292.1328, 253.07031, -305.3828, 362.40625, -373.70313, 374.15625, -379.71094, 233.95313, -221.32813, -130.92969, -113.38281, -59.773438, -157.82813, -7.671875, -184.47656, -2.9375, -177.36719, -134.9375, -119.390625, 80.92969, -229.78125, 125.07031, -241.38281, 119.60156, -249.5625, 260.5078, -262.3828, 221.67188, -301.7422, 246.88281, -314.6328)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3, 4), PackedInt32Array(5, 3, 2), PackedInt32Array(6, 4, 3, 7), PackedInt32Array(8, 5, 2), PackedInt32Array(9, 8, 2, 10, 11), PackedInt32Array(12, 9, 11), PackedInt32Array(6, 7, 13, 14, 15, 16), PackedInt32Array(17, 12, 11, 18), PackedInt32Array(19, 20, 21), PackedInt32Array(11, 22, 18), PackedInt32Array(17, 18, 19, 21), PackedInt32Array(17, 21, 23, 24), PackedInt32Array(23, 25, 24), PackedInt32Array(26, 17, 24, 27, 28, 14), PackedInt32Array(13, 26, 14)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(-277, -58, 342, 280, 1252, -188, 607, -510)])
+
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_7mycd"]
 texture = ExtResource("5_lquwl")
 texture_region_size = Vector2i(256, 512)
@@ -1277,18 +1282,10 @@ tile_size = Vector2i(64, 64)
 physics_layer_0/collision_layer = 1
 sources/0 = SubResource("TileSetAtlasSource_7mycd")
 
-[sub_resource type="NavigationPolygon" id="NavigationPolygon_lquwl"]
-vertices = PackedVector2Array(1325.2031, -166.92188, 351.03906, 312.82813, -370.0703, -49.65625, 615.9219, -509.9297)
-polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3)])
-outlines = Array[PackedVector2Array]([PackedVector2Array(-393, -50, 351, 324, 1348, -167, 616, -521)])
-
 [node name="Node2D" type="Node2D"]
 y_sort_enabled = true
 
 [node name="Robot Player" parent="." instance=ExtResource("1_0xm2m")]
-
-[node name="Barrels" parent="." instance=ExtResource("4_1bvp3")]
-position = Vector2(320, -400)
 
 [node name="Ground" type="CanvasGroup" parent="."]
 y_sort_enabled = true
@@ -1304,17 +1301,23 @@ tile_map_data = PackedByteArray("AAAAAPz/AAABAAEAAAABAP3/AAABAAEAAAACAPz/AAABAAE
 [node name="Camera2D" type="Camera2D" parent="."]
 position = Vector2(144, -180)
 
-[node name="Walls" type="CanvasGroup" parent="."]
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
+y_sort_enabled = true
+navigation_polygon = SubResource("NavigationPolygon_lquwl")
+
+[node name="Barrels" parent="NavigationRegion2D" instance=ExtResource("4_1bvp3")]
+position = Vector2(320, -400)
+
+[node name="Walls" type="CanvasGroup" parent="NavigationRegion2D"]
 y_sort_enabled = true
 
-[node name="StoneWall" type="TileMapLayer" parent="Walls"]
+[node name="StoneWall" type="TileMapLayer" parent="NavigationRegion2D/Walls"]
 y_sort_enabled = true
 position = Vector2(0, 1)
 tile_map_data = PackedByteArray("AAABAPn/AAAFAAAAAAD///r/AAAFAAAAAAD9//v/AAAFAAAAAAD7//z/AAABAAAAAAD9//3/AAAGAAAAAAD///7/AAAGAAAAAAABAP//AAAGAAAAAAADAAAAAAAGAAAAAAAFAAEAAAACAAAAAAAHAAAAAAAAAAAAAAAJAP//AAAAAAAAAAALAP7/AAAAAAAAAAANAP3/AAAAAAAAAAARAPv/AAAAAAAAAAAPAPz/AAAAAAAAAAADAPj/AAAFAAAAAAAFAPf/AAAFAAAAAAAHAPb/AAAFAAAAAAAJAPX/AAADAAAAAAATAPr/AAAEAAAAAAALAPb/AAAHAAAAAAANAPf/AAAHAAAAAAAPAPj/AAAHAAAAAAARAPn/AAAHAAAAAAA=")
 tile_set = SubResource("TileSet_272bh")
 
-[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
-y_sort_enabled = true
-navigation_polygon = SubResource("NavigationPolygon_lquwl")
+[node name="NavigationObstacle2D" type="NavigationObstacle2D" parent="NavigationRegion2D/Walls"]
 
 [editable path="Robot Player"]
+[editable path="NavigationRegion2D/Barrels"]

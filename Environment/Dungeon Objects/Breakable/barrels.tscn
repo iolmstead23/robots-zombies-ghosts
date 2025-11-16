@@ -16,3 +16,5 @@ y_sort_enabled = true
 position = Vector2(8, 161)
 texture = ExtResource("2_lxvle")
 offset = Vector2(-4, -173)
+
+[node name="NavigationObstacle2D" type="NavigationObstacle2D" parent="."]
