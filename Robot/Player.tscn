@@ -21,3 +21,5 @@ offset = Vector2(0, 15)
 y_sort_enabled = true
 position = Vector2(0, -4)
 shape = SubResource("CircleShape2D_cxr5p")
+
+[node name="NavigationAgent2D" type="NavigationAgent2D" parent="."]

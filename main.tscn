@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=4 uid="uid://c0ainp474es8e"]
+[gd_scene load_steps=9 format=4 uid="uid://c0ainp474es8e"]
 
 [ext_resource type="PackedScene" uid="uid://xmepjh2dfuwk" path="res://Robot/Player.tscn" id="1_0xm2m"]
 [ext_resource type="PackedScene" uid="uid://c0ajtsn61q85p" path="res://Environment/Terrain/Dirt/dirt.tscn" id="2_h2yge"]
@@ -1277,6 +1277,11 @@ tile_size = Vector2i(64, 64)
 physics_layer_0/collision_layer = 1
 sources/0 = SubResource("TileSetAtlasSource_7mycd")
 
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_lquwl"]
+vertices = PackedVector2Array(1325.2031, -166.92188, 351.03906, 312.82813, -370.0703, -49.65625, 615.9219, -509.9297)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(-393, -50, 351, 324, 1348, -167, 616, -521)])
+
 [node name="Node2D" type="Node2D"]
 y_sort_enabled = true
 
@@ -1284,7 +1289,6 @@ y_sort_enabled = true
 
 [node name="Barrels" parent="." instance=ExtResource("4_1bvp3")]
 position = Vector2(320, -400)
-script = null
 
 [node name="Ground" type="CanvasGroup" parent="."]
 y_sort_enabled = true
@@ -1308,3 +1312,9 @@ y_sort_enabled = true
 position = Vector2(0, 1)
 tile_map_data = PackedByteArray("AAABAPn/AAAFAAAAAAD///r/AAAFAAAAAAD9//v/AAAFAAAAAAD7//z/AAABAAAAAAD9//3/AAAGAAAAAAD///7/AAAGAAAAAAABAP//AAAGAAAAAAADAAAAAAAGAAAAAAAFAAEAAAACAAAAAAAHAAAAAAAAAAAAAAAJAP//AAAAAAAAAAALAP7/AAAAAAAAAAANAP3/AAAAAAAAAAARAPv/AAAAAAAAAAAPAPz/AAAAAAAAAAADAPj/AAAFAAAAAAAFAPf/AAAFAAAAAAAHAPb/AAAFAAAAAAAJAPX/AAADAAAAAAATAPr/AAAEAAAAAAALAPb/AAAHAAAAAAANAPf/AAAHAAAAAAAPAPj/AAAHAAAAAAARAPn/AAAHAAAAAAA=")
 tile_set = SubResource("TileSet_272bh")
+
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
+y_sort_enabled = true
+navigation_polygon = SubResource("NavigationPolygon_lquwl")
+
+[editable path="Robot Player"]
