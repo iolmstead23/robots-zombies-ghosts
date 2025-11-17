@@ -12,6 +12,7 @@ class_name PlayerController
 @onready var pathfinding_input_handler: PathfindingInputHandler = PathfindingInputHandler.new()
 @onready var state_manager: StateManager = StateManager.new()
 @onready var animation_controller: AnimationController = AnimationController.new()
+@onready var turn_based_controller: TurnBasedMovementController = TurnBasedMovementController.new()
 @onready var animated_sprite: AnimatedSprite2D = $AnimatedSprite2D
 
 # CRITICAL FIX: Use @onready to get the NavigationAgent2D when the node is ready
@@ -20,6 +21,8 @@ class_name PlayerController
 # Movement mode: "direct" or "pathfinding"
 var movement_mode: String = "pathfinding"
 
+var use_turn_based: bool = true
+
 # Signals for external systems
 signal player_moved(position: Vector2)
 signal player_jumped()
@@ -27,13 +30,31 @@ signal player_landed()
 signal player_shot(direction: String)
 signal state_changed(new_state: Dictionary)
 
+func get_remaining_movement() -> float:
+	"""Get remaining movement distance for this turn"""
+	if use_turn_based:
+		return turn_based_controller.pathfinder.MAX_MOVEMENT_DISTANCE - \
+			   turn_based_controller.movement_used_this_turn
+	else:
+		return INF  # Unlimited in real-time mode
+		
 func _ready() -> void:
+	
 	# Initialize components with references they need
 	_setup_components()
 	_connect_signals()
 	
 	# Set up input handler according to initial movement mode
 	set_movement_mode(movement_mode)
+	
+	# Initialize turn-based controller
+	add_child(turn_based_controller)
+	turn_based_controller.initialize(self, movement_component, state_manager)
+	
+	# Connect turn-based signals
+	turn_based_controller.movement_started.connect(_on_turn_movement_started)
+	turn_based_controller.movement_completed.connect(_on_turn_movement_completed)
+	turn_based_controller.turn_ended.connect(_on_turn_ended)
 	
 	# Initialize sprite
 	animated_sprite.stop()
@@ -51,6 +72,70 @@ func _ready() -> void:
 	else:
 		push_error("PlayerController: NavigationAgent2D not found! Make sure it's a child of the player node.")
 
+func _on_turn_movement_started() -> void:
+	"""Handle the start of turn-based movement execution"""
+	# Disable other controls during movement
+	input_handler.set_process(false)
+	combat_component.set_process(false)
+	
+	# Update state manager
+	state_manager.set_state_value("is_moving", true)
+	state_manager.set_state_value("turn_based_moving", true)
+	
+	# Disable regular movement modes
+	set_physics_process(false)  # Temporarily disable regular physics processing
+	
+	print("Turn-based movement started")
+
+func _on_turn_movement_completed(distance: float) -> void:
+	"""Handle the completion of turn-based movement"""
+	# Re-enable controls
+	input_handler.set_process(true)
+	combat_component.set_process(true)
+	set_physics_process(true)  # Re-enable physics processing
+	
+	# Update state manager
+	state_manager.set_state_value("is_moving", false)
+	state_manager.set_state_value("turn_based_moving", false)
+	
+	# Update animation to idle
+	animation_controller.update_animation()
+	
+	print("Movement completed: %.1f feet" % (distance / 32.0))
+	
+	# Emit player moved signal with final position
+	player_moved.emit(global_position)
+
+func _on_turn_ended(turn_number: int) -> void:
+	"""Handle the end of a turn"""
+	print("Turn %d ended" % turn_number)
+	
+	# Reset any turn-specific states
+	state_manager.set_state_value("turn_number", turn_number)
+	state_manager.set_state_value("can_act", false)  # Disable actions until next turn
+	
+	# You can trigger enemy turns or other turn-based logic here
+	# For example:
+	# enemy_manager.execute_enemy_turns()
+	# environment_manager.process_environmental_effects()
+	
+	# After all other entities have acted, start the next turn
+	# This could be triggered by a game manager or after enemies finish
+	call_deferred("_start_next_turn")
+
+func _start_next_turn() -> void:
+	"""Start the next player turn (called after all entities have acted)"""
+	# Wait a moment for visual clarity
+	await get_tree().create_timer(0.5).timeout
+	
+	# Re-enable player actions
+	state_manager.set_state_value("can_act", true)
+	
+	# Start new turn in the turn-based controller
+	if use_turn_based:
+		turn_based_controller.start_new_turn()
+		print("Player's turn %d begins" % (turn_based_controller.current_turn + 1))
+		
 func _setup_components() -> void:
 	# Add components as children for processing
 	add_child(movement_component)
@@ -101,6 +186,10 @@ func _on_navigation_agent_velocity_computed(safe_velocity: Vector2) -> void:
 		movement_component.set_safe_velocity(safe_velocity)
 
 func _physics_process(delta: float) -> void:
+	
+	if use_turn_based and turn_based_controller.current_state == TurnBasedMovementController.TurnState.EXECUTING:
+		return
+		
 	var start_position := global_position
 
 	# Process input on the active handler
@@ -178,13 +267,50 @@ func set_movement_mode(new_mode: String) -> void:
 		movement_component.input_handler = pathfinding_input_handler
 		movement_mode = "pathfinding"
 
-## Mouse input: set destination in pathfinding mode
 func _unhandled_input(event: InputEvent) -> void:
-	if movement_mode == "pathfinding" and event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var click_pos = get_global_mouse_position()
-		print("PlayerController: Player requested pathfinding to (%.2f, %.2f)" % [click_pos.x, click_pos.y])
-		pathfinding_input_handler.set_destination(click_pos)
+	# Add key to toggle turn-based mode (T key for example)
+	if event is InputEventKey and event.pressed:
+		if event.keycode == KEY_T:  # T key to toggle turn-based mode
+			toggle_turn_based_mode()
+			return
+	
+	# Let turn-based controller handle input when active
+	if use_turn_based and turn_based_controller.is_active:
+		# Turn-based controller will handle the input through its own _unhandled_input
+		return
+	
+	# Original pathfinding code for non-turn-based mode
+	if movement_mode == "pathfinding" and not use_turn_based:
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			var click_pos = get_global_mouse_position()
+			print("PlayerController: Regular pathfinding to (%.2f, %.2f)" % [click_pos.x, click_pos.y])
+			pathfinding_input_handler.set_destination(click_pos)
 
+func toggle_turn_based_mode() -> void:
+	"""Toggle between turn-based and real-time movement"""
+	use_turn_based = !use_turn_based
+	
+	if use_turn_based:
+		print("=== SWITCHING TO TURN-BASED MODE ===")
+		# Disable regular pathfinding
+		if movement_mode == "pathfinding":
+			pathfinding_input_handler.cancel_pathfinding()
+		set_movement_mode("none")  # Disable normal movement
+		
+		# CRITICAL: Actually activate the turn-based controller
+		turn_based_controller.activate()
+		
+		print("Turn-based mode is now ACTIVE: ", turn_based_controller.is_active)
+	else:
+		print("=== SWITCHING TO REAL-TIME MODE ===")
+		# Deactivate turn-based controller
+		turn_based_controller.deactivate()
+		
+		# Re-enable normal movement
+		set_movement_mode("pathfinding")  # or "direct" based on preference
+		
+		print("Turn-based mode is now INACTIVE: ", turn_based_controller.is_active)
+		
 func _on_jump_started() -> void:
 	player_jumped.emit()
 	state_manager.set_state_value("is_jumping", true)

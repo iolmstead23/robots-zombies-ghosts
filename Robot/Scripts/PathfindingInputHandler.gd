@@ -88,9 +88,12 @@ func _on_navigation_finished() -> void:
 ## Cancel pathfinding (if called from game logic)
 func cancel_pathfinding() -> void:
 	if agent:
-		agent.set_target_position(agent.global_position)
+		var current_pos = get_parent().global_position
+		agent.set_target_position(current_pos)
+		destination = current_pos
 		print("PathfindingInputHandler: Pathfinding cancelled by player")
-	destination = agent.global_position if agent else Vector2.ZERO
+	else:
+		destination = Vector2.ZERO
 	movement_vector = Vector2.ZERO
 	safe_movement_vector = Vector2.ZERO
 

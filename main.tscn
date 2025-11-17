@@ -1302,6 +1302,7 @@ tile_map_data = PackedByteArray("AAAAAPz/AAABAAEAAAABAP3/AAABAAEAAAACAPz/AAABAAE
 position = Vector2(144, -180)
 
 [node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
+visible = false
 y_sort_enabled = true
 navigation_polygon = SubResource("NavigationPolygon_lquwl")
 
