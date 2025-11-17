@@ -1,10 +1,6 @@
-# Zombies & Ghosts & Robots
+<img width="720" height="436" alt="Battle-Arena-11-17-2025" src="https://github.com/user-attachments/assets/43195463-2305-407b-84b3-4f56fd1a9ff1" />
 
-**An Interactive AI Training Arena for Decision Modeling and Reinforcement Learning**
-
-## Overview
-
-Zombies & Ghosts & Robots is an interactive 2D isometric arena environment designed to serve as a playground for autonomous AI agent development, training, and testing. The project combines game engine capabilities with machine learning infrastructure to create a structured environment where intelligent agents can learn, evolve, and generate valuable behavioral data through iterative training cycles.
+Battle Arena: Robots & Zombies & Ghosts is an interactive 2D isometric arena environment designed to serve as a playground for autonomous AI agent development, training, and testing. The project combines game engine capabilities with machine learning infrastructure to create a structured environment where intelligent agents can learn, evolve, and generate valuable behavioral data through iterative training cycles.
 
 The arena acts as both a testing ground for novel decision-making models and a data collection pipeline. Agents interact with the environment autonomously while their performance metrics, movement patterns, combat decisions, and strategic choices are recorded for analysis and model refinement. This creates a feedback loop where each iteration of training produces increasingly sophisticated agent behaviors.
 
