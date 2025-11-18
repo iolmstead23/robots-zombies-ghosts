@@ -9,6 +9,8 @@ var movement_vector := Vector2.ZERO      # Output movement vector (similar to In
 var destination: Vector2 = Vector2.ZERO  # Target point
 var safe_movement_vector: Vector2 = Vector2.ZERO  # Store the final safe velocity once computed
 var velocity_submitted := false  # Track if we've submitted velocity this frame
+var session_controller: SessionController
+var use_hex_navigation := true
 
 func _ready() -> void:
 	# Find NavigationAgent2D if not assigned
@@ -20,6 +22,9 @@ func _ready() -> void:
 			push_error("PathfindingInputHandler: NavigationAgent2D not found as child of parent!")
 	
 	set_process(true)
+	
+	# Get session controller reference
+	session_controller = get_node_or_null("SessionController")  # Adjust path
 
 	# Connect arrival signal if agent present
 	if agent:
@@ -49,21 +54,24 @@ func set_destination(point: Vector2) -> void:
 	print("PathfindingInputHandler: Player set new target to (%.2f, %.2f)" % [point.x, point.y])
 	
 	if agent:
-		agent.set_target_position(destination)
-		print("PathfindingInputHandler: NavigationAgent2D target set to (%.2f, %.2f)" % [destination.x, destination.y])
-		
-		# Debug: Check if navigation is actually starting
-		if not agent.is_navigation_finished():
-			print("PathfindingInputHandler: Navigation is active, path calculation started")
-			print("  Current position: ", get_parent().global_position)
-			print("  Distance to target: ", agent.distance_to_target())
+		if use_hex_navigation and session_controller:
+			session_controller.request_navigation(point)
 		else:
-			print("PathfindingInputHandler: WARNING - Navigation finished immediately (target might be too close or unreachable)")
-		
-		if was_active:
-			print("PathfindingInputHandler: Path recalculated to (%.2f, %.2f)" % [destination.x, destination.y])
-	else:
-		push_error("PathfindingInputHandler: Cannot set destination - agent is null!")
+			agent.set_target_position(destination)
+			print("PathfindingInputHandler: NavigationAgent2D target set to (%.2f, %.2f)" % [destination.x, destination.y])
+			
+			# Debug: Check if navigation is actually starting
+			if not agent.is_navigation_finished():
+				print("PathfindingInputHandler: Navigation is active, path calculation started")
+				print("  Current position: ", get_parent().global_position)
+				print("  Distance to target: ", agent.distance_to_target())
+			else:
+				print("PathfindingInputHandler: WARNING - Navigation finished immediately (target might be too close or unreachable)")
+			
+			if was_active:
+				print("PathfindingInputHandler: Path recalculated to (%.2f, %.2f)" % [destination.x, destination.y])
+			else:
+				push_error("PathfindingInputHandler: Cannot set destination - agent is null!")
 
 func _process(_delta: float) -> void:
 	# Update movement vector for direction calculation
