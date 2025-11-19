@@ -1,7 +1,7 @@
 [gd_scene load_steps=12 format=4 uid="uid://c0ainp474es8e"]
 
 [ext_resource type="PackedScene" uid="uid://xmepjh2dfuwk" path="res://Robot/Player.tscn" id="1_0xm2m"]
-[ext_resource type="Script" uid="uid://ba3u0m8y33m6n" path="res://Controllers/NavigationDiagnostic.gd" id="1_5vw27"]
+[ext_resource type="Script" uid="uid://es4e7huweahe" path="res://NavigationTest.gd" id="1_5vw27"]
 [ext_resource type="PackedScene" uid="uid://c0ajtsn61q85p" path="res://Environment/Terrain/Dirt/dirt.tscn" id="2_h2yge"]
 [ext_resource type="PackedScene" uid="uid://bhvhc1f11qh4e" path="res://Environment/Terrain/Stone/stone.tscn" id="3_1bvp3"]
 [ext_resource type="PackedScene" uid="uid://bmdgbb7lsxnxm" path="res://Environment/Dungeon Objects/Breakable/barrels.tscn" id="4_1bvp3"]
@@ -52,6 +52,7 @@ y_sort_enabled = true
 script = ExtResource("1_5vw27")
 
 [node name="Robot Player" parent="." instance=ExtResource("1_0xm2m")]
+position = Vector2(5, 5)
 
 [node name="Ground" type="CanvasGroup" parent="."]
 y_sort_enabled = true
@@ -88,12 +89,11 @@ tile_set = SubResource("TileSet_272bh")
 [node name="NavigationController" type="Node2D" parent="."]
 y_sort_enabled = true
 script = ExtResource("6_272bh")
-debug_mode = true
 metadata/_custom_type_script = "uid://cmf2ky3qloley"
 
 [node name="SessionController" type="Node" parent="."]
 script = ExtResource("7_5vw27")
-debug_mode = true
+current_navigation_mode = 1
 metadata/_custom_type_script = "uid://cbhc1bbiq6t1m"
 
 [editable path="Robot Player"]

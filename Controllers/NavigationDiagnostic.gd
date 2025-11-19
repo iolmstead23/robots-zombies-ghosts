@@ -1,175 +1,199 @@
-# NavigationDiagnostic.gd
-# Attach this to any Node in your scene to diagnose navigation setup issues
-# Run the game and check the console output
-
 extends Node
 
 func _ready() -> void:
-	print("\n========================================")
-	print("NAVIGATION SYSTEM DIAGNOSTIC")
-	print("========================================\n")
+	print("\n" + "=".repeat(60))
+	print("DEEP NAVIGATION DIAGNOSTIC")
+	print("=".repeat(60) + "\n")
 	
-	# Wait a frame for everything to initialize
+	await get_tree().process_frame
 	await get_tree().process_frame
 	
-	diagnose_navigation_system()
+	run_diagnostics()
 
-func diagnose_navigation_system() -> void:
-	var issues_found := 0
-	
-	# 1. Check for NavigationRegion2D
-	print("1. Checking NavigationRegion2D...")
+func run_diagnostics() -> void:
 	var nav_region = find_navigation_region()
 	
 	if not nav_region:
-		print("   ❌ ERROR: No NavigationRegion2D found in scene!")
-		print("   → Add a NavigationRegion2D node to your scene")
-		issues_found += 1
-	else:
-		print("   ✓ NavigationRegion2D found: ", nav_region.name)
-		print("   Path: ", nav_region.get_path())
+		print("❌ CRITICAL: No NavigationRegion2D found!")
+		return
+	
+	print("✓ Found NavigationRegion2D: ", nav_region.get_path())
+	print("  Enabled: ", nav_region.enabled)
+	print("  Position: ", nav_region.global_position)
+	
+	var nav_poly = nav_region.navigation_polygon
+	if not nav_poly:
+		print("❌ CRITICAL: No NavigationPolygon assigned!")
+		return
+	
+	print("\n" + "-".repeat(60))
+	print("NAVIGATION POLYGON ANALYSIS")
+	print("-".repeat(60))
+	
+	# Check outlines
+	var outline_count = nav_poly.get_outline_count()
+	print("\n1. Outlines: ", outline_count)
+	
+	if outline_count == 0:
+		print("   ❌ ERROR: No outlines defined!")
+		print("   → You must draw an outline in the editor")
+		return
+	
+	for i in range(outline_count):
+		var outline = nav_poly.get_outline(i)
+		print("   Outline %d: %d vertices" % [i, outline.size()])
 		
-		# 2. Check NavigationPolygon
-		print("\n2. Checking NavigationPolygon...")
-		var nav_poly = nav_region.navigation_polygon
+		if outline.size() >= 3:
+			print("   First 3 vertices:")
+			for j in range(min(3, outline.size())):
+				var local_vertex = outline[j]
+				var world_vertex = nav_region.to_global(local_vertex)
+				print("      [%d] Local: %v → World: %v" % [j, local_vertex, world_vertex])
+	
+	# Check polygons (CRITICAL - this is what's missing!)
+	var polygon_count = nav_poly.get_polygon_count()
+	print("\n2. Baked Polygons: ", polygon_count)
+	
+	if polygon_count == 0:
+		print("   ❌ CRITICAL ERROR: NavigationPolygon has NO BAKED POLYGONS!")
+		print("   This is why you're getting 0 cells!")
+		print("\n   SOLUTIONS:")
+		print("   A) IN EDITOR:")
+		print("      1. Select NavigationRegion2D")
+		print("      2. Look for 'Bake NavigationPolygon' button in toolbar or inspector")
+		print("      3. Click it to generate navigation mesh")
+		print("\n   B) PROGRAMMATICALLY (trying now):")
+		print("      Calling make_polygons_from_outlines()...")
 		
-		if not nav_poly:
-			print("   ❌ ERROR: NavigationRegion2D has no NavigationPolygon!")
-			print("   → Select the NavigationRegion2D in the scene tree")
-			print("   → In Inspector, create a new NavigationPolygon resource")
-			issues_found += 1
+		nav_poly.make_polygons_from_outlines()
+		await get_tree().process_frame
+		
+		polygon_count = nav_poly.get_polygon_count()
+		print("      After baking: ", polygon_count, " polygons")
+		
+		if polygon_count == 0:
+			print("      ❌ Auto-baking failed!")
+			print("      → You MUST manually bake in the editor")
+			return
 		else:
-			print("   ✓ NavigationPolygon exists")
-			
-			# 3. Check outlines
-			print("\n3. Checking NavigationPolygon outlines...")
-			var outline_count = nav_poly.get_outline_count()
-			
-			if outline_count == 0:
-				print("   ❌ ERROR: NavigationPolygon has no outlines!")
-				print("   → Select the NavigationRegion2D")
-				print("   → Click 'Edit Polygon' in the toolbar")
-				print("   → Draw an outline around your navigable area")
-				print("   → Make sure the outline is closed")
-				issues_found += 1
+			print("      ✓ Auto-baking succeeded!")
+	else:
+		print("   ✓ Polygons exist")
+	
+	# Show polygon details
+	for i in range(min(3, polygon_count)):
+		var polygon = nav_poly.get_polygon(i)
+		print("   Polygon %d: %d vertices" % [i, polygon.size()])
+	
+	# Check vertices
+	var vertices = nav_poly.get_vertices()
+	print("\n3. Vertices: ", vertices.size())
+	if vertices.size() > 0:
+		print("   First vertex (local): ", vertices[0])
+		print("   First vertex (world): ", nav_region.to_global(vertices[0]))
+	
+	# Check NavigationServer
+	print("\n" + "-".repeat(60))
+	print("NAVIGATION SERVER ANALYSIS")
+	print("-".repeat(60))
+	
+	var region_rid = nav_region.get_rid()
+	var map_rid = nav_region.get_navigation_map()
+	
+	print("\nRegion RID: ", region_rid)
+	print("Map RID: ", map_rid)
+	print("Map is valid: ", map_rid.is_valid())
+	
+	if not map_rid.is_valid():
+		print("❌ ERROR: Navigation map is invalid!")
+		return
+	
+	# Test specific points
+	print("\n" + "-".repeat(60))
+	print("POINT TESTING")
+	print("-".repeat(60))
+	
+	# Get center of first outline
+	if outline_count > 0:
+		var outline = nav_poly.get_outline(0)
+		var center = Vector2.ZERO
+		for vertex in outline:
+			center += vertex
+		center /= outline.size()
+		
+		var world_center = nav_region.to_global(center)
+		
+		print("\nTesting outline center:")
+		print("  Local: ", center)
+		print("  World: ", world_center)
+		
+		# Test with map_get_closest_point
+		var closest = NavigationServer2D.map_get_closest_point(map_rid, world_center)
+		var distance = world_center.distance_to(closest)
+		
+		print("  Closest navmesh point: ", closest)
+		print("  Distance: ", distance)
+		
+		if distance < 50.0:
+			print("  ✓ Point is close to navmesh!")
+		else:
+			print("  ❌ Point is FAR from navmesh - polygon might not be baked correctly")
+		
+		# Test multiple points in a grid
+		print("\nTesting sample points across area:")
+		var test_points = [
+			world_center,
+			world_center + Vector2(50, 0),
+			world_center + Vector2(0, 50),
+			world_center + Vector2(-50, 0),
+			world_center + Vector2(0, -50)
+		]
+		
+		var valid_points = 0
+		for point in test_points:
+			var closest_pt = NavigationServer2D.map_get_closest_point(map_rid, point)
+			var dist = point.distance_to(closest_pt)
+			if dist < 50.0:
+				valid_points += 1
+				print("  ✓ Point %v is navigable (dist: %.1f)" % [point, dist])
 			else:
-				print("   ✓ Found %d outline(s)" % outline_count)
-				
-				# 4. Check outline vertices
-				print("\n4. Checking outline details...")
-				for i in range(outline_count):
-					var outline = nav_poly.get_outline(i)
-					print("   Outline %d: %d vertices" % [i, outline.size()])
-					
-					if outline.size() < 3:
-						print("   ❌ ERROR: Outline %d has too few vertices!" % i)
-						issues_found += 1
-					else:
-						# Calculate bounds
-						var min_pos := Vector2(INF, INF)
-						var max_pos := Vector2(-INF, -INF)
-						
-						for vertex in outline:
-							var world_pos = nav_region.to_global(vertex)
-							min_pos.x = min(min_pos.x, world_pos.x)
-							min_pos.y = min(min_pos.y, world_pos.y)
-							max_pos.x = max(max_pos.x, world_pos.x)
-							max_pos.y = max(max_pos.y, world_pos.y)
-						
-						var size = max_pos - min_pos
-						print("      Position: (%.1f, %.1f) to (%.1f, %.1f)" % [min_pos.x, min_pos.y, max_pos.x, max_pos.y])
-						print("      Size: %.1f x %.1f" % [size.x, size.y])
-						
-						# Show first few vertices
-						print("      First vertices (local):")
-						for j in range(min(3, outline.size())):
-							print("        [%d]: %v" % [j, outline[j]])
+				print("  ✗ Point %v is NOT navigable (dist: %.1f)" % [point, dist])
+		
+		print("\n  Valid points: %d / %d" % [valid_points, test_points.size()])
+		
+		if valid_points == 0:
+			print("\n  ❌ CRITICAL: No test points are navigable!")
+			print("  → The NavigationPolygon is NOT properly baked")
+			print("  → You MUST bake it in the editor")
 	
-	# 5. Check NavigationController
-	print("\n5. Checking NavigationController...")
-	var nav_controller = find_navigation_controller()
+	# Final recommendation
+	print("\n" + "=".repeat(60))
+	print("RECOMMENDATION")
+	print("=".repeat(60))
 	
-	if not nav_controller:
-		print("   ❌ ERROR: NavigationController not found!")
-		print("   → Add NavigationController node to your scene")
-		print("   → Attach the NavigationController.gd script")
-		issues_found += 1
+	if polygon_count == 0:
+		print("\n❌ YOUR NAVIGATION POLYGON IS NOT BAKED!")
+		print("\nTO FIX:")
+		print("1. Select 'NavigationRegion2D' in the Scene tree")
+		print("2. In the toolbar at the top, look for polygon editing tools")
+		print("3. Click the 'Bake NavigationPolygon' button")
+		print("   (It might be in the Inspector under the NavigationPolygon resource)")
+		print("4. You should see the area fill with a colored mesh")
+		print("5. Save your scene and run again")
+	elif vertices.size() == 0:
+		print("\n❌ Navigation polygon has no vertices!")
+		print("Try redrawing the outline and baking again")
 	else:
-		print("   ✓ NavigationController found: ", nav_controller.name)
-		print("   Path: ", nav_controller.get_path())
-		
-		# Check if it has the script
-		var script = nav_controller.get_script()
-		if script:
-			print("   ✓ Script attached: ", script.resource_path)
-		else:
-			print("   ❌ ERROR: No script attached to NavigationController!")
-			issues_found += 1
-		
-		# Check grid stats
-		if nav_controller.has_method("get_grid_stats"):
-			var stats = nav_controller.get_grid_stats()
-			print("\n   Grid Statistics:")
-			print("      Total cells: ", stats.total_cells)
-			print("      Enabled cells: ", stats.enabled_cells)
-			print("      Disabled cells: ", stats.disabled_cells)
-			print("      Grid bounds: ", stats.grid_bounds)
-			
-			if stats.total_cells == 0:
-				print("\n   ⚠️  WARNING: Grid has 0 cells!")
-				print("   This usually means:")
-				print("      - NavigationPolygon has no outlines")
-				print("      - NavigationRegion2D reference is wrong")
-				print("      - Grid bounds are invalid")
-		
-		# Check settings
-		print("\n   NavigationController Settings:")
-		print("      hex_size: ", nav_controller.hex_size if "hex_size" in nav_controller else "NOT SET")
-		print("      obstacle_collision_layer: ", nav_controller.obstacle_collision_layer if "obstacle_collision_layer" in nav_controller else "NOT SET")
-		print("      grid_visible: ", nav_controller.grid_visible if "grid_visible" in nav_controller else "NOT SET")
+		print("\n✓ Navigation polygon appears to be configured correctly")
+		print("If grid still shows 0 cells, check:")
+		print("  - hex_size setting (currently 8.0)")
+		print("  - obstacle_collision_layer setting")
+		print("  - Ensure no obstacles are blocking entire area")
 	
-	# 6. Check SessionController
-	print("\n6. Checking SessionController...")
-	var session_controller = find_session_controller()
-	
-	if not session_controller:
-		print("   ❌ ERROR: SessionController not found!")
-		print("   → Add SessionController node to your scene")
-		print("   → Attach the SessionController.gd script")
-		issues_found += 1
-	else:
-		print("   ✓ SessionController found: ", session_controller.name)
-		print("   Path: ", session_controller.get_path())
-		
-		var script = session_controller.get_script()
-		if script:
-			print("   ✓ Script attached: ", script.resource_path)
-		else:
-			print("   ❌ ERROR: No script attached to SessionController!")
-			issues_found += 1
-	
-	# Summary
-	print("\n========================================")
-	if issues_found == 0:
-		print("✓ DIAGNOSTIC COMPLETE - No issues found!")
-		print("  Grid should be working.")
-		print("  If you still see 0 cells, check:")
-		print("    - NavigationPolygon is visible in editor")
-		print("    - Outline is properly closed")
-		print("    - Try clicking 'Bake NavigationPolygon'")
-	else:
-		print("❌ FOUND %d ISSUE(S)" % issues_found)
-		print("  Fix the issues above and run again")
-	print("========================================\n")
+	print("\n" + "=".repeat(60) + "\n")
 
 func find_navigation_region() -> NavigationRegion2D:
 	return find_node_by_type(get_tree().root, NavigationRegion2D)
-
-func find_navigation_controller() -> Node:
-	return find_node_by_class_name(get_tree().root, "NavigationController")
-
-func find_session_controller() -> Node:
-	return find_node_by_class_name(get_tree().root, "SessionController")
 
 func find_node_by_type(node: Node, type) -> Node:
 	if is_instance_of(node, type):
@@ -177,28 +201,6 @@ func find_node_by_type(node: Node, type) -> Node:
 	
 	for child in node.get_children():
 		var result = find_node_by_type(child, type)
-		if result:
-			return result
-	
-	return null
-
-# FIXED: Properly detect class_name using get_global_name()
-func find_node_by_class_name(node: Node, node_class_name: String) -> Node:
-	# Check if the node's class matches
-	if node.get_class() == node_class_name:
-		return node
-	
-	# Check script's class_name using get_global_name()
-	var script = node.get_script()
-	if script:
-		# This is the correct way to get a script's class_name
-		var script_class_name = script.get_global_name()
-		if script_class_name == node_class_name:
-			return node
-	
-	# Recursively search children
-	for child in node.get_children():
-		var result = find_node_by_class_name(child, node_class_name)
 		if result:
 			return result
 	

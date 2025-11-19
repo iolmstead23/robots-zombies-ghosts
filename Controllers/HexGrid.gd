@@ -3,10 +3,8 @@ extends Resource
 class_name HexGrid
 
 ## Handles hexagonal grid calculations and conversions
-## Uses flat-top hexagonal layout (pointy-top also supported)
+## Uses flat-top hexagonal layout
 
-# Hex size in pixels (2 meters of ground)
-const HEX_SIZE := 32.0  # Adjust based on your game scale (32 pixels = 2 meters)
 const SQRT3 := 1.732050808
 
 # Orientation constants for flat-top hexagons
@@ -21,18 +19,16 @@ const ORIENTATION_B1 := 0.0
 const ORIENTATION_B2 := -1.0 / 3.0
 const ORIENTATION_B3 := SQRT3 / 3.0
 
-# Size vector
-var size := Vector2(HEX_SIZE, HEX_SIZE)
-var origin := Vector2.ZERO
-
 ## Convert cube coordinates to world position (flat-top orientation)
-static func cube_to_world(cube: Vector3i, hex_size: float = HEX_SIZE) -> Vector2:
+## FIXED: hex_size is now properly passed as parameter
+static func cube_to_world(cube: Vector3i, hex_size: float) -> Vector2:
 	var x = hex_size * (ORIENTATION_F0 * cube.x + ORIENTATION_F1 * cube.y)
 	var y = hex_size * (ORIENTATION_F2 * cube.x + ORIENTATION_F3 * cube.y)
 	return Vector2(x, y)
 
 ## Convert world position to cube coordinates (flat-top orientation)
-static func world_to_cube(world_pos: Vector2, hex_size: float = HEX_SIZE) -> Vector3i:
+## FIXED: hex_size is now properly passed as parameter
+static func world_to_cube(world_pos: Vector2, hex_size: float) -> Vector3i:
 	var pt = world_pos / hex_size
 	var q = ORIENTATION_B0 * pt.x + ORIENTATION_B1 * pt.y
 	var r = ORIENTATION_B2 * pt.x + ORIENTATION_B3 * pt.y
@@ -121,25 +117,27 @@ static func get_ring(center: Vector3i, radius: int) -> Array[Vector3i]:
 	return results
 
 ## Get vertices of a hexagon for rendering (flat-top orientation)
-static func get_hex_vertices(center: Vector2, cell_size: float = HEX_SIZE) -> PackedVector2Array:
+## FIXED: hex_size is now properly passed as parameter
+static func get_hex_vertices(center: Vector2, hex_size: float) -> PackedVector2Array:
 	var vertices := PackedVector2Array()
 	# Flat-top hexagon has vertices at angles: 0°, 60°, 120°, 180°, 240°, 300°
 	for i in range(6):
 		var angle_deg = 60.0 * i
 		var angle_rad = deg_to_rad(angle_deg)
 		vertices.append(center + Vector2(
-			cell_size * cos(angle_rad),
-			cell_size * sin(angle_rad)
+			hex_size * cos(angle_rad),
+			hex_size * sin(angle_rad)
 		))
 	return vertices
 
 ## Get hex corner position
-static func get_hex_corner(center: Vector2, corner_index: int, cell_size: float = HEX_SIZE) -> Vector2:
+## FIXED: hex_size is now properly passed as parameter
+static func get_hex_corner(center: Vector2, corner_index: int, hex_size: float) -> Vector2:
 	var angle_deg = 60.0 * corner_index
 	var angle_rad = deg_to_rad(angle_deg)
 	return center + Vector2(
-		cell_size * cos(angle_rad),
-		cell_size * sin(angle_rad)
+		hex_size * cos(angle_rad),
+		hex_size * sin(angle_rad)
 	)
 
 ## Linear interpolation between two cubes
