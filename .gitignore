@@ -17,5 +17,6 @@ export_presets.cfg
 .mono/
 data_*/
 mono_crash.*.json
+*.tmp
 
 # End of https://www.toptal.com/developers/gitignore/api/godot
