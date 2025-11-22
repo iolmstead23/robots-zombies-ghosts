@@ -1,10 +1,13 @@
-[gd_scene load_steps=9 format=4 uid="uid://c0ainp474es8e"]
+[gd_scene load_steps=12 format=4 uid="uid://c0ainp474es8e"]
 
 [ext_resource type="PackedScene" uid="uid://xmepjh2dfuwk" path="res://Robot/Player.tscn" id="1_0xm2m"]
+[ext_resource type="Script" uid="uid://cwt1nkr153na5" path="res://hex_click_diagnostic.gd" id="1_5vw27"]
 [ext_resource type="PackedScene" uid="uid://c0ajtsn61q85p" path="res://Environment/Terrain/Dirt/dirt.tscn" id="2_h2yge"]
 [ext_resource type="PackedScene" uid="uid://bhvhc1f11qh4e" path="res://Environment/Terrain/Stone/stone.tscn" id="3_1bvp3"]
 [ext_resource type="PackedScene" uid="uid://bmdgbb7lsxnxm" path="res://Environment/Dungeon Objects/Breakable/barrels.tscn" id="4_1bvp3"]
 [ext_resource type="Texture2D" uid="uid://dq3cucr1dt6m3" path="res://Environment/Walls/Stone/stone_wall.png" id="5_lquwl"]
+[ext_resource type="Script" uid="uid://1qwsahkorec1" path="res://Controller/session_controller.gd" id="7_272bh"]
+[ext_resource type="Script" uid="uid://2fuwvrwyidm8" path="res://Controller/hex_grid.gd" id="8_5vw27"]
 
 [sub_resource type="NavigationPolygon" id="NavigationPolygon_lquwl"]
 vertices = PackedVector2Array(607.03906, -498.78906, 1229.8672, -187.85938, 342.14063, 268.6797, 415.28125, -250.79688, 503.1172, -445.64844, 399.25, -221.40625, 381.0703, -369.3828, 396.40625, -288.53906, 308.4922, -177.09375, 278.22656, -175.92188, -250.25781, -54.789063, -200.50781, -85.859375, 245.03906, -189.4375, 349.75, -292.1328, 253.07031, -305.3828, 362.40625, -373.70313, 374.15625, -379.71094, 233.95313, -221.32813, -130.92969, -113.38281, -59.773438, -157.82813, -7.671875, -184.47656, -2.9375, -177.36719, -134.9375, -119.390625, 80.92969, -229.78125, 125.07031, -241.38281, 119.60156, -249.5625, 260.5078, -262.3828, 221.67188, -301.7422, 246.88281, -314.6328)
@@ -1284,6 +1287,7 @@ sources/0 = SubResource("TileSetAtlasSource_7mycd")
 
 [node name="Node2D" type="Node2D"]
 y_sort_enabled = true
+script = ExtResource("1_5vw27")
 
 [node name="Robot Player" parent="." instance=ExtResource("1_0xm2m")]
 
@@ -1301,24 +1305,33 @@ tile_map_data = PackedByteArray("AAAAAPz/AAABAAEAAAABAP3/AAABAAEAAAACAPz/AAABAAE
 [node name="Camera2D" type="Camera2D" parent="."]
 position = Vector2(144, -180)
 
-[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
-visible = false
+[node name="SessionController" type="Node" parent="." node_paths=PackedStringArray("navigation_region")]
+script = ExtResource("7_272bh")
+navigation_region = NodePath("NavigationRegion2D")
+debug_mode = true
+metadata/_custom_type_script = "uid://1qwsahkorec1"
+
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="SessionController"]
 y_sort_enabled = true
 navigation_polygon = SubResource("NavigationPolygon_lquwl")
 
-[node name="Barrels" parent="NavigationRegion2D" instance=ExtResource("4_1bvp3")]
+[node name="Barrels" parent="SessionController/NavigationRegion2D" instance=ExtResource("4_1bvp3")]
 position = Vector2(320, -400)
 
-[node name="Walls" type="CanvasGroup" parent="NavigationRegion2D"]
+[node name="Walls" type="CanvasGroup" parent="SessionController/NavigationRegion2D"]
 y_sort_enabled = true
 
-[node name="StoneWall" type="TileMapLayer" parent="NavigationRegion2D/Walls"]
+[node name="StoneWall" type="TileMapLayer" parent="SessionController/NavigationRegion2D/Walls"]
 y_sort_enabled = true
 position = Vector2(0, 1)
 tile_map_data = PackedByteArray("AAABAPn/AAAFAAAAAAD///r/AAAFAAAAAAD9//v/AAAFAAAAAAD7//z/AAABAAAAAAD9//3/AAAGAAAAAAD///7/AAAGAAAAAAABAP//AAAGAAAAAAADAAAAAAAGAAAAAAAFAAEAAAACAAAAAAAHAAAAAAAAAAAAAAAJAP//AAAAAAAAAAALAP7/AAAAAAAAAAANAP3/AAAAAAAAAAARAPv/AAAAAAAAAAAPAPz/AAAAAAAAAAADAPj/AAAFAAAAAAAFAPf/AAAFAAAAAAAHAPb/AAAFAAAAAAAJAPX/AAADAAAAAAATAPr/AAAEAAAAAAALAPb/AAAHAAAAAAANAPf/AAAHAAAAAAAPAPj/AAAHAAAAAAARAPn/AAAHAAAAAAA=")
 tile_set = SubResource("TileSet_272bh")
 
-[node name="NavigationObstacle2D" type="NavigationObstacle2D" parent="NavigationRegion2D/Walls"]
+[node name="NavigationObstacle2D" type="NavigationObstacle2D" parent="SessionController/NavigationRegion2D/Walls"]
+
+[node name="HexGrid" type="Node" parent="SessionController"]
+script = ExtResource("8_5vw27")
+metadata/_custom_type_script = "uid://2fuwvrwyidm8"
 
 [editable path="Robot Player"]
-[editable path="NavigationRegion2D/Barrels"]
+[editable path="SessionController/NavigationRegion2D/Barrels"]
