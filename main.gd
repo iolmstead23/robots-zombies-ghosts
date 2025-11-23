@@ -126,6 +126,7 @@ func _select_cell(cell: HexCell) -> void:
 	print("Neighbors: %d total, %d enabled" % [neighbors.size(), enabled_neighbors.size()])
 	
 	# Calculate distance to grid center
+	@warning_ignore("integer_division")
 	var center_cell := grid.get_cell_at_coords(Vector2i(grid.grid_width / 2, grid.grid_height / 2))
 	if center_cell:
 		var distance: int = cell.distance_to(center_cell)
