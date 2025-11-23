@@ -8,58 +8,49 @@ extends Node2D
 var selected_cell: HexCell = null
 
 func _ready() -> void:
-	# ⭐ CONFIGURE NAVMESH INTEGRATION BEFORE INITIALIZATION
+	# â­ CONFIGURE NAVMESH INTEGRATION BEFORE INITIALIZATION
 	var nav_region: NavigationRegion2D = $SessionController/NavigationRegion2D
 	
 	if nav_region:
-		print("✓ Found NavigationRegion2D")
+		print("âœ“ Found NavigationRegion2D")
 		session_controller.navigation_region = nav_region
 		session_controller.integrate_with_navmesh = true
 		session_controller.navmesh_sample_points = 5
-		print("✓ Navmesh integration configured")
+		print("âœ“ Navmesh integration configured")
 	else:
 		push_warning("NavigationRegion2D not found - integration disabled")
 	
 	# Wait for session initialization
 	await session_controller.terrain_initialized
 	
-	print("\n=== Hexagonal Grid System Demo ===\n")
+	# 🔍 DIAGNOSE ACTUAL SPRITE POSITIONS
+	print("\n" + "==============")
+	print("SPRITE POSITION DIAGNOSTIC")
+	print("\n" + "==============")
 	
-	# Example 1: Accessing the grid
-	var grid: HexGrid = session_controller.get_terrain()
-	print("Grid has %d total cells" % grid.cells.size())
-	print("Grid offset: %s" % grid.grid_offset)
-	print("Navigable cells: %d" % grid.enabled_cells.size())
-	print("Blocked cells: %d" % (grid.cells.size() - grid.enabled_cells.size()))
+	var grid = session_controller.get_terrain()
+	print("Grid offset: ", grid.grid_offset)
+	print("Hex size: ", grid.hex_size)
 	
-	# Example 2: Get a specific cell
-	var center_cell := grid.get_cell_at_coords(Vector2i(10, 7))
-	if center_cell:
-		print("Center cell: %s at position %s" % [center_cell, center_cell.world_position])
+	# Check where hex cells are positioned
+	var sample_cell = grid.get_cell_at_coords(Vector2i(15, 15))
+	if sample_cell:
+		print("\nSample hex cell (15, 15):")
+		print("  World position: ", sample_cell.world_position)
+		print("  Enabled: ", sample_cell.enabled)
 	
-	# Example 3: Don't create manual obstacle pattern - navmesh handles this now!
-	# _create_obstacle_pattern(grid)  # ← REMOVED - navmesh does this automatically
+	# Check actual floor sprite positions
+	var ground = get_node_or_null("Ground")
+	if ground and ground.get_child_count() > 0:
+		print("\nFloor sprites:")
+		for i in range(min(3, ground.get_child_count())):
+			var sprite = ground.get_child(i)
+			print("  Sprite %d: %s" % [i, sprite.global_position])
+			if sprite is Sprite2D:
+				print("    Offset: ", sprite.offset)
+				print("    Centered: ", sprite.centered)
 	
-	# Example 4: Distance calculations
-	var cell_a := grid.get_cell_at_coords(Vector2i(5, 5))
-	var cell_b := grid.get_cell_at_coords(Vector2i(8, 7))
-	if cell_a and cell_b:
-		var distance: int = cell_a.distance_to(cell_b)
-		print("Distance from (%d,%d) to (%d,%d): %d meters" % [
-			cell_a.q, cell_a.r, cell_b.q, cell_b.r, distance
-		])
-	
-	# Example 5: Get cells in range
-	if center_cell:
-		var cells_in_range := grid.get_enabled_cells_in_range(center_cell, 3)
-		print("Found %d navigable cells within 3 meters of center" % cells_in_range.size())
-	
-	print("\nControls:")
-	print("  F3 - Toggle debug visualization")
-	print("  Left Click - Select cell and show info")
-	print("  Right Click - Toggle cell enabled/disabled")
-	print("  Mouse Wheel - Zoom camera")
-	print("\n")
+	print("\n" + "==============")
 
 func _input(event: InputEvent) -> void:
 	var grid: HexGrid = session_controller.get_terrain()
@@ -69,12 +60,15 @@ func _input(event: InputEvent) -> void:
 	# Handle mouse clicks
 	if event is InputEventMouseButton:
 		if event.pressed:
-			var mouse_pos: Vector2 = get_global_mouse_position()
+			# âœ… CORRECTED: Get mouse position accounting for camera transformation
+			var mouse_pos: Vector2 = _get_world_mouse_position()
 			
 			# Debug: Show click information
 			if event.button_index == MOUSE_BUTTON_LEFT:
 				print("\n=== CLICK DEBUG ===")
-				print("Mouse position: ", mouse_pos)
+				print("Mouse position (world): ", mouse_pos)
+				print("Camera position: ", camera.position)
+				print("Camera zoom: ", camera.zoom)
 				print("Grid offset: ", grid.grid_offset)
 			
 			var cell := grid.get_cell_at_world_position(mouse_pos)
@@ -83,11 +77,11 @@ func _input(event: InputEvent) -> void:
 				if event.button_index == MOUSE_BUTTON_LEFT:
 					# Debug: Show distance between click and cell center
 					var distance := mouse_pos.distance_to(cell.world_position)
-					print("✓ Found cell: (%d, %d)" % [cell.q, cell.r])
+					print("âœ“ Found cell: (%d, %d)" % [cell.q, cell.r])
 					print("  Cell center: ", cell.world_position)
 					print("  Distance: %.1f pixels" % distance)
 					if distance > 20:
-						print("  ⚠️ WARNING: Click is far from cell center!")
+						print("  âš ï¸ WARNING: Click is far from cell center!")
 						print("  Hex size may need adjustment")
 					
 					_select_cell(cell)
@@ -95,14 +89,24 @@ func _input(event: InputEvent) -> void:
 					_toggle_cell(cell, grid)
 			else:
 				if event.button_index == MOUSE_BUTTON_LEFT:
-					print("✗ No cell found at click position")
-					print("  Click may be outside grid or grid offset is wrong")
+					print("âœ— No cell found at click position")
+					print("  Click may be outside grid bounds")
+					
+					# Additional debug: Try to show what axial coords would be
+					var axial_coords := grid.world_position_to_axial(mouse_pos)
+					print("  Calculated axial coords: ", axial_coords)
+					print("  Grid bounds: (0,0) to (%d,%d)" % [grid.grid_width - 1, grid.grid_height - 1])
 			
 			# Camera zoom
 			if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 				camera.zoom *= 1.1
 			elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 				camera.zoom *= 0.9
+
+func _get_world_mouse_position() -> Vector2:
+	var viewport_pos: Vector2 = get_viewport().get_mouse_position()
+	var canvas_transform: Transform2D = camera.get_canvas_transform()
+	return canvas_transform.affine_inverse() * viewport_pos
 
 func _select_cell(cell: HexCell) -> void:
 	"""Select a cell and display its information"""
@@ -126,6 +130,9 @@ func _select_cell(cell: HexCell) -> void:
 	if center_cell:
 		var distance: int = cell.distance_to(center_cell)
 		print("Distance to center: %d meters" % distance)
+	
+	# Force redraw to show selection
+	queue_redraw()
 
 func _toggle_cell(cell: HexCell, grid: HexGrid) -> void:
 	"""Toggle a cell between enabled and disabled"""

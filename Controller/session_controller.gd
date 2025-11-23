@@ -74,6 +74,8 @@ func _setup_hex_grid() -> void:
 	hex_grid.hex_size = hex_size
 	hex_grid.layout_flat_top = true  # Flat-top for isometric view
 	
+	hex_grid.sprite_vertical_offset = 0.0
+	
 	add_child(hex_grid)
 
 func _setup_debug_system() -> void:
