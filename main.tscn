@@ -1353,7 +1353,6 @@ tile_set = SubResource("TileSet_272bh")
 script = ExtResource("8_5vw27")
 grid_width = 40
 grid_height = 30
-sprite_vertical_offset = 482.0
 metadata/_custom_type_script = "uid://2fuwvrwyidm8"
 
 [node name="HexNavmeshIntegration" type="Node" parent="." node_paths=PackedStringArray("hex_grid", "navigation_region")]

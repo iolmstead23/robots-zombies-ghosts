@@ -101,11 +101,21 @@ func world_position_to_axial(world_pos: Vector2) -> Vector2i:
 	var q: float
 	var r: float
 	if layout_flat_top:
+		# For odd-q offset coordinates (matches _axial_to_world implementation)
+		# First calculate q from x (independent of row offset)
 		q = (2.0 / 3.0 * p.x) / hex_size
-		r = (-1.0 / 3.0 * p.x + sqrt(3.0) / 3.0 * p.y) / hex_size
+		# Then calculate r accounting for the column offset
+		# The offset formula: y = hex_size * sqrt(3) * (r + 0.5 * (q & 1))
+		# Solving for r: r = y / (hex_size * sqrt(3)) - 0.5 * (q & 1)
+		var col_offset = 0.5 * (int(round(q)) & 1)
+		r = (p.y / (hex_size * sqrt(3.0))) - col_offset
 	else:
-		q = (sqrt(3.0) / 3.0 * p.x - 1.0 / 3.0 * p.y) / hex_size
+		# For odd-r offset coordinates (pointy-top)
+		# First calculate r from y (independent of column offset)
 		r = (2.0 / 3.0 * p.y) / hex_size
+		# Then calculate q accounting for the row offset
+		var row_offset = 0.5 * (int(round(r)) & 1)
+		q = (p.x / (hex_size * sqrt(3.0))) - row_offset
 	return _hex_round(q, r)
 
 func _hex_round(q: float, r: float) -> Vector2i:

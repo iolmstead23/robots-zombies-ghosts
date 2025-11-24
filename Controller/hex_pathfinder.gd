@@ -134,7 +134,7 @@ func _heuristic(from: HexCell, to: HexCell) -> float:
 	"""Hex distance as A* heuristic."""
 	return float(from.distance_to(to))
 
-func _movement_cost(from: HexCell, to: HexCell) -> float:
+func _movement_cost(_from: HexCell, _to: HexCell) -> float:
 	"""Base movement cost. Extend for terrain if needed."""
 	return diagonal_cost
 
