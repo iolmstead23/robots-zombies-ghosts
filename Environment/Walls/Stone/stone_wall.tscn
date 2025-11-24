@@ -1,18 +1,9 @@
-[gd_scene load_steps=9 format=4 uid="uid://c0ainp474es8e"]
+[gd_scene load_steps=4 format=3 uid="uid://btabexxcqaml3"]
 
-[ext_resource type="PackedScene" path="res://Robot/Player.tscn" id="1_0xm2m"]
-[ext_resource type="PackedScene" uid="uid://c0ajtsn61q85p" path="res://Environment/Terrain/Dirt/dirt.tscn" id="2_h2yge"]
-[ext_resource type="PackedScene" uid="uid://bhvhc1f11qh4e" path="res://Environment/Terrain/Stone/stone.tscn" id="3_1bvp3"]
-[ext_resource type="PackedScene" uid="uid://bmdgbb7lsxnxm" path="res://Environment/Dungeon Objects/Breakable/barrels.tscn" id="4_1bvp3"]
-[ext_resource type="Texture2D" uid="uid://dq3cucr1dt6m3" path="res://Environment/Walls/Stone/stone_wall.png" id="5_lquwl"]
+[ext_resource type="Texture2D" uid="uid://dq3cucr1dt6m3" path="res://Environment/Walls/Stone/stone_wall.png" id="1_oh10s"]
 
-[sub_resource type="NavigationPolygon" id="NavigationPolygon_lquwl"]
-vertices = PackedVector2Array(607.03906, -498.78906, 1229.8672, -187.85938, 342.14063, 268.6797, 415.28125, -250.79688, 503.1172, -445.64844, 399.25, -221.40625, 381.0703, -369.3828, 396.40625, -288.53906, 308.4922, -177.09375, 278.22656, -175.92188, -250.25781, -54.789063, -200.50781, -85.859375, 245.03906, -189.4375, 349.75, -292.1328, 253.07031, -305.3828, 362.40625, -373.70313, 374.15625, -379.71094, 233.95313, -221.32813, -130.92969, -113.38281, -59.773438, -157.82813, -7.671875, -184.47656, -2.9375, -177.36719, -134.9375, -119.390625, 80.92969, -229.78125, 125.07031, -241.38281, 119.60156, -249.5625, 260.5078, -262.3828, 221.67188, -301.7422, 246.88281, -314.6328)
-polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3, 4), PackedInt32Array(5, 3, 2), PackedInt32Array(6, 4, 3, 7), PackedInt32Array(8, 5, 2), PackedInt32Array(9, 8, 2, 10, 11), PackedInt32Array(12, 9, 11), PackedInt32Array(6, 7, 13, 14, 15, 16), PackedInt32Array(17, 12, 11, 18), PackedInt32Array(19, 20, 21), PackedInt32Array(11, 22, 18), PackedInt32Array(17, 18, 19, 21), PackedInt32Array(17, 21, 23, 24), PackedInt32Array(23, 25, 24), PackedInt32Array(26, 17, 24, 27, 28, 14), PackedInt32Array(13, 26, 14)])
-outlines = Array[PackedVector2Array]([PackedVector2Array(-277, -58, 342, 280, 1252, -188, 607, -510)])
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_7mycd"]
-texture = ExtResource("5_lquwl")
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_oh10s"]
+texture = ExtResource("1_oh10s")
 texture_region_size = Vector2i(256, 512)
 22:14/0 = 0
 23:14/0 = 0
@@ -1252,72 +1243,24 @@ texture_region_size = Vector2i(256, 512)
 103:31/0 = 0
 104:31/0 = 0
 105:31/0 = 0
-3:0/0 = 0
-3:0/0/y_sort_origin = 150
-3:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-96, 208, 0, 160, 96, 208, 128, 192, 0, 112, -128, 176)
-4:0/0 = 0
-4:0/0/y_sort_origin = 180
-4:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-32, 224, 0, 256, 128, 192, 12.200806, 105.90323, -32, 128, 48, 176)
-5:0/0 = 0
-5:0/0/y_sort_origin = 150
-5:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-96, 224, 32, 144, 0, 96, -128, 176)
-6:0/0 = 0
-6:0/0/y_sort_origin = 190
-6:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(0, 256, 48, 224, -96, 160, -128, 192)
-0:0/0 = 0
-0:0/0/y_sort_origin = 190
-0:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-32, 208, 0, 256, 128, 192, 96, 144)
-1:0/0 = 0
-1:0/0/y_sort_origin = 180
-1:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-128, 192, -18.149963, 261.76337, 32, 240, -48, 192, 32, 128, 0, 96)
-2:0/0 = 0
-2:0/0/y_sort_origin = 190
-2:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-128, 192, 0.4880371, 256, 128, 192, 128, 128, 0, 192, -128, 128)
-7:0/0 = 0
-7:0/0/y_sort_origin = 150
-7:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-32, 144, 96, 208, 128, 192, 0, 112)
 
-[sub_resource type="TileSet" id="TileSet_272bh"]
-tile_size = Vector2i(64, 64)
-physics_layer_0/collision_layer = 1
-sources/0 = SubResource("TileSetAtlasSource_7mycd")
+[sub_resource type="TileSet" id="TileSet_niwv3"]
+sources/0 = SubResource("TileSetAtlasSource_oh10s")
 
-[node name="Node2D" type="Node2D"]
+[node name="StoneWall" type="StaticBody2D"]
 y_sort_enabled = true
 
-[node name="Robot Player" parent="." instance=ExtResource("1_0xm2m")]
-
-[node name="Ground" type="CanvasGroup" parent="."]
+[node name="Sprite2D" type="Sprite2D" parent="."]
 y_sort_enabled = true
+position = Vector2(45, 201)
+texture = ExtResource("1_oh10s")
+offset = Vector2(-47, -206)
+hframes = 8
 
-[node name="Dirt" parent="Ground" instance=ExtResource("2_h2yge")]
-z_index = -2
-tile_map_data = PackedByteArray("AAD+//7/AAAAAAEAAAD///3/AAAAAAEAAAAAAP7/AAAAAAEAAAD/////AAAAAAEAAAABAP//AAAAAAEAAAAAAAAAAAAAAAEAAAACAP7/AAAAAAEAAAABAP3/AAAAAAEAAAAAAPz/AAAAAAEAAAABAAEAAAABAAEAAAACAAIAAAABAAEAAAACAAAAAAABAAEAAAADAAEAAAADAAEAAAADAP//AAADAAEAAAAEAAAAAAADAAEAAAAFAP//AAADAAEAAAAEAP7/AAAAAAEAAAACAPz/AAAAAAEAAAADAP3/AAACAAEAAAABAPv/AAADAAEAAAAGAP7/AAABAAEAAAAFAP3/AAACAAEAAAAEAPz/AAACAAEAAAADAPv/AAACAAEAAAACAPr/AAAAAAEAAAADAPn/AAAAAAEAAAAEAPr/AAAAAAEAAAAHAP3/AAADAAEAAAAGAPz/AAADAAEAAAAFAPv/AAACAAEAAAADAAMAAAACAAEAAAAEAAIAAAACAAEAAAAFAAEAAAADAAEAAAAGAAAAAAADAAEAAAAHAP//AAADAAEAAAAIAP7/AAABAAEAAAD9////AAABAAEAAAD+/wAAAAADAAEAAAACAAQAAAAAAAEAAAD//wEAAAAAAAEAAAABAAMAAAACAAEAAAAAAAIAAAACAAEAAAD8//7/AAACAAEAAAD9//3/AAABAAEAAAD+//z/AAABAAEAAAD///v/AAAAAAEAAAABAPn/AAAAAAEAAAAAAPr/AAADAAEAAAACAPj/AAADAAEAAAAJAP3/AAADAAEAAAAIAPz/AAADAAEAAAAHAPv/AAABAAEAAAAFAPn/AAABAAEAAAAGAPr/AAAAAAEAAAADAPf/AAAAAAEAAAAEAPj/AAADAAEAAAAEAPb/AAADAAEAAAAKAPz/AAADAAEAAAAJAPv/AAABAAEAAAAIAPr/AAABAAEAAAAHAPn/AAABAAEAAAAGAPj/AAACAAEAAAAFAPf/AAACAAEAAAA=")
+[node name="CollisionShape2D" type="CollisionPolygon2D" parent="."]
+position = Vector2(91.75, 193.5)
+scale = Vector2(5.725, 2.55)
+polygon = PackedVector2Array(-23.886463, 13.137253, -0.65502167, -13.529415, 6.3318787, -2.9411774, -16.200874, 24.509804)
 
-[node name="Stone" parent="Ground" instance=ExtResource("3_1bvp3")]
-z_index = -1
-tile_map_data = PackedByteArray("AAAAAPz/AAABAAEAAAABAP3/AAABAAEAAAACAPz/AAABAAEAAAABAPv/AAABAAEAAAADAP3/AAABAAEAAAAEAP7/AAABAAEAAAACAPr/AAABAAEAAAAFAP3/AAABAAEAAAAEAPz/AAADAAEAAAADAPn/AAADAAEAAAAGAPz/AAADAAEAAAAFAPv/AAACAAEAAAAEAPr/AAACAAEAAAADAPv/AAACAAEAAAAHAPv/AAADAAEAAAAIAPz/AAADAAEAAAAHAP3/AAADAAEAAAAFAP//AAABAAEAAAAGAP7/AAABAAEAAAAGAAAAAAABAAEAAAAHAP//AAABAAEAAAAIAP7/AAABAAEAAAAJAP3/AAABAAEAAAAKAPz/AAADAAEAAAAJAPv/AAADAAEAAAAIAPr/AAADAAEAAAAGAPr/AAABAAEAAAAEAPj/AAABAAEAAAD///v/AAADAAEAAAABAPn/AAADAAEAAAAAAPr/AAADAAEAAAACAPj/AAABAAEAAAADAPf/AAABAAEAAAAFAPn/AAABAAEAAAAEAPb/AAADAAEAAAAHAPn/AAADAAEAAAAFAPf/AAADAAEAAAAGAPj/AAABAAEAAAA=")
-
-[node name="Camera2D" type="Camera2D" parent="."]
-position = Vector2(144, -180)
-
-[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
-y_sort_enabled = true
-navigation_polygon = SubResource("NavigationPolygon_lquwl")
-
-[node name="Barrels" parent="NavigationRegion2D" instance=ExtResource("4_1bvp3")]
-position = Vector2(320, -400)
-
-[node name="Walls" type="CanvasGroup" parent="NavigationRegion2D"]
-y_sort_enabled = true
-
-[node name="StoneWall" type="TileMapLayer" parent="NavigationRegion2D/Walls"]
-y_sort_enabled = true
-position = Vector2(0, 1)
-tile_map_data = PackedByteArray("AAABAPn/AAAFAAAAAAD///r/AAAFAAAAAAD9//v/AAAFAAAAAAD7//z/AAABAAAAAAD9//3/AAAGAAAAAAD///7/AAAGAAAAAAABAP//AAAGAAAAAAADAAAAAAAGAAAAAAAFAAEAAAACAAAAAAAHAAAAAAAAAAAAAAAJAP//AAAAAAAAAAALAP7/AAAAAAAAAAANAP3/AAAAAAAAAAARAPv/AAAAAAAAAAAPAPz/AAAAAAAAAAADAPj/AAAFAAAAAAAFAPf/AAAFAAAAAAAHAPb/AAAFAAAAAAAJAPX/AAADAAAAAAATAPr/AAAEAAAAAAALAPb/AAAHAAAAAAANAPf/AAAHAAAAAAAPAPj/AAAHAAAAAAARAPn/AAAHAAAAAAA=")
-tile_set = SubResource("TileSet_272bh")
-
-[node name="NavigationObstacle2D" type="NavigationObstacle2D" parent="NavigationRegion2D/Walls"]
-
-[editable path="Robot Player"]
-[editable path="NavigationRegion2D/Barrels"]
+[node name="StoneWallTilemap" type="TileMapLayer" parent="."]
+tile_set = SubResource("TileSet_niwv3")
