@@ -238,7 +238,7 @@ func end_turn() -> void:
 	movement_used_this_turn = 0.0
 
 
-func initialize(player_ref: CharacterBody2D, movement_ref: MovementComponent, state_ref: StateManager) -> void:
+func initialize(player_ref: CharacterBody2D, movement_ref: MovementComponent, state_ref: StateManager, hex_grid: HexGrid = null, hex_pathfinder: HexPathfinder = null) -> void:
 	"""
 	Initialize controller with the player and related components.
 
@@ -257,7 +257,13 @@ func initialize(player_ref: CharacterBody2D, movement_ref: MovementComponent, st
 	if pathfinder == null:
 		pathfinder = TurnBasedPathfinder.new()
 		add_child(pathfinder)
+
+	# Initialize pathfinder with player only
 	pathfinder.initialize(player)
+
+	# Set hex components if provided
+	if hex_grid and hex_pathfinder:
+		pathfinder.set_hex_components(hex_grid, hex_pathfinder)
 
 	# Connect signals (use safe connecting)
 	if not pathfinder.path_calculated.is_connected(_on_path_calculated):
@@ -273,6 +279,12 @@ func initialize(player_ref: CharacterBody2D, movement_ref: MovementComponent, st
 	# Start disabled
 	set_physics_process(false)
 	set_process_unhandled_input(false)
+
+func set_hex_components(hex_grid: HexGrid, hex_pathfinder: HexPathfinder) -> void:
+	"""Set hex components after initialization"""
+	if pathfinder:
+		pathfinder.set_hex_components(hex_grid, hex_pathfinder)
+		print("TurnBasedMovementController: Hex components set")
 
 
 func request_movement_to(destination: Vector2) -> void:

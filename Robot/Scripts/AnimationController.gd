@@ -5,7 +5,7 @@ class_name AnimationController
 
 # Animation constants
 const ANIM_SPEED := 4.5
-const AIM_SPEED_REDUCTION := 0.6  # 60% of normal speed when aiming
+const AIM_SPEED_REDUCTION := 0.6
 
 # Component references
 var animated_sprite: AnimatedSprite2D
@@ -61,7 +61,6 @@ var animations := {
 	}
 }
 
-# Signals
 signal animation_changed(animation_name: String)
 signal animation_speed_changed(speed: float)
 
@@ -74,43 +73,31 @@ func set_jump_component(jump_ref: JumpComponent) -> void:
 	jump_component = jump_ref
 
 func update_animation() -> void:
-	# First update the animation type in state manager
 	state_manager.update_animation_type()
-	
-	# Check if we need to update animation
+
 	if not state_manager.has_state_changed():
 		return
-	
-	# Get current state values
+
 	var anim_type := _get_animation_type()
 	var direction: String = state_manager.get_state_value("facing_direction")
-	
-	# Get the animation name
 	var anim_name := _get_animation_name(anim_type, direction)
+
 	if anim_name == "":
 		return
-	
-	# Calculate animation speed
+
 	var anim_speed := _calculate_animation_speed(anim_type)
-	
-	# Play animation if it's different or not playing
+
 	if animated_sprite.animation != anim_name:
 		_play_animation(anim_name, anim_speed)
-	elif not animated_sprite.is_playing():
-		# Restart animation if it stopped (except for one-shot animations)
-		if not _is_one_shot_animation(anim_type):
-			_play_animation(anim_name, anim_speed)
+	elif not animated_sprite.is_playing() and not _is_one_shot_animation(anim_type):
+		_play_animation(anim_name, anim_speed)
 
 func _get_animation_type() -> String:
 	var state := state_manager.get_state()
-	
-	# Special handling for jump animations
+
 	if state.is_jumping and jump_component != null:
-		if jump_component.was_running_on_jump_start():
-			return "run_jump"
-		else:
-			return "jump"
-	
+		return "run_jump" if jump_component.was_running_on_jump_start() else "jump"
+
 	return state.animation_type
 
 func _get_animation_name(anim_type: String, direction: String) -> String:
@@ -122,61 +109,49 @@ func _calculate_animation_speed(anim_type: String) -> float:
 	var speed := ANIM_SPEED
 	var is_aiming: bool = state_manager.get_state_value("is_aiming")
 	var is_shooting: bool = state_manager.get_state_value("is_shooting")
-	
-	# Shooting animations use weapon fire rate speeds
+
+	# Shooting animations use weapon fire rate
 	if anim_type == "standing_shoot" or anim_type == "walk_shoot":
 		speed = combat_component.get_shoot_animation_speed()
-		
-		# Apply movement speed reduction for walk_shoot
 		if anim_type == "walk_shoot":
 			speed *= AIM_SPEED_REDUCTION
-	
-	# Regular animations slowed while aiming/shooting
 	elif (anim_type == "walk" or anim_type == "idle_aim") and (is_aiming or is_shooting):
 		speed = ANIM_SPEED * AIM_SPEED_REDUCTION
-	
+
 	return speed
 
 func _play_animation(anim_name: String, speed: float) -> void:
 	animated_sprite.play(anim_name, speed)
 	animated_sprite.frame = 0
-	
-	# Track animation changes
+
 	if current_animation != anim_name:
 		current_animation = anim_name
 		animation_changed.emit(anim_name)
-	
+
 	if current_animation_speed != speed:
 		current_animation_speed = speed
 		animation_speed_changed.emit(speed)
 
 func _is_one_shot_animation(anim_type: String) -> bool:
-	# Define which animations should not loop
 	return anim_type in ["jump", "run_jump", "standing_shoot"]
 
 func _on_animation_finished() -> void:
-	# Handle animation completion
 	var is_shooting: bool = state_manager.get_state_value("is_shooting")
-	
+
 	if is_shooting:
-		# Notify combat component that shooting animation finished
 		combat_component.on_shoot_animation_finished()
 		state_manager.set_state_value("is_shooting", false)
 
-## Stop current animation
 func stop_animation() -> void:
 	animated_sprite.stop()
 
-## Pause current animation
 func pause_animation() -> void:
 	animated_sprite.pause()
 
-## Resume paused animation
 func resume_animation() -> void:
 	if animated_sprite.animation != "":
 		animated_sprite.play()
 
-## Get current animation info
 func get_current_animation() -> String:
 	return current_animation
 
@@ -186,12 +161,15 @@ func get_current_animation_speed() -> float:
 func is_animation_playing() -> bool:
 	return animated_sprite.is_playing()
 
-## Add or modify animation mapping (useful for different characters/skins)
 func set_animation_mapping(type: String, direction: String, animation_name: String) -> void:
 	if type not in animations:
 		animations[type] = {}
 	animations[type][direction] = animation_name
 
-## Load animation mappings from a resource or dictionary
 func load_animation_mappings(mappings: Dictionary) -> void:
 	animations = mappings
+
+# Debug
+func print_animation_state() -> void:
+	if OS.is_debug_build():
+		print("AnimationController: %s @ %.1fx (playing: %s)" % [current_animation, current_animation_speed, is_animation_playing()])

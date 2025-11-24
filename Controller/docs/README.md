@@ -89,7 +89,7 @@ func _ready():
 | **HexPathfinder** | [hex_pathfinder.gd](../hex_pathfinder.gd) | A* pathfinding for hex grids |
 | **HexGridDebug** | [hex_grid_debug.gd](../hex_grid_debug.gd) | Visual debugging overlay |
 | **HexGridObstacleManager** | [hex_grid_obstacle_manager.gd](../hex_grid_obstacle_manager.gd) | Physics-based obstacle detection |
-| **HexNavmeshIntegration** | [HexGridNavmeshIntegration.gd](../HexGridNavmeshIntegration.gd) | NavMesh synchronization |
+| **HexNavmeshIntegration** | [hex_grid_navmesh_integration.gd](../HexGridNavmeshIntegration.gd) | NavMesh synchronization |
 | **SessionController** | [session_controller.gd](../session_controller.gd) | High-level orchestration |
 
 ### Class Relationships
@@ -172,16 +172,17 @@ session.toggle_debug_mode()
 
 ## Visual Examples
 
-![Navigation Mesh Integration](screenshot-navigation.png)
+<img src="pathfinding.png" width="512" />
+
 *NavMesh integration with pathfinding visualization*
 
-![Hexagonal Grid Overlay](screenshot-hexgrid.png)
+# Hex Grid
+<img src="hex_grid.png" width="512" />
+
 *Debug overlay showing cell indices and coordinates*
 
-![Triangulated Navigation Mesh](screenshot-triangulated.png)
-*Underlying navigation polygon structure*
 
-See [VISUAL_GUIDE.md](VISUAL_GUIDE.md) for detailed analysis of these screenshots.
+## See [VISUAL_GUIDE.md](VISUAL_GUIDE.md) for detailed analysis of these screenshots.
 
 ---
 
