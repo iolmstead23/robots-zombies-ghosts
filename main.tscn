@@ -2,6 +2,7 @@
 
 [ext_resource type="PackedScene" uid="uid://xmepjh2dfuwk" path="res://Robot/Player.tscn" id="1_0xm2m"]
 [ext_resource type="Script" uid="uid://de0cnd67yj7gq" path="res://main.gd" id="1_4c57u"]
+[ext_resource type="PackedScene" path="res://Robot/Player.tscn" id="1_0xm2m"]
 [ext_resource type="PackedScene" uid="uid://c0ajtsn61q85p" path="res://Environment/Terrain/Dirt/dirt.tscn" id="2_h2yge"]
 [ext_resource type="PackedScene" uid="uid://bhvhc1f11qh4e" path="res://Environment/Terrain/Stone/stone.tscn" id="3_1bvp3"]
 [ext_resource type="PackedScene" uid="uid://bmdgbb7lsxnxm" path="res://Environment/Dungeon Objects/Breakable/barrels.tscn" id="4_1bvp3"]

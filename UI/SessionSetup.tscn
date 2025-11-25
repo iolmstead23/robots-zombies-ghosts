@@ -1,0 +1,138 @@
+[gd_scene load_steps=3 format=4 uid="uid://cyn0h7q3r8mwh"]
+
+[ext_resource type="Script" path="res://UI/SessionSetup.gd" id="1_session_setup"]
+[ext_resource type="PackedScene" uid="uid://cj3p8x1dqh0e7" path="res://UI/PartyItem.tscn" id="2_party_item"]
+
+[node name="SessionSetup" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_session_setup")
+
+[node name="ColorRect" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.15, 0.15, 0.2, 1)
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 0
+
+[node name="TopMenu" type="PanelContainer" parent="VBoxContainer"]
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+
+[node name="TopMenuBg" type="ColorRect" parent="VBoxContainer/TopMenu"]
+layout_mode = 2
+color = Color(0.2, 0.25, 0.3, 1)
+
+[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer/TopMenu"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="MarginLeft" type="Control" parent="VBoxContainer/TopMenu/HBoxContainer"]
+custom_minimum_size = Vector2(20, 0)
+layout_mode = 2
+
+[node name="Title" type="Label" parent="VBoxContainer/TopMenu/HBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.9, 0.95, 1)
+theme_override_font_sizes/font_size = 32
+text = "Session Setup"
+vertical_alignment = 1
+
+[node name="Spacer" type="Control" parent="VBoxContainer/TopMenu/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BackButton" type="Button" parent="VBoxContainer/TopMenu/HBoxContainer"]
+custom_minimum_size = Vector2(100, 50)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.9, 0.95, 1)
+theme_override_font_sizes/font_size = 18
+text = "Back"
+
+[node name="MarginRight" type="Control" parent="VBoxContainer/TopMenu/HBoxContainer"]
+custom_minimum_size = Vector2(20, 0)
+layout_mode = 2
+
+[node name="ContentArea" type="MarginContainer" parent="VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/margin_left = 40
+theme_override_constants/margin_top = 40
+theme_override_constants/margin_right = 40
+theme_override_constants/margin_bottom = 40
+
+[node name="MainContent" type="VBoxContainer" parent="VBoxContainer/ContentArea"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="PartiesSection" type="VBoxContainer" parent="VBoxContainer/ContentArea/MainContent"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 15
+
+[node name="PartiesHeader" type="HBoxContainer" parent="VBoxContainer/ContentArea/MainContent/PartiesSection"]
+layout_mode = 2
+
+[node name="PartiesLabel" type="Label" parent="VBoxContainer/ContentArea/MainContent/PartiesSection/PartiesHeader"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.9, 0.95, 1)
+theme_override_font_sizes/font_size = 24
+text = "Parties"
+
+[node name="Spacer" type="Control" parent="VBoxContainer/ContentArea/MainContent/PartiesSection/PartiesHeader"]
+custom_minimum_size = Vector2(20, 0)
+layout_mode = 2
+
+[node name="AddPartyButton" type="Button" parent="VBoxContainer/ContentArea/MainContent/PartiesSection/PartiesHeader"]
+custom_minimum_size = Vector2(150, 40)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.9, 0.95, 1)
+theme_override_font_sizes/font_size = 16
+text = "+ Add Party"
+
+[node name="PartiesScrollContainer" type="ScrollContainer" parent="VBoxContainer/ContentArea/MainContent/PartiesSection"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="PartiesList" type="VBoxContainer" parent="VBoxContainer/ContentArea/MainContent/PartiesSection/PartiesScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="BottomBar" type="PanelContainer" parent="VBoxContainer"]
+custom_minimum_size = Vector2(0, 100)
+layout_mode = 2
+
+[node name="BottomBarBg" type="ColorRect" parent="VBoxContainer/BottomBar"]
+layout_mode = 2
+color = Color(0.2, 0.25, 0.3, 1)
+
+[node name="CenterContainer" type="CenterContainer" parent="VBoxContainer/BottomBar"]
+layout_mode = 2
+
+[node name="StartSessionButton" type="Button" parent="VBoxContainer/BottomBar/CenterContainer"]
+custom_minimum_size = Vector2(300, 60)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 0.8, 0.4, 1)
+theme_override_colors/font_hover_color = Color(0.3, 1, 0.5, 1)
+theme_override_font_sizes/font_size = 24
+text = "Start Session"
+
+[connection signal="pressed" from="VBoxContainer/TopMenu/HBoxContainer/BackButton" to="." method="_on_back_pressed"]
+[connection signal="pressed" from="VBoxContainer/ContentArea/MainContent/PartiesSection/PartiesHeader/AddPartyButton" to="." method="_on_add_party_pressed"]
+[connection signal="pressed" from="VBoxContainer/BottomBar/CenterContainer/StartSessionButton" to="." method="_on_start_session_pressed"]
