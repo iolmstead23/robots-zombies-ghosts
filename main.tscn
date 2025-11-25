@@ -1,8 +1,8 @@
 [gd_scene load_steps=16 format=4 uid="uid://c0ainp474es8e"]
 
 [ext_resource type="PackedScene" uid="uid://xmepjh2dfuwk" path="res://Robot/Player.tscn" id="1_0xm2m"]
-[ext_resource type="Script" uid="uid://de0cnd67yj7gq" path="res://main.gd" id="1_4c57u"]
-[ext_resource type="PackedScene" path="res://Robot/Player.tscn" id="1_0xm2m"]
+[ext_resource type="Script" path="res://main.gd" id="1_4c57u"]
+[ext_resource type="PackedScene" uid="uid://xmepjh2dfuwk" path="res://Robot/Player.tscn" id="1_0xm2m"]
 [ext_resource type="PackedScene" uid="uid://c0ajtsn61q85p" path="res://Environment/Terrain/Dirt/dirt.tscn" id="2_h2yge"]
 [ext_resource type="PackedScene" uid="uid://bhvhc1f11qh4e" path="res://Environment/Terrain/Stone/stone.tscn" id="3_1bvp3"]
 [ext_resource type="PackedScene" uid="uid://bmdgbb7lsxnxm" path="res://Environment/Dungeon Objects/Breakable/barrels.tscn" id="4_1bvp3"]
@@ -10,7 +10,7 @@
 [ext_resource type="Texture2D" uid="uid://dq3cucr1dt6m3" path="res://Environment/Walls/Stone/stone_wall.png" id="5_lquwl"]
 [ext_resource type="Script" uid="uid://1qwsahkorec1" path="res://Controller/session_controller.gd" id="7_272bh"]
 [ext_resource type="Script" uid="uid://2fuwvrwyidm8" path="res://Controller/hex_grid.gd" id="8_5vw27"]
-[ext_resource type="Script" path="res://Controller/HexGridNavmeshIntegration.gd" id="10_4c57u"]
+[ext_resource type="Script" uid="uid://fkrqlnuy3i8a" path="res://Controller/hex_grid_navmesh_integration.gd" id="10_4c57u"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_4c57u"]
 texture = ExtResource("4_kek77")
