@@ -1,16 +1,13 @@
-[gd_scene load_steps=16 format=4 uid="uid://c0ainp474es8e"]
+[gd_scene load_steps=14 format=4 uid="uid://c0ainp474es8e"]
 
 [ext_resource type="PackedScene" uid="uid://xmepjh2dfuwk" path="res://Robot/Player.tscn" id="1_0xm2m"]
-[ext_resource type="Script" path="res://main.gd" id="1_4c57u"]
-[ext_resource type="PackedScene" uid="uid://xmepjh2dfuwk" path="res://Robot/Player.tscn" id="1_0xm2m"]
+[ext_resource type="Script" uid="uid://de0cnd67yj7gq" path="res://main.gd" id="1_4c57u"]
 [ext_resource type="PackedScene" uid="uid://c0ajtsn61q85p" path="res://Environment/Terrain/Dirt/dirt.tscn" id="2_h2yge"]
 [ext_resource type="PackedScene" uid="uid://bhvhc1f11qh4e" path="res://Environment/Terrain/Stone/stone.tscn" id="3_1bvp3"]
 [ext_resource type="PackedScene" uid="uid://bmdgbb7lsxnxm" path="res://Environment/Dungeon Objects/Breakable/barrels.tscn" id="4_1bvp3"]
 [ext_resource type="Texture2D" uid="uid://c2d6dmjrnq6ls" path="res://Environment/Terrain/Dirt/dirt_floor.png" id="4_kek77"]
 [ext_resource type="Texture2D" uid="uid://dq3cucr1dt6m3" path="res://Environment/Walls/Stone/stone_wall.png" id="5_lquwl"]
 [ext_resource type="Script" uid="uid://1qwsahkorec1" path="res://Controller/session_controller.gd" id="7_272bh"]
-[ext_resource type="Script" uid="uid://2fuwvrwyidm8" path="res://Controller/hex_grid.gd" id="8_5vw27"]
-[ext_resource type="Script" uid="uid://fkrqlnuy3i8a" path="res://Controller/hex_grid_navmesh_integration.gd" id="10_4c57u"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_4c57u"]
 texture = ExtResource("4_kek77")
@@ -1322,13 +1319,14 @@ tile_map_data = PackedByteArray("AAAAAPz/AAABAAEAAAABAP3/AAABAAEAAAACAPz/AAABAAE
 position = Vector2(144, -180)
 drag_horizontal_enabled = true
 
-[node name="SessionController" type="Node" parent="." node_paths=PackedStringArray("navigation_region")]
+[node name="SessionController" type="Node" parent="." node_paths=PackedStringArray("navigation_region", "robot")]
 script = ExtResource("7_272bh")
 grid_width = 100
 grid_height = 100
 hex_size = 20.0
 navigation_region = NodePath("NavigationRegion2D")
 debug_mode = true
+robot = NodePath("../Robot Player")
 metadata/_custom_type_script = "uid://1qwsahkorec1"
 
 [node name="NavigationRegion2D" type="NavigationRegion2D" parent="SessionController"]
@@ -1346,20 +1344,5 @@ y_sort_enabled = true
 position = Vector2(0, 1)
 tile_map_data = PackedByteArray("AAABAPn/AAAFAAAAAAD///r/AAAFAAAAAAD9//v/AAAFAAAAAAD7//z/AAABAAAAAAD9//3/AAAGAAAAAAD///7/AAAGAAAAAAABAP//AAAGAAAAAAADAAAAAAAGAAAAAAAFAAEAAAACAAAAAAAHAAAAAAAAAAAAAAAJAP//AAAAAAAAAAALAP7/AAAAAAAAAAANAP3/AAAAAAAAAAARAPv/AAAAAAAAAAAPAPz/AAAAAAAAAAADAPj/AAAFAAAAAAAFAPf/AAAFAAAAAAAHAPb/AAAFAAAAAAAJAPX/AAADAAAAAAATAPr/AAAEAAAAAAALAPb/AAAHAAAAAAANAPf/AAAHAAAAAAAPAPj/AAAHAAAAAAARAPn/AAAHAAAAAAA=")
 tile_set = SubResource("TileSet_272bh")
-
-[node name="NavigationObstacle2D" type="NavigationObstacle2D" parent="SessionController/NavigationRegion2D/Walls"]
-
-[node name="HexGrid" type="Node" parent="."]
-script = ExtResource("8_5vw27")
-grid_width = 100
-grid_height = 100
-hex_size = 20.0
-metadata/_custom_type_script = "uid://2fuwvrwyidm8"
-
-[node name="HexNavmeshIntegration" type="Node" parent="." node_paths=PackedStringArray("hex_grid", "navigation_region")]
-script = ExtResource("10_4c57u")
-hex_grid = NodePath("../HexGrid")
-navigation_region = NodePath("../SessionController/NavigationRegion2D")
-metadata/_custom_type_script = "uid://cuw2i8bpxfaud"
 
 [editable path="SessionController/NavigationRegion2D/Barrels"]

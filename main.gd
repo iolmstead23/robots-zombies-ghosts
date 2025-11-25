@@ -1,123 +1,75 @@
 extends Node2D
 
-## Hexagonal Grid Navigation System with NavMesh Integration and Robot Control
+## Hexagonal Grid Navigation System - Signal-Based Architecture
+## This main script now delegates to SessionController and feature controllers
 
 @onready var session_controller: SessionController = $SessionController
 @onready var camera: Camera2D = $Camera2D
-@onready var robot: CharacterBody2D = $"Robot Player"  # Your robot player
+@onready var robot: CharacterBody2D = $"Robot Player"
 
-# Hex navigation components
-var hex_cell_selector: HexCellSelector
-var hex_path_visualizer: HexPathVisualizer
-var hex_robot_navigator: HexRobotNavigator
-var hex_path_tracker: HexPathTracker
-var hex_pathfinder: HexPathfinder
-
+# Track selected cell for visualization
 var selected_cell: HexCell = null
 
 func _ready() -> void:
+	print("\n" + "=".repeat(60))
+	print("MAIN.GD _ready() CALLED")
+	print("=".repeat(60))
+
+	# Check if SessionController exists
+	if not session_controller:
+		push_error("CRITICAL: SessionController not found!")
+		return
+
+	print("SessionController found: ", session_controller.name)
+
 	# Configure navmesh integration before initialization
 	var nav_region: NavigationRegion2D = $SessionController/NavigationRegion2D
 
 	if nav_region:
 		print("Found NavigationRegion2D")
 		session_controller.navigation_region = nav_region
-		session_controller.integrate_with_navmesh = true
+		session_controller.integrate_with_navmesh = true  # Grid dimensions auto-calculated from navmesh
 		session_controller.navmesh_sample_points = 5
-		print("Navmesh integration configured")
+		session_controller.robot = robot
+		print("Navmesh integration enabled")
 	else:
 		push_warning("NavigationRegion2D not found - integration disabled")
 
+	print("Waiting for session initialization...")
+
 	# Wait for session initialization
-	await session_controller.terrain_initialized
+	await session_controller.session_initialized
 
-	# Initialize hex navigation system
-	_setup_hex_navigation()
+	print("Session initialized signal received!")
 
-	# Diagnose sprite positions
-	print("\n" + "==============")
-	print("SPRITE POSITION DIAGNOSTIC")
-	print("==============")
-
-	var grid = session_controller.get_terrain()
-	print("Grid offset: ", grid.grid_offset)
-	print("Hex size: ", grid.hex_size)
-
-	# Check where hex cells are positioned
-	var sample_cell = grid.get_cell_at_coords(Vector2i(15, 15))
-	if sample_cell:
-		print("\nSample hex cell (15, 15):")
-		print("  World position: ", sample_cell.world_position)
-		print("  Enabled: ", sample_cell.enabled)
-
-	# Check actual floor sprite positions
-	var ground = get_node_or_null("Ground")
-	if ground and ground.get_child_count() > 0:
-		print("\nFloor sprites:")
-		for i in range(min(3, ground.get_child_count())):
-			var sprite = ground.get_child(i)
-			print("  Sprite %d: %s" % [i, sprite.global_position])
-			if sprite is Sprite2D:
-				print("    Offset: ", sprite.offset)
-				print("    Centered: ", sprite.centered)
-
-	print("\n" + "==============")
-	print("HEX NAVIGATION SYSTEM READY")
-	print("Click a hex cell to navigate the robot")
-	print("Press R to generate pathfinding report")
-	print("Press C to clear path history")
-	print("==============\n")
-
-func _setup_hex_navigation() -> void:
-	"""Initialize all hex navigation components"""
-	var grid = session_controller.get_terrain()
-
-	# Create pathfinder
-	hex_pathfinder = HexPathfinder.new()
-	hex_pathfinder.name = "HexPathfinder"
-	hex_pathfinder.hex_grid = grid
-	add_child(hex_pathfinder)
-
-	# Create cell selector
-	hex_cell_selector = HexCellSelector.new()
-	hex_cell_selector.name = "HexCellSelector"
-	hex_cell_selector.hex_grid = grid
-	hex_cell_selector.cell_selected.connect(_on_cell_selected)
-	add_child(hex_cell_selector)
-
-	# Create path visualizer
-	hex_path_visualizer = HexPathVisualizer.new()
-	hex_path_visualizer.name = "HexPathVisualizer"
-	hex_path_visualizer.hex_grid = grid
-	add_child(hex_path_visualizer)
+	# Connect to navigation controller signals for logging
+	var nav_controller = session_controller.get_navigation_controller()
+	if nav_controller:
+		nav_controller.navigation_started.connect(_on_navigation_started)
+		nav_controller.navigation_completed.connect(_on_navigation_completed)
+		nav_controller.navigation_failed.connect(_on_navigation_failed)
+		nav_controller.waypoint_reached.connect(_on_waypoint_reached)
+		nav_controller.path_found.connect(_on_path_found)
+		nav_controller.path_not_found.connect(_on_path_not_found)
 
 	# Add NavAgent2D follower to robot for automatic movement
 	var nav_follower = preload("res://Robot/Scripts/NavAgent2DFollower.gd").new()
 	nav_follower.name = "NavAgent2DFollower"
-	nav_follower.movement_speed = 100.0  # Adjust speed as needed
+	nav_follower.movement_speed = 100.0
 	robot.add_child(nav_follower)
 	nav_follower.activate()
 	print("NavAgent2DFollower added and activated on robot")
 
-	# Create robot navigator
-	hex_robot_navigator = HexRobotNavigator.new()
-	hex_robot_navigator.name = "HexRobotNavigator"
-	hex_robot_navigator.hex_grid = grid
-	hex_robot_navigator.hex_pathfinder = hex_pathfinder
-	hex_robot_navigator.robot = robot
-	hex_robot_navigator.waypoint_reach_distance = 15.0  # Slightly larger for smoother movement
-	hex_robot_navigator.navigation_started.connect(_on_navigation_started)
-	hex_robot_navigator.navigation_completed.connect(_on_navigation_completed)
-	hex_robot_navigator.navigation_failed.connect(_on_navigation_failed)
-	hex_robot_navigator.waypoint_reached.connect(_on_waypoint_reached)
-	add_child(hex_robot_navigator)
-
-	# Create path tracker
-	hex_path_tracker = HexPathTracker.new()
-	hex_path_tracker.name = "HexPathTracker"
-	add_child(hex_path_tracker)
-
-	print("Hex navigation components initialized")
+	print("\n" + "=".repeat(60))
+	print("HEX NAVIGATION SYSTEM READY - Signal-Based Architecture")
+	print("=".repeat(60))
+	print("Click a hex cell to navigate the robot")
+	print("Right-click to toggle cell enabled/disabled")
+	print("Press R to generate pathfinding report")
+	print("Press C to clear path history")
+	print("Press E to export path data to JSON")
+	print("Press F3 to toggle debug mode")
+	print("=".repeat(60) + "\n")
 
 func _input(event: InputEvent) -> void:
 	var grid: HexGrid = session_controller.get_terrain()
@@ -131,34 +83,15 @@ func _input(event: InputEvent) -> void:
 
 			# Left click - select cell and navigate
 			if event.button_index == MOUSE_BUTTON_LEFT:
-				print("\n=== CLICK DEBUG ===")
-				print("Mouse position (world): ", mouse_pos)
-				print("Camera position: ", camera.position)
-				print("Camera zoom: ", camera.zoom)
-				print("Grid offset: ", grid.grid_offset)
-
 				var cell := grid.get_cell_at_world_position(mouse_pos)
-
 				if cell:
-					var distance := mouse_pos.distance_to(cell.world_position)
-					print("Found cell: (%d, %d)" % [cell.q, cell.r])
-					print("  Cell center: ", cell.world_position)
-					print("  Distance: %.1f pixels" % distance)
-					if distance > 20:
-						print("  WARNING: Click is far from cell center!")
-
 					_handle_cell_click(cell)
-				else:
-					print("No cell found at click position")
-					var axial_coords := grid.world_position_to_axial(mouse_pos)
-					print("  Calculated axial coords: ", axial_coords)
-					print("  Grid bounds: (0,0) to (%d,%d)" % [grid.grid_width - 1, grid.grid_height - 1])
 
 			# Right click - toggle cell enabled/disabled
 			elif event.button_index == MOUSE_BUTTON_RIGHT:
 				var cell := grid.get_cell_at_world_position(mouse_pos)
 				if cell:
-					_toggle_cell(cell, grid)
+					_toggle_cell(cell)
 
 			# Camera zoom
 			elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
@@ -168,27 +101,37 @@ func _input(event: InputEvent) -> void:
 
 	# Keyboard shortcuts
 	if event is InputEventKey and event.pressed and not event.echo:
+		var nav_controller = session_controller.get_navigation_controller()
+		if not nav_controller:
+			return
+
 		# R - Generate pathfinding report
 		if event.keycode == KEY_R:
-			hex_path_tracker.print_report()
+			var tracker = nav_controller.get_path_tracker()
+			if tracker:
+				tracker.print_report()
+
 		# C - Clear path history
 		elif event.keycode == KEY_C:
-			hex_path_tracker.clear_history()
-			print("Path history cleared")
+			var tracker = nav_controller.get_path_tracker()
+			if tracker:
+				tracker.clear_history()
+				print("Path history cleared")
+
 		# E - Export path data to JSON
 		elif event.keycode == KEY_E:
-			var timestamp = Time.get_datetime_string_from_system().replace(":", "-")
-			var filename = "user://pathfinding_data_%s.json" % timestamp
-			hex_path_tracker.export_to_json(filename)
+			var tracker = nav_controller.get_path_tracker()
+			if tracker:
+				var timestamp = Time.get_datetime_string_from_system().replace(":", "-")
+				var filename = "user://pathfinding_data_%s.json" % timestamp
+				tracker.export_to_json(filename)
 
 func _handle_cell_click(cell: HexCell) -> void:
-	"""Handle clicking on a hex cell - select it and navigate robot to it"""
+	"""Handle clicking on a hex cell - request navigation via SessionController"""
 	print("\n" + "=".repeat(60))
-	print("HEX CELL SELECTION & NAVIGATION")
+	print("HEX CELL SELECTION & NAVIGATION REQUEST")
 	print("=".repeat(60))
 
-	# Select the cell
-	hex_cell_selector.select_cell(cell)
 	selected_cell = cell
 
 	print("\n--- Target Cell Info ---")
@@ -201,52 +144,29 @@ func _handle_cell_click(cell: HexCell) -> void:
 		print("=".repeat(60) + "\n")
 		return
 
-	# Get robot's current position
-	var robot_pos = robot.global_position
-	var start_cell = session_controller.get_terrain().get_cell_at_world_position(robot_pos)
-
-	if not start_cell:
-		print("\n❌ NAVIGATION BLOCKED: Robot is not on the grid!")
-		print("Robot Position: %s" % robot_pos)
-		print("=".repeat(60) + "\n")
-		return
-
 	print("\n--- Robot Current State ---")
-	print("Robot Position: %s" % robot_pos)
-	print("Current Cell: (%d, %d)" % [start_cell.q, start_cell.r])
-	print("Distance to Target: %d cells" % start_cell.distance_to(cell))
+	print("Robot Position: %s" % robot.global_position)
 
-	# Calculate path
-	print("\n--- Pathfinding ---")
-	var start_time = Time.get_ticks_msec()
-	var path = hex_pathfinder.find_path(start_cell, cell)
-	var duration = Time.get_ticks_msec() - start_time
-
-	print("Pathfinding Time: %.3f ms" % duration)
-	print("Path Found: %s" % ("Yes" if path.size() > 0 else "No"))
-
-	# Visualize the path
-	hex_path_visualizer.set_path(path)
-
-	# Log the path for tracking
-	hex_path_tracker.log_path(start_cell, cell, path, float(duration))
-
-	# Navigate the robot
-	if path.size() > 0:
-		print("\n--- Starting Navigation ---")
-		print("Path Length: %d cells" % path.size())
-		print("Movement Steps: %d" % (path.size() - 1))
-		print("✅ Robot navigation started!")
-		hex_robot_navigator.navigate_to_cell(cell)
-	else:
-		print("\n❌ NAVIGATION FAILED: No path found")
+	# Request navigation via SessionController (signal-based)
+	session_controller.navigate_to_position(cell.world_position)
 
 	print("=".repeat(60) + "\n")
 
-func _on_cell_selected(_cell: HexCell) -> void:
-	"""Called when a cell is selected"""
-	# This is now logged in _handle_cell_click with more detail
-	pass
+# ============================================================================
+# NAVIGATION CONTROLLER CALLBACKS
+# ============================================================================
+
+func _on_path_found(_start: HexCell, goal: HexCell, path: Array[HexCell], duration_ms: float) -> void:
+	print("\n--- Pathfinding Result ---")
+	print("Path Found: Yes")
+	print("Path Length: %d cells" % path.size())
+	print("Pathfinding Time: %.3f ms" % duration_ms)
+	print("Target: (%d, %d)" % [goal.q, goal.r])
+
+func _on_path_not_found(_start_pos: Vector2, _goal_pos: Vector2, reason: String) -> void:
+	print("\n--- Pathfinding Result ---")
+	print("Path Found: No")
+	print("Reason: %s" % reason)
 
 func _on_navigation_started(target_cell: HexCell) -> void:
 	"""Called when robot navigation starts"""
@@ -256,10 +176,12 @@ func _on_navigation_started(target_cell: HexCell) -> void:
 	print("Target Cell: (%d, %d)" % [target_cell.q, target_cell.r])
 	print("Target Position: %s" % target_cell.world_position)
 
-	var current_path = hex_robot_navigator.get_current_path()
-	if current_path.size() > 0:
-		print("Total Waypoints: %d" % current_path.size())
-		print("Remaining Distance: %d cells" % hex_robot_navigator.get_remaining_distance())
+	var nav_controller = session_controller.get_navigation_controller()
+	if nav_controller:
+		var current_path = nav_controller.get_current_path()
+		if current_path.size() > 0:
+			print("Total Waypoints: %d" % current_path.size())
+
 	print("█".repeat(60) + "\n")
 
 func _on_navigation_completed() -> void:
@@ -270,15 +192,12 @@ func _on_navigation_completed() -> void:
 	print("Robot Position: %s" % robot.global_position)
 
 	if selected_cell:
-		var final_cell = session_controller.get_terrain().get_cell_at_world_position(robot.global_position)
-		if final_cell:
-			print("Final Cell: (%d, %d)" % [final_cell.q, final_cell.r])
-			var distance_to_target = robot.global_position.distance_to(selected_cell.world_position)
-			print("Distance to Target Center: %.2f pixels" % distance_to_target)
-			if distance_to_target < 20:
-				print("🎯 Robot reached target accurately!")
-			else:
-				print("⚠️ Robot stopped %.2f pixels from target" % distance_to_target)
+		var distance_to_target = robot.global_position.distance_to(selected_cell.world_position)
+		print("Distance to Target Center: %.2f pixels" % distance_to_target)
+		if distance_to_target < 20:
+			print("🎯 Robot reached target accurately!")
+		else:
+			print("⚠️ Robot stopped %.2f pixels from target" % distance_to_target)
 
 	print("█".repeat(60) + "\n")
 
@@ -292,10 +211,10 @@ func _on_navigation_failed(reason: String) -> void:
 	print("█".repeat(60) + "\n")
 	push_warning("Navigation failed: %s" % reason)
 
-func _on_waypoint_reached(cell: HexCell, index: int) -> void:
+func _on_waypoint_reached(cell: HexCell, index: int, remaining: int) -> void:
 	"""Called when robot reaches each waypoint"""
-	var total_waypoints = hex_robot_navigator.get_current_path().size()
-	var remaining = hex_robot_navigator.get_remaining_distance()
+	var nav_controller = session_controller.get_navigation_controller()
+	var total_waypoints = nav_controller.get_current_path().size() if nav_controller else 0
 
 	print("📍 Waypoint %d/%d reached: (%d, %d) | %d cells remaining" % [
 		index + 1,
@@ -305,24 +224,29 @@ func _on_waypoint_reached(cell: HexCell, index: int) -> void:
 		remaining
 	])
 
+# ============================================================================
+# HELPER METHODS
+# ============================================================================
+
 func _get_world_mouse_position() -> Vector2:
 	var viewport_pos: Vector2 = get_viewport().get_mouse_position()
 	var canvas_transform: Transform2D = camera.get_canvas_transform()
 	return canvas_transform.affine_inverse() * viewport_pos
 
-func _toggle_cell(cell: HexCell, grid: HexGrid) -> void:
-	"""Toggle a cell between enabled and disabled"""
-	grid.set_cell_enabled(cell, not cell.enabled)
-	print("Cell (%d,%d) %s" % [cell.q, cell.r, "enabled" if cell.enabled else "disabled"])
+func _toggle_cell(cell: HexCell) -> void:
+	"""Toggle a cell between enabled and disabled via SessionController"""
+	var hex_grid_controller = session_controller.get_hex_grid_controller()
+	if not hex_grid_controller:
+		return
 
-	# Update visualization if a path is currently shown
-	if hex_path_visualizer.get_current_path().size() > 0:
-		# Recalculate path if it passes through the toggled cell
-		var current_path = hex_path_visualizer.get_current_path()
-		if cell in current_path:
-			print("Toggled cell is on current path - recalculating")
-			if selected_cell:
-				_handle_cell_click(selected_cell)
+	var coords = Vector2i(cell.q, cell.r)
+	hex_grid_controller.set_cell_enabled_requested.emit(coords, not cell.enabled)
+
+	print("Cell (%d,%d) %s" % [cell.q, cell.r, "enabled" if not cell.enabled else "disabled"])
+
+# ============================================================================
+# DEBUG VISUALIZATION
+# ============================================================================
 
 func _draw() -> void:
 	if not session_controller.debug_mode:
@@ -331,12 +255,14 @@ func _draw() -> void:
 	# Draw selection indicator if a cell is selected
 	if selected_cell:
 		var pos: Vector2 = selected_cell.world_position
-		var radius: float = session_controller.hex_grid.hex_size * 1.2
+		var grid = session_controller.get_terrain()
+		var radius: float = grid.hex_size * 1.2 if grid else 38.4
 		draw_circle(pos, radius, Color(1, 1, 0, 0.3))
 
 	# Draw navigation debug info
-	if hex_robot_navigator and hex_robot_navigator.is_navigation_active():
-		var current_path = hex_robot_navigator.get_current_path()
+	var nav_controller = session_controller.get_navigation_controller()
+	if nav_controller and nav_controller.is_navigation_active():
+		var current_path = nav_controller.get_current_path()
 
 		if current_path.size() > 0:
 			# Draw waypoint indicators
@@ -362,21 +288,9 @@ func _draw() -> void:
 				var text_pos = waypoint_pos - Vector2(4, -4)
 				draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color.WHITE)
 
-			# Draw line from robot to next waypoint
-			var next_waypoint_index = hex_robot_navigator.current_waypoint_index
-			if next_waypoint_index < current_path.size():
-				var next_waypoint = current_path[next_waypoint_index]
-				draw_line(robot.global_position, next_waypoint.world_position, Color(1, 0.5, 0, 0.8), 2.0)
-
-				# Draw distance text
-				var distance = robot.global_position.distance_to(next_waypoint.world_position)
-				var mid_point = (robot.global_position + next_waypoint.world_position) / 2
-				var font = ThemeDB.fallback_font
-				var text = "%.0f px" % distance
-				draw_string(font, mid_point, text, HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color.YELLOW)
-
 func _process(_delta: float) -> void:
 	# Continuous redraw if debug is enabled and we have navigation or selection
 	if session_controller.debug_mode:
-		if selected_cell or (hex_robot_navigator and hex_robot_navigator.is_navigation_active()):
+		var nav_controller = session_controller.get_navigation_controller()
+		if selected_cell or (nav_controller and nav_controller.is_navigation_active()):
 			queue_redraw()

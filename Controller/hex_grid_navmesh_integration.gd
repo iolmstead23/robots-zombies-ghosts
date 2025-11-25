@@ -51,19 +51,26 @@ func _retry_integration() -> void:
 func _process_all_cells() -> void:
 	var enabled_count := 0
 	var disabled_count := 0
-	
+	var cells_changed := 0
+
+	if OS.is_debug_build():
+		print("HexNavmeshIntegration: Processing %d cells with tolerance %.1f" % [
+			hex_grid.cells.size(), hex_grid.hex_size * 2.0
+		])
+
 	for cell in hex_grid.cells:
 		var navigable := _is_cell_navigable(cell)
 		if navigable != cell.enabled:
 			hex_grid.set_cell_enabled(cell, navigable)
-			if navigable:
-				enabled_count += 1
-			else:
-				disabled_count += 1
-	
+			cells_changed += 1
+		if navigable:
+			enabled_count += 1
+		else:
+			disabled_count += 1
+
 	if OS.is_debug_build():
-		print("HexNavmeshIntegration: Complete! Enabled: %d | Disabled: %d | Total: %d" % [
-			enabled_count, disabled_count, hex_grid.enabled_cells.size()
+		print("HexNavmeshIntegration: Complete! Changed: %d | Now enabled: %d | Now disabled: %d | Total cells: %d" % [
+			cells_changed, enabled_count, disabled_count, hex_grid.cells.size()
 		])
 
 func _emit_completion() -> void:
@@ -94,9 +101,31 @@ func _check_sample_points(cell: HexCell) -> bool:
 func _is_point_on_navmesh(point: Vector2) -> bool:
 	if not navigation_map.is_valid():
 		return false
-	
-	var closest := NavigationServer2D.map_get_closest_point(navigation_map, point)
-	return point.distance_to(closest) < 1.0
+
+	if not navigation_region or not navigation_region.navigation_polygon:
+		return false
+
+	var nav_poly := navigation_region.navigation_polygon
+	var local_point := point - navigation_region.global_position
+
+	# Check the BAKED navigation polygons (excludes obstacles)
+	# This checks the actual navigable areas after baking, not the input outlines
+	var vertices := nav_poly.get_vertices()
+	if vertices.size() == 0:
+		return false
+
+	for i in range(nav_poly.get_polygon_count()):
+		var polygon := nav_poly.get_polygon(i)
+		# Convert polygon indices to actual vertex positions
+		var polygon_points: PackedVector2Array = []
+		for vertex_index in polygon:
+			if vertex_index < vertices.size():
+				polygon_points.append(vertices[vertex_index])
+
+		if polygon_points.size() >= 3 and Geometry2D.is_point_in_polygon(local_point, polygon_points):
+			return true
+
+	return false
 
 func update_cell_at_position(world_pos: Vector2) -> void:
 	if not hex_grid:
