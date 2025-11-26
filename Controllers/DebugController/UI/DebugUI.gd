@@ -5,7 +5,7 @@ extends CanvasLayer
 
 # Reference to UI elements
 @onready var control: Control = $Control
-@onready var label: Label = $Control/Panel/MarginContainer/Label
+@onready var label: Label = $Control/Panel/MarginContainer/VBoxContainer/Label
 
 # Reference to controllers (will be set in _ready)
 var session_controller = null
@@ -58,6 +58,9 @@ func _find_session_controller(node: Node):
 
 func _on_debug_visibility_changed(should_be_visible: bool):
 	visible = should_be_visible
+	if should_be_visible:
+		_update_display()
+	print("DebugUI visibility changed: %s" % should_be_visible)
 
 func _on_debug_info_updated(_key: String, _value: Variant):
 	_update_display()
@@ -67,14 +70,55 @@ func _update_display():
 		return
 
 	var debug_data = debug_controller.get_all_debug_info()
-	var text = ""
+	var lines: Array[String] = []
 
-	# Format debug data for display
-	for key in debug_data:
-		var value = debug_data[key]
-		text += "%s: %s\n" % [key.capitalize(), str(value)]
+	# Header
+	lines.append("=== DEBUG INFO ===")
 
-	label.text = text.strip_edges()
+	# FPS (always show if available)
+	var fps = debug_data.get("fps")
+	if fps != null:
+		lines.append("FPS: %d" % fps)
+
+	# Grid Stats (compact format)
+	var grid_cells = debug_data.get("grid_cells")
+	var enabled_cells = debug_data.get("enabled_cells")
+	var disabled_cells = debug_data.get("disabled_cells")
+	if grid_cells != null:
+		lines.append("Grid: %d (%d/%d)" % [grid_cells, enabled_cells if enabled_cells != null else 0, disabled_cells if disabled_cells != null else 0])
+
+	# Navigation Status (compact)
+	var path_length = debug_data.get("path_length")
+	if path_length != null and path_length > 0:
+		lines.append("Path: %d cells" % path_length)
+
+	# Separator before cell info
+	lines.append("")
+	lines.append("--- HOVERED CELL ---")
+
+	# Hovered Cell Info
+	var cell_q = debug_data.get("hovered_cell_q")
+	var cell_r = debug_data.get("hovered_cell_r")
+	var cell_index = debug_data.get("hovered_cell_index")
+	var cell_enabled = debug_data.get("hovered_cell_enabled")
+
+	if cell_q != null and cell_r != null and cell_index != null and cell_enabled != null:
+		lines.append("Coords: (%d, %d) #%d" % [cell_q, cell_r, cell_index])
+		lines.append("State: %s" % ("Enabled" if cell_enabled else "Disabled"))
+
+		var world_pos = debug_data.get("hovered_cell_world_pos")
+		if world_pos != null:
+			lines.append("Pos: (%.0f, %.0f)" % [world_pos.x, world_pos.y])
+
+		# Show metadata if available
+		var metadata = debug_data.get("hovered_cell_metadata")
+		if metadata != null and metadata.size() > 0:
+			for key in metadata:
+				lines.append("%s: %s" % [key, str(metadata[key])])
+	else:
+		lines.append("None")
+
+	label.text = "\n".join(lines)
 
 func _process(_delta: float):
 	# Update FPS and other dynamic info every frame
@@ -83,5 +127,3 @@ func _process(_delta: float):
 
 	# Update FPS
 	debug_controller.update_debug_info_requested.emit("fps", Engine.get_frames_per_second())
-
-	# You can add other dynamic updates here if needed

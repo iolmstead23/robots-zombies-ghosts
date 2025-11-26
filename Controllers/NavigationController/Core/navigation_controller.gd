@@ -280,6 +280,10 @@ func _on_robot_navigation_started(target_cell: HexCell):
 	current_path = hex_robot_navigator.get_current_path()
 	current_target = target_cell
 
+	# Visualize the navigation path
+	if hex_path_visualizer and current_path.size() > 0:
+		hex_path_visualizer.set_path(current_path)
+
 	navigation_started.emit(target_cell)
 	_emit_navigation_state()
 
@@ -311,6 +315,11 @@ func _clear_navigation_state():
 	navigation_active = false
 	current_path = []
 	current_target = null
+
+	# Clear path visualization
+	if hex_path_visualizer:
+		hex_path_visualizer.clear_path()
+
 	_emit_navigation_state()
 
 # ============================================================================

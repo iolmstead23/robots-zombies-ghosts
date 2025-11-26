@@ -262,7 +262,6 @@ func _setup_debug_visualizations() -> void:
 		hex_grid_debug.name = "HexGridDebug"
 		hex_grid_debug.hex_grid = grid
 		hex_grid_debug.debug_enabled = debug_mode
-		hex_grid_debug.show_disabled_outlines = false
 		hex_grid_controller.add_child(hex_grid_debug)
 		debug_controller.set_hex_grid_debug(hex_grid_debug)
 

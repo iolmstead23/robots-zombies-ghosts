@@ -7,9 +7,9 @@ signal path_drawn(path: Array[HexCell])
 signal path_cleared()
 
 @export var hex_grid: HexGrid
-@export var path_color: Color = Color(0.0, 0.8, 1.0, 0.6)
-@export var path_outline_color: Color = Color(0.0, 0.6, 1.0, 1.0)
-@export var line_width: float = 5.0
+@export var path_color: Color = Color(0.0, 0.8, 1.0, 0.8)  # Cyan with higher opacity
+@export var path_outline_color: Color = Color(0.0, 0.8, 1.0, 1.0)  # Bright cyan
+@export var line_width: float = 2.0  # Thin line for path outline
 @export var show_arrows: bool = true
 @export var arrow_size: float = 10.0
 @export var show_cell_numbers: bool = true
@@ -17,18 +17,22 @@ signal path_cleared()
 
 var current_path: Array[HexCell] = []
 var path_statistics: Dictionary = {}
+var debug_enabled: bool = false
 
 func _ready() -> void:
 	z_index = 1  # Path visualization above objects
 
 func set_path(path: Array[HexCell]) -> void:
 	current_path = path.duplicate()
-	
+
 	if path.size() > 0:
 		_calculate_statistics()
 		path_drawn.emit(path)
+
+		# Always queue redraw - _draw() will check debug_enabled
+		print("HexPathVisualizer: Path set with %d cells | Debug: %s" % [path.size(), "ON" if debug_enabled else "OFF"])
 		queue_redraw()
-		
+
 		if OS.is_debug_build():
 			_print_path_info()
 	else:
@@ -38,6 +42,8 @@ func clear_path() -> void:
 	current_path.clear()
 	path_statistics.clear()
 	path_cleared.emit()
+
+	# Always redraw to clear any existing visualization
 	queue_redraw()
 
 func get_current_path() -> Array[HexCell]:
@@ -98,9 +104,20 @@ func _print_path_info() -> void:
 	])
 
 func _draw() -> void:
-	if current_path.size() < 2:
+	# Only draw path visualization in debug mode
+	if not debug_enabled:
+		if OS.is_debug_build() and current_path.size() > 0:
+			print("HexPathVisualizer: _draw() called but debug is OFF - not drawing %d cell path" % current_path.size())
 		return
-	
+
+	if current_path.size() < 2:
+		if OS.is_debug_build():
+			print("HexPathVisualizer: _draw() called but path too short (%d cells)" % current_path.size())
+		return
+
+	if OS.is_debug_build():
+		print("HexPathVisualizer: Drawing path with %d cells" % current_path.size())
+
 	_draw_path_lines()
 	_draw_cell_highlights()
 
@@ -148,9 +165,14 @@ func _draw_arrow(from: Vector2, to: Vector2) -> void:
 	var arrow_base := to - direction * arrow_size
 	var wing1 := arrow_base - direction * arrow_size + perpendicular * arrow_size * 0.5
 	var wing2 := arrow_base - direction * arrow_size - perpendicular * arrow_size * 0.5
-	
+
 	var arrow_points := PackedVector2Array([to, wing1, wing2])
 	draw_colored_polygon(arrow_points, path_outline_color)
+
+func set_debug_enabled(enabled: bool) -> void:
+	debug_enabled = enabled
+	print("HexPathVisualizer: Debug mode %s | Current path: %d cells" % ["ON" if enabled else "OFF", current_path.size()])
+	queue_redraw()
 
 func export_path_data() -> Dictionary:
 	var export_data := path_statistics.duplicate()

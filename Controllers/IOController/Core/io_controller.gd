@@ -32,6 +32,12 @@ signal hex_cell_left_clicked(cell: HexCell)
 ## Emitted when user right-clicks and a hex cell is found at that position
 signal hex_cell_right_clicked(cell: HexCell)
 
+## Emitted when mouse hovers over a different hex cell
+signal hex_cell_hovered(cell: HexCell)
+
+## Emitted when mouse is no longer hovering over any hex cell
+signal hex_cell_hover_ended()
+
 # ============================================================================
 # SIGNALS - Camera Input Events
 # ============================================================================
@@ -75,6 +81,13 @@ var viewport: Viewport
 
 ## Reference to hex grid for cell lookups
 var hex_grid: HexGrid
+
+# ============================================================================
+# HOVER STATE
+# ============================================================================
+
+## Currently hovered cell
+var _hovered_cell: HexCell = null
 
 # ============================================================================
 # LIFECYCLE
@@ -158,3 +171,30 @@ func _on_mouse_right_click(world_pos: Vector2) -> void:
 		var cell = hex_grid.get_cell_at_world_position(world_pos)
 		if cell:
 			hex_cell_right_clicked.emit(cell)
+
+# ============================================================================
+# HOVER DETECTION
+# ============================================================================
+
+func _process(_delta: float) -> void:
+	"""Track mouse hover over hex cells"""
+	if not hex_grid or not camera or not viewport:
+		return
+
+	# Get current mouse position in world coordinates
+	var mouse_pos = viewport.get_mouse_position()
+	var canvas_transform = camera.get_canvas_transform()
+	var world_pos = canvas_transform.affine_inverse() * mouse_pos
+
+	# Get the cell at current mouse position
+	var cell = hex_grid.get_cell_at_world_position(world_pos)
+
+	# Check if hovered cell changed
+	if cell != _hovered_cell:
+		if _hovered_cell != null:
+			hex_cell_hover_ended.emit()
+
+		_hovered_cell = cell
+
+		if _hovered_cell != null:
+			hex_cell_hovered.emit(_hovered_cell)

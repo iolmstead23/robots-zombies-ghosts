@@ -7,16 +7,14 @@ signal cell_selected(cell: HexCell)
 signal cell_deselected()
 
 @export var hex_grid: HexGrid
-@export var highlight_color: Color = Color(1.0, 1.0, 0.0, 0.5)
-@export var highlight_outline_color: Color = Color(1.0, 0.8, 0.0, 1.0)
-@export var outline_width: float = 3.0
-@export var pulse_enabled: bool = true
-@export var pulse_speed: float = 2.0
-@export var pulse_min_alpha: float = 0.3
-@export var pulse_max_alpha: float = 0.7
+@export var highlight_outline_color: Color = Color(0.0, 1.0, 1.0, 1.0)  # Bright cyan
+@export var disabled_highlight_color: Color = Color.RED
+@export var outline_width: float = 2.0
+@export var pulse_enabled: bool = false
 
 var selected_cell: HexCell = null
 var pulse_time: float = 0.0
+var pulse_speed: int = 2;
 
 func _ready() -> void:
 	z_index = 10
@@ -57,25 +55,15 @@ func get_selected_cell() -> HexCell:
 func _draw() -> void:
 	if not selected_cell or not hex_grid:
 		return
-	
+
 	var pos := selected_cell.world_position
 	var size := hex_grid.hex_size
-	var alpha_multiplier := _calculate_pulse_alpha()
-	
-	# Draw filled hexagon with pulsing transparency
-	var fill_color := highlight_color
-	fill_color.a = highlight_color.a * alpha_multiplier
-	_draw_hexagon(pos, size * 0.9, fill_color, true)
-	
-	# Draw outline (no pulse)
-	_draw_hexagon(pos, size * 0.95, highlight_outline_color, false)
 
-func _calculate_pulse_alpha() -> float:
-	if not pulse_enabled:
-		return 1.0
-	
-	var pulse_value := (sin(pulse_time) + 1.0) / 2.0
-	return lerp(pulse_min_alpha, pulse_max_alpha, pulse_value)
+	# Choose color based on cell enabled state
+	var outline_color := highlight_outline_color if selected_cell.enabled else disabled_highlight_color
+
+	# Draw outline only (no fill)
+	_draw_hexagon(pos, size * 0.95, outline_color, false)
 
 func _draw_hexagon(center: Vector2, radius: float, color: Color, filled: bool) -> void:
 	var points := PackedVector2Array()

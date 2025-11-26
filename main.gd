@@ -67,6 +67,9 @@ func _ready() -> void:
 	# Configure IOController with dependencies
 	_setup_io_controller()
 
+	# Setup DebugUI overlay
+	_setup_debug_ui()
+
 	print("\n" + "=".repeat(60))
 	print("HEX NAVIGATION SYSTEM READY - Signal-Based Architecture")
 	print("=".repeat(60))
@@ -122,6 +125,8 @@ func _setup_io_controller() -> void:
 	# Connect to IOController signals
 	io_controller.hex_cell_left_clicked.connect(_on_io_cell_left_clicked)
 	io_controller.hex_cell_right_clicked.connect(_on_io_cell_right_clicked)
+	io_controller.hex_cell_hovered.connect(_on_io_cell_hovered)
+	io_controller.hex_cell_hover_ended.connect(_on_io_cell_hover_ended)
 	io_controller.camera_zoom_in_requested.connect(_on_io_zoom_in)
 	io_controller.camera_zoom_out_requested.connect(_on_io_zoom_out)
 	io_controller.debug_report_requested.connect(_on_io_debug_report)
@@ -129,6 +134,27 @@ func _setup_io_controller() -> void:
 	io_controller.export_data_requested.connect(_on_io_export_data)
 
 	print("IOController configured and signals connected")
+
+func _setup_debug_ui() -> void:
+	"""Create and configure DebugUI overlay"""
+	# Check if DebugUI already exists in scene
+	var debug_ui = get_node_or_null("DebugUI")
+
+	# If not in scene, load and instance it
+	if not debug_ui:
+		print("DebugUI not found in scene - loading from scene file")
+		var debug_ui_scene = load("res://Controllers/DebugController/UI/DebugUI.tscn")
+		if debug_ui_scene:
+			debug_ui = debug_ui_scene.instantiate()
+			add_child(debug_ui)
+			print("DebugUI created and added to scene")
+		else:
+			push_error("Failed to load DebugUI.tscn")
+			return
+	else:
+		print("DebugUI found in scene tree")
+
+	print("DebugUI configured")
 
 # ============================================================================
 # IO CONTROLLER SIGNAL HANDLERS
@@ -141,6 +167,18 @@ func _on_io_cell_left_clicked(cell: HexCell) -> void:
 func _on_io_cell_right_clicked(cell: HexCell) -> void:
 	"""Handle right click on hex cell from IOController"""
 	_toggle_cell(cell)
+
+func _on_io_cell_hovered(cell: HexCell) -> void:
+	"""Handle hover on hex cell from IOController"""
+	var debug_controller = session_controller.get_debug_controller()
+	if debug_controller:
+		debug_controller.set_hovered_cell(cell)
+
+func _on_io_cell_hover_ended() -> void:
+	"""Handle hover end from IOController"""
+	var debug_controller = session_controller.get_debug_controller()
+	if debug_controller:
+		debug_controller.set_hovered_cell(null)
 
 func _on_io_zoom_in() -> void:
 	"""Handle zoom in request from IOController"""
@@ -293,50 +331,5 @@ func _toggle_cell(cell: HexCell) -> void:
 # ============================================================================
 # DEBUG VISUALIZATION
 # ============================================================================
-
-func _draw() -> void:
-	if not session_controller.debug_mode:
-		return
-
-	# Draw selection indicator if a cell is selected
-	if selected_cell:
-		var pos: Vector2 = selected_cell.world_position
-		var grid = session_controller.get_terrain()
-		var radius: float = grid.hex_size * 1.2 if grid else 38.4
-		draw_circle(pos, radius, Color(1, 1, 0, 0.3))
-
-	# Draw navigation debug info
-	var nav_controller = session_controller.get_navigation_controller()
-	if nav_controller and nav_controller.is_navigation_active():
-		var current_path = nav_controller.get_current_path()
-
-		if current_path.size() > 0:
-			# Draw waypoint indicators
-			for i in range(current_path.size()):
-				var cell = current_path[i]
-				var waypoint_pos = cell.world_position
-
-				# Different colors for different waypoints
-				var color: Color
-				if i == 0:
-					color = Color(0, 1, 0, 0.5)  # Green for start
-				elif i == current_path.size() - 1:
-					color = Color(1, 0, 0, 0.7)  # Red for target
-				else:
-					color = Color(0, 0.8, 1, 0.4)  # Cyan for intermediate
-
-				# Draw waypoint circle
-				draw_circle(waypoint_pos, 8, color)
-
-				# Draw waypoint number
-				var font = ThemeDB.fallback_font
-				var text = str(i)
-				var text_pos = waypoint_pos - Vector2(4, -4)
-				draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color.WHITE)
-
-func _process(_delta: float) -> void:
-	# Continuous redraw if debug is enabled and we have navigation or selection
-	if session_controller.debug_mode:
-		var nav_controller = session_controller.get_navigation_controller()
-		if selected_cell or (nav_controller and nav_controller.is_navigation_active()):
-			queue_redraw()
+# Note: Path visualization is now handled by HexPathVisualizer in NavigationController
+# This respects debug mode settings and avoids duplicate rendering

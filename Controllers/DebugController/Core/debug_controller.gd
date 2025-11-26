@@ -14,6 +14,9 @@ signal debug_visibility_changed(visible: bool)
 ## Emitted when specific debug info is updated
 signal debug_info_updated(key: String, value: Variant)
 
+## Emitted when hovered cell changes
+signal hovered_cell_changed(cell: HexCell)
+
 # ============================================================================
 # SIGNALS - Commands (Received from SessionController or UI)
 # ============================================================================
@@ -44,8 +47,9 @@ signal on_navigation_state_changed(nav_data: Dictionary)
 # STATE
 # ============================================================================
 
-var debug_visible: bool = true
+var debug_visible: bool = false  # Default to hidden to match SessionController
 var debug_data: Dictionary = {}
+var hovered_cell: HexCell = null
 
 # Visualization components (will be set by SessionController)
 var hex_grid_debug: HexGridDebug = null
@@ -136,6 +140,9 @@ func set_debug_visibility(visible: bool):
 	if hex_grid_debug:
 		hex_grid_debug.set_debug_enabled(visible)
 
+	if hex_path_visualizer:
+		hex_path_visualizer.set_debug_enabled(visible)
+
 	debug_visibility_changed.emit(debug_visible)
 
 func update_debug_info(key: String, value: Variant):
@@ -159,3 +166,39 @@ func set_hex_grid_debug(debug_node: HexGridDebug):
 
 func set_hex_path_visualizer(visualizer: HexPathVisualizer):
 	hex_path_visualizer = visualizer
+	if hex_path_visualizer:
+		hex_path_visualizer.set_debug_enabled(debug_visible)
+
+# ============================================================================
+# HOVERED CELL MANAGEMENT
+# ============================================================================
+
+func set_hovered_cell(cell: HexCell) -> void:
+	"""Update the currently hovered cell"""
+	if hovered_cell != cell:
+		hovered_cell = cell
+		hovered_cell_changed.emit(cell)
+
+		# Update debug data with cell information
+		if cell:
+			update_debug_info("hovered_cell_q", cell.q)
+			update_debug_info("hovered_cell_r", cell.r)
+			update_debug_info("hovered_cell_index", cell.index)
+			update_debug_info("hovered_cell_enabled", cell.enabled)
+			update_debug_info("hovered_cell_world_pos", cell.world_position)
+
+			# Add metadata if available
+			if cell.metadata.size() > 0:
+				update_debug_info("hovered_cell_metadata", cell.metadata)
+		else:
+			# Clear hovered cell info
+			update_debug_info("hovered_cell_q", null)
+			update_debug_info("hovered_cell_r", null)
+			update_debug_info("hovered_cell_index", null)
+			update_debug_info("hovered_cell_enabled", null)
+			update_debug_info("hovered_cell_world_pos", null)
+			update_debug_info("hovered_cell_metadata", null)
+
+func get_hovered_cell() -> HexCell:
+	"""Get the currently hovered cell"""
+	return hovered_cell
