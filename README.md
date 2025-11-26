@@ -4,75 +4,60 @@ Battle Arena: Robots & Zombies & Ghosts is an interactive 2D isometric arena env
 
 The arena acts as both a testing ground for novel decision-making models and a data collection pipeline. Agents interact with the environment autonomously while their performance metrics, movement patterns, combat decisions, and strategic choices are recorded for analysis and model refinement. This creates a feedback loop where each iteration of training produces increasingly sophisticated agent behaviors.
 
-## Purpose & Goals
+# Hexagonal Grid Navigation System
 
-**Core Objectives:**
+## Developer Branch Overview
 
-The primary goal is to create a decision modeling laboratory where different AI architectures and training methodologies can be tested in a dynamic, adversarial environment. By simulating repeated combat scenarios and agent interactions, the system generates high-quality, structured datasets that feed back into supervised and reinforcement learning pipelines. This enables rapid experimentation with novel agent designs while collecting empirical evidence about what makes effective autonomous decision-making systems.
+This feature branch implements a robust hexagonal grid-based navigation system for a 2D isometric robot shooter built in Godot 4.5. The primary objective is to replace the existing linear pathfinding system with a comprehensive hex-grid solution that provides improved spatial navigation and clearer movement mechanics for robotic units.
 
-**Key Use Cases:**
+## Core Architecture
 
-The arena supports multiple learning workflows. Reinforcement learning agents can be trained through self-play and environmental interaction, learning optimal policies without explicit direction. Simultaneously, human players can take direct control to generate supervised learning datasets—recording decision sequences, agent state information, and outcomes to train behavior cloning or imitation learning models. This hybrid approach allows both automated learning and human-guided data generation to coexist within the same environment.
+The navigation system is built around three primary controllers that work in concert to manage the grid, pathfinding, and game state synchronization.
 
-**Vision:**
+### Session Controller
 
-The end state is an endless, continuously-learning arena where agents progressively improve through cumulative training experiences. As models improve, they generate better training data, which in turn produces stronger agents in subsequent training runs—creating a virtuous cycle of iterative development and model refinement.
+The Session Controller serves as the orchestrator for the global navigation session. It maintains synchronization between the overall game state and the navigation requirements, ensuring that all systems remain coordinated as the game progresses.
 
-## Features
+### Navigation Controller
 
-**Dynamic Arena Environment** — A procedurally-varied terrain where autonomous agents spawn, navigate, and engage in strategic combat. The environment records all agent actions, state transitions, and outcomes to create rich behavioral datasets.
+The Navigation Controller handles the creation and management of the hexagonal grid overlay. This includes initializing the grid at game start, performing runtime updates when necessary, and coordinating with the pathfinding system to facilitate unit movement across the game world.
 
-**Reinforcement Learning Pipeline** — Agents learn through environmental interaction using RL algorithms. The baseline training system rewards agents for successful combat outcomes, resource efficiency, and strategic positioning, creating incentives for increasingly sophisticated behavior.
+### Terrain Controller
 
-**Manual Control System** — Players can assume direct control of agents to generate structured supervised learning data. This allows collection of human-guided decision sequences that can be used for behavior cloning or policy distillation.
+The Terrain Controller takes responsibility for grid initialization and state management. It monitors the environment continuously, tracking static obstacle placement and removal to keep the grid representation accurate. The controller ensures that the hexagonal grid remains synchronized with the actual terrain and obstacles present in the level.
 
-**Comprehensive Data Logging** — Real-time collection of agent statistics including health, position, action sequences, engagement metrics, and combat outcomes. All data is timestamped and structured for downstream analysis and model training.
+## Hexagonal Grid Design
 
-**Iterative Training Architecture** — The system is designed for repeated training cycles where each generation of agents learns from the experiences of previous generations, enabling continuous improvement and emergent behavior development.
+The navigation system uses a regular hexagonal grid overlaid on top of the existing navigation and collision meshes. Each hexagonal cell measures 2 meters across, aligning perfectly with in-game spatial units to provide consistent movement calculations.
 
-**Multi-Agent Interactions** — Support for diverse agent types (robots, ghosts, zombies) with different capabilities, creating varied scenarios for testing decision-making robustness across different contexts and agent architectures.
+### Cell State Management
 
-## How It Works
+Every cell in the grid maintains a simple enabled or disabled state. Enabled cells represent navigable, clear areas free from static obstacles, while disabled cells indicate positions occupied by walls, barrels, or other impassable objects. This binary state system was chosen deliberately for performance optimization and code clarity, avoiding the complexity of multi-attribute cell systems.
 
-**Gameplay Loop:**
+### Grid Enablement Logic
 
-Agents are spawned into the arena with initial parameters and begin autonomous decision-making. They navigate the terrain, encounter other agents, and engage in combat according to their learned policies or programmed behaviors. All meaningful events—movement, engagement, resource usage, state changes—are logged with metadata for later analysis.
+The system determines cell states based on their position relative to the navigation mesh and static obstacles. Cells are marked as enabled only when they fall within clear, traversable areas of the navigation mesh. Any cell overlapping with static, non-traversable obstacles is automatically disabled. All pathfinding operations respect these cell states, restricting movement exclusively to enabled cells.
 
-**Data Generation:**
+## Visual Rendering
 
-Each session generates structured datasets containing agent telemetry. For autonomous agents, this data includes state observations, actions taken, and outcomes—the perfect format for reinforcement learning or imitation learning. When players take manual control, their decision sequences become high-quality supervised learning examples.
+The grid visualization system renders thin, clearly-visible outlines around enabled cells only. Disabled cells remain invisible, creating a clean visual representation that highlights available movement paths without cluttering the screen with blocked areas. This rendering approach supports both debugging during development and gameplay readability for players.
 
-**Training Integration:**
+## Pathfinding Implementation
 
-Collected data feeds into model training pipelines. Reinforcement learning updates improve agent policies based on reward signals from the arena. Supervised learning models capture human expertise or previously-successful agent behaviors. These improved models then generate the next generation of agents, creating a continuous improvement cycle.
+The pathfinding system leverages Godot's built-in AStarGrid and AStarNode classes exclusively. This approach takes full advantage of the engine's highly optimized, well-tested navigation features rather than introducing custom algorithms. The hex grid serves as the primary navigation structure, completely replacing the previous linear or segmented pathfinding approach.
 
-**Progressive Enhancement:**
+Robot units are constrained to move only through enabled hexagonal cells. Obstacle avoidance is handled inherently through the grid's enabled/disabled state system, eliminating the need for additional runtime collision checks during pathfinding operations.
 
-As training progresses, agents should demonstrate increasingly sophisticated behaviors. Early generations may exhibit simple heuristics; later generations develop nuanced strategies, adaptive responses, and emergent behaviors that arise from cumulative learning experiences.
+## Development Philosophy
 
-## Technical Stack
+This branch emphasizes using Godot's native navigation capabilities to their fullest extent. The architecture deliberately avoids redundant or custom pathfinding code for core navigation functionality, relying instead on the engine's robust built-in systems for maximum performance and reliability.
 
-Built in **Godot Engine** using **GDScript** for game logic and agent systems. The architecture emphasizes modularity and extensibility, with separated concerns for agent controllers, physics and collision systems, animation state management, and data logging pipelines. This design allows for rapid iteration on agent designs and easy integration of different decision-making systems.
+The system is designed with extensibility in mind. While the current implementation focuses on static obstacle navigation, the architecture readily supports future enhancements such as dynamic obstacle detection, real-time grid updates, and specialized UI overlays for player feedback.
 
 ## Getting Started
 
-### Prerequisites
+Begin by pulling this feature branch and familiarizing yourself with the SessionController, NavigationController, and TerrainController scripts. Ensure that all obstacles in your test levels are properly marked as static objects, as this designation is critical for accurate grid generation and cell state determination.
 
-- Godot Engine (version 4.5+)
-
-### Installation
-
-1. Clone the repository: `git clone https://github.com/iolmstead23/robots-zombies-ghosts.git`
-2. Open the project in Godot Engine
-
-## Contributing & Experimentation
-
-This project is designed as an experimental platform. You are encouraged to:
-
-- Implement new agent decision architectures and test their performance
-- Design novel reward structures to shape agent behavior
-- Collect data under different arena configurations and analyze patterns
-- Integrate different machine learning frameworks for training
-- Experiment with multi-agent dynamics and emergent behaviors
+Test the navigation system by observing the grid overlay during gameplay. The visual representation should clearly show enabled cells forming paths through the environment, with disabled cells remaining invisible around obstacles. Validate that pathfinding operates correctly across all enabled cells and that units respect the hexagonal movement constraints.
 
 *Zombies & Ghosts & Robots is part of Third Eye Consulting's ongoing research into autonomous decision-making systems and practical applications of reinforcement learning in complex environments.*

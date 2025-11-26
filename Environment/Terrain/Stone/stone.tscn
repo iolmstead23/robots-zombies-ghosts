@@ -16,6 +16,6 @@ tile_size = Vector2i(128, 64)
 sources/0 = SubResource("TileSetAtlasSource_8o1bp")
 
 [node name="Stone" type="TileMapLayer"]
-z_index = 1
+z_index = -10
 y_sort_enabled = true
 tile_set = SubResource("TileSet_7qy1n")
