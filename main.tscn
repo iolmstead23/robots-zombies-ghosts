@@ -7,7 +7,7 @@
 [ext_resource type="PackedScene" uid="uid://bmdgbb7lsxnxm" path="res://Environment/Dungeon Objects/Breakable/barrels.tscn" id="4_1bvp3"]
 [ext_resource type="Texture2D" uid="uid://c2d6dmjrnq6ls" path="res://Environment/Terrain/Dirt/dirt_floor.png" id="4_kek77"]
 [ext_resource type="Texture2D" uid="uid://dq3cucr1dt6m3" path="res://Environment/Walls/Stone/stone_wall.png" id="5_lquwl"]
-[ext_resource type="Script" uid="uid://1qwsahkorec1" path="res://Controller/session_controller.gd" id="7_272bh"]
+[ext_resource type="Script" uid="uid://1qwsahkorec1" path="res://Controllers/SessionController/Core/session_controller.gd" id="7_272bh"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_4c57u"]
 texture = ExtResource("4_kek77")

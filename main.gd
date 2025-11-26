@@ -53,7 +53,7 @@ func _ready() -> void:
 		nav_controller.path_not_found.connect(_on_path_not_found)
 
 	# Add NavAgent2D follower to robot for automatic movement
-	var nav_follower = preload("res://Robot/Scripts/NavAgent2DFollower.gd").new()
+	var nav_follower = preload("res://Controllers/NavigationController/RobotNavigation/NavAgent2DFollower.gd").new()
 	nav_follower.name = "NavAgent2DFollower"
 	nav_follower.movement_speed = 100.0
 	robot.add_child(nav_follower)
