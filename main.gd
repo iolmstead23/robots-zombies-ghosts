@@ -2,10 +2,14 @@ extends Node2D
 
 ## Hexagonal Grid Navigation System - Signal-Based Architecture
 ## This main script now delegates to SessionController and feature controllers
+## Input handling is managed by IOController with signal-based communication
 
 @onready var session_controller: SessionController = $SessionController
 @onready var camera: Camera2D = $Camera2D
 @onready var robot: CharacterBody2D = $"Robot Player"
+
+# IOController - will be created programmatically if not in scene
+var io_controller: IOController
 
 # Track selected cell for visualization
 var selected_cell: HexCell = null
@@ -60,6 +64,9 @@ func _ready() -> void:
 	nav_follower.activate()
 	print("NavAgent2DFollower added and activated on robot")
 
+	# Configure IOController with dependencies
+	_setup_io_controller()
+
 	print("\n" + "=".repeat(60))
 	print("HEX NAVIGATION SYSTEM READY - Signal-Based Architecture")
 	print("=".repeat(60))
@@ -71,60 +78,104 @@ func _ready() -> void:
 	print("Press F3 to toggle debug mode")
 	print("=".repeat(60) + "\n")
 
-func _input(event: InputEvent) -> void:
+func _setup_io_controller() -> void:
+	"""Configure IOController with necessary dependencies and connect signals"""
+	# Check if IOController exists in scene tree
+	io_controller = get_node_or_null("IOController")
+
+	# If not in scene, create it programmatically
+	if not io_controller:
+		print("IOController not found in scene - creating programmatically")
+		io_controller = preload("res://Controllers/IOController/Core/io_controller.gd").new()
+		io_controller.name = "IOController"
+		add_child(io_controller)
+
+		# Create and add input handler components
+		var mouse_handler = preload("res://Controllers/IOController/Input/MouseInputHandler.gd").new()
+		mouse_handler.name = "MouseInputHandler"
+		io_controller.add_child(mouse_handler)
+
+		var keyboard_handler = preload("res://Controllers/IOController/Input/KeyboardInputHandler.gd").new()
+		keyboard_handler.name = "KeyboardInputHandler"
+		io_controller.add_child(keyboard_handler)
+
+		var camera_handler = preload("res://Controllers/IOController/Input/CameraInputHandler.gd").new()
+		camera_handler.name = "CameraInputHandler"
+		io_controller.add_child(camera_handler)
+
+		# Set dependencies directly on mouse handler (timing fix)
+		mouse_handler.set_camera(camera)
+		mouse_handler.set_viewport(get_viewport())
+
+		print("IOController and input handlers created")
+	else:
+		print("IOController found in scene tree")
+
+	# Set dependencies for IOController
+	io_controller.set_camera(camera)
+	io_controller.set_viewport(get_viewport())
+
 	var grid: HexGrid = session_controller.get_terrain()
-	if not grid:
-		return
+	if grid:
+		io_controller.set_hex_grid(grid)
 
-	# Handle mouse clicks
-	if event is InputEventMouseButton:
-		if event.pressed:
-			var mouse_pos: Vector2 = _get_world_mouse_position()
+	# Connect to IOController signals
+	io_controller.hex_cell_left_clicked.connect(_on_io_cell_left_clicked)
+	io_controller.hex_cell_right_clicked.connect(_on_io_cell_right_clicked)
+	io_controller.camera_zoom_in_requested.connect(_on_io_zoom_in)
+	io_controller.camera_zoom_out_requested.connect(_on_io_zoom_out)
+	io_controller.debug_report_requested.connect(_on_io_debug_report)
+	io_controller.clear_history_requested.connect(_on_io_clear_history)
+	io_controller.export_data_requested.connect(_on_io_export_data)
 
-			# Left click - select cell and navigate
-			if event.button_index == MOUSE_BUTTON_LEFT:
-				var cell := grid.get_cell_at_world_position(mouse_pos)
-				if cell:
-					_handle_cell_click(cell)
+	print("IOController configured and signals connected")
 
-			# Right click - toggle cell enabled/disabled
-			elif event.button_index == MOUSE_BUTTON_RIGHT:
-				var cell := grid.get_cell_at_world_position(mouse_pos)
-				if cell:
-					_toggle_cell(cell)
+# ============================================================================
+# IO CONTROLLER SIGNAL HANDLERS
+# ============================================================================
 
-			# Camera zoom
-			elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
-				camera.zoom *= 1.1
-			elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-				camera.zoom *= 0.9
+func _on_io_cell_left_clicked(cell: HexCell) -> void:
+	"""Handle left click on hex cell from IOController"""
+	_handle_cell_click(cell)
 
-	# Keyboard shortcuts
-	if event is InputEventKey and event.pressed and not event.echo:
-		var nav_controller = session_controller.get_navigation_controller()
-		if not nav_controller:
-			return
+func _on_io_cell_right_clicked(cell: HexCell) -> void:
+	"""Handle right click on hex cell from IOController"""
+	_toggle_cell(cell)
 
-		# R - Generate pathfinding report
-		if event.keycode == KEY_R:
-			var tracker = nav_controller.get_path_tracker()
-			if tracker:
-				tracker.print_report()
+func _on_io_zoom_in() -> void:
+	"""Handle zoom in request from IOController"""
+	camera.zoom *= 1.1
 
-		# C - Clear path history
-		elif event.keycode == KEY_C:
-			var tracker = nav_controller.get_path_tracker()
-			if tracker:
-				tracker.clear_history()
-				print("Path history cleared")
+func _on_io_zoom_out() -> void:
+	"""Handle zoom out request from IOController"""
+	camera.zoom *= 0.9
 
-		# E - Export path data to JSON
-		elif event.keycode == KEY_E:
-			var tracker = nav_controller.get_path_tracker()
-			if tracker:
-				var timestamp = Time.get_datetime_string_from_system().replace(":", "-")
-				var filename = "user://pathfinding_data_%s.json" % timestamp
-				tracker.export_to_json(filename)
+func _on_io_debug_report() -> void:
+	"""Handle debug report request from IOController"""
+	var nav_controller = session_controller.get_navigation_controller()
+	if nav_controller:
+		var tracker = nav_controller.get_path_tracker()
+		if tracker:
+			tracker.print_report()
+
+func _on_io_clear_history() -> void:
+	"""Handle clear history request from IOController"""
+	var nav_controller = session_controller.get_navigation_controller()
+	if nav_controller:
+		var tracker = nav_controller.get_path_tracker()
+		if tracker:
+			tracker.clear_history()
+			print("Path history cleared")
+
+func _on_io_export_data() -> void:
+	"""Handle export data request from IOController"""
+	var nav_controller = session_controller.get_navigation_controller()
+	if nav_controller:
+		var tracker = nav_controller.get_path_tracker()
+		if tracker:
+			var timestamp = Time.get_datetime_string_from_system().replace(":", "-")
+			var filename = "user://pathfinding_data_%s.json" % timestamp
+			tracker.export_to_json(filename)
 
 func _handle_cell_click(cell: HexCell) -> void:
 	"""Handle clicking on a hex cell - request navigation via SessionController"""
@@ -227,11 +278,6 @@ func _on_waypoint_reached(cell: HexCell, index: int, remaining: int) -> void:
 # ============================================================================
 # HELPER METHODS
 # ============================================================================
-
-func _get_world_mouse_position() -> Vector2:
-	var viewport_pos: Vector2 = get_viewport().get_mouse_position()
-	var canvas_transform: Transform2D = camera.get_canvas_transform()
-	return canvas_transform.affine_inverse() * viewport_pos
 
 func _toggle_cell(cell: HexCell) -> void:
 	"""Toggle a cell between enabled and disabled via SessionController"""

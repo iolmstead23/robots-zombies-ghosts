@@ -1,0 +1,160 @@
+extends Node
+class_name IOController
+
+## IOController - Central Input/Output Management System
+##
+## Atomized input handling that separates concerns and uses signals
+## for loose coupling with other game systems.
+##
+## Architecture:
+## - Mouse input handled by MouseInputHandler component
+## - Keyboard input handled by KeyboardInputHandler component
+## - Camera input handled by CameraInputHandler component
+## - Each component emits specific signals that this controller relays
+##
+## Usage:
+## Connect to the signals below from other controllers/systems
+## to respond to user input events.
+
+# ============================================================================
+# SIGNALS - Mouse Input Events
+# ============================================================================
+
+## Emitted when user left-clicks on a world position
+signal world_position_left_clicked(world_pos: Vector2)
+
+## Emitted when user right-clicks on a world position
+signal world_position_right_clicked(world_pos: Vector2)
+
+## Emitted when user left-clicks and a hex cell is found at that position
+signal hex_cell_left_clicked(cell: HexCell)
+
+## Emitted when user right-clicks and a hex cell is found at that position
+signal hex_cell_right_clicked(cell: HexCell)
+
+# ============================================================================
+# SIGNALS - Camera Input Events
+# ============================================================================
+
+## Emitted when user scrolls mouse wheel up (zoom in)
+signal camera_zoom_in_requested()
+
+## Emitted when user scrolls mouse wheel down (zoom out)
+signal camera_zoom_out_requested()
+
+# ============================================================================
+# SIGNALS - Keyboard Input Events (Debug/Shortcuts)
+# ============================================================================
+
+## Emitted when user presses R key (pathfinding report)
+signal debug_report_requested()
+
+## Emitted when user presses C key (clear path history)
+signal clear_history_requested()
+
+## Emitted when user presses E key (export path data)
+signal export_data_requested()
+
+# ============================================================================
+# COMPONENT REFERENCES
+# ============================================================================
+
+var mouse_handler: Node
+var keyboard_handler: Node
+var camera_handler: Node
+
+# ============================================================================
+# DEPENDENCIES
+# ============================================================================
+
+## Reference to camera for mouse position calculations
+var camera: Camera2D
+
+## Reference to viewport for mouse position calculations
+var viewport: Viewport
+
+## Reference to hex grid for cell lookups
+var hex_grid: HexGrid
+
+# ============================================================================
+# LIFECYCLE
+# ============================================================================
+
+func _ready() -> void:
+	# Components will be added as children and auto-initialize
+	_connect_component_signals()
+
+	print("IOController initialized")
+
+func _connect_component_signals() -> void:
+	"""Connect to child component signals"""
+	# Wait for children to be ready
+	await get_tree().process_frame
+
+	# Find and connect mouse handler
+	mouse_handler = get_node_or_null("MouseInputHandler")
+	if mouse_handler:
+		mouse_handler.left_click_at_position.connect(_on_mouse_left_click)
+		mouse_handler.right_click_at_position.connect(_on_mouse_right_click)
+		print("IOController: MouseInputHandler connected")
+
+	# Find and connect keyboard handler
+	keyboard_handler = get_node_or_null("KeyboardInputHandler")
+	if keyboard_handler:
+		keyboard_handler.report_key_pressed.connect(func(): debug_report_requested.emit())
+		keyboard_handler.clear_key_pressed.connect(func(): clear_history_requested.emit())
+		keyboard_handler.export_key_pressed.connect(func(): export_data_requested.emit())
+		print("IOController: KeyboardInputHandler connected")
+
+	# Find and connect camera handler
+	camera_handler = get_node_or_null("CameraInputHandler")
+	if camera_handler:
+		camera_handler.zoom_in_requested.connect(func(): camera_zoom_in_requested.emit())
+		camera_handler.zoom_out_requested.connect(func(): camera_zoom_out_requested.emit())
+		print("IOController: CameraInputHandler connected")
+
+# ============================================================================
+# CONFIGURATION
+# ============================================================================
+
+func set_camera(new_camera: Camera2D) -> void:
+	"""Set the camera reference for mouse position calculations"""
+	camera = new_camera
+	if mouse_handler and mouse_handler.has_method("set_camera"):
+		mouse_handler.set_camera(new_camera)
+
+func set_viewport(new_viewport: Viewport) -> void:
+	"""Set the viewport reference for mouse position calculations"""
+	viewport = new_viewport
+	if mouse_handler and mouse_handler.has_method("set_viewport"):
+		mouse_handler.set_viewport(new_viewport)
+
+func set_hex_grid(grid: HexGrid) -> void:
+	"""Set the hex grid reference for cell lookups"""
+	hex_grid = grid
+	if mouse_handler and mouse_handler.has_method("set_hex_grid"):
+		mouse_handler.set_hex_grid(grid)
+
+# ============================================================================
+# SIGNAL HANDLERS - Route component signals to IOController signals
+# ============================================================================
+
+func _on_mouse_left_click(world_pos: Vector2) -> void:
+	"""Handle left click from mouse handler"""
+	world_position_left_clicked.emit(world_pos)
+
+	# Check if position intersects with a hex cell
+	if hex_grid:
+		var cell = hex_grid.get_cell_at_world_position(world_pos)
+		if cell:
+			hex_cell_left_clicked.emit(cell)
+
+func _on_mouse_right_click(world_pos: Vector2) -> void:
+	"""Handle right click from mouse handler"""
+	world_position_right_clicked.emit(world_pos)
+
+	# Check if position intersects with a hex cell
+	if hex_grid:
+		var cell = hex_grid.get_cell_at_world_position(world_pos)
+		if cell:
+			hex_cell_right_clicked.emit(cell)
