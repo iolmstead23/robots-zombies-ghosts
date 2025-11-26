@@ -19,7 +19,7 @@ var current_path: Array[HexCell] = []
 var path_statistics: Dictionary = {}
 
 func _ready() -> void:
-	z_index = 5
+	z_index = 1  # Path visualization above objects
 
 func set_path(path: Array[HexCell]) -> void:
 	current_path = path.duplicate()

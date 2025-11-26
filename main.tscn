@@ -1307,15 +1307,14 @@ script = ExtResource("1_4c57u")
 y_sort_enabled = true
 
 [node name="Dirt" parent="Ground" instance=ExtResource("2_h2yge")]
-z_index = -2
 tile_map_data = PackedByteArray("AAATAPn/AAAAAAEAAAALAP3/AAAAAAEAAAADAPn/AAAAAAEAAAALAPX/AAAAAAEAAAAbAPX/AAAAAAEAAAATAPH/AAAAAAEAAAAbAO3/AAAAAAEAAAAjAPH/AAAAAAEAAAATAAEAAAAAAAEAAAAbAP3/AAAAAAEAAAAjAPn/AAAAAAEAAAArAPX/AAAAAAEAAAAbAAUAAAAAAAEAAAAjAAEAAAAAAAEAAAArAP3/AAAAAAEAAAAzAPn/AAAAAAEAAAA=")
 tile_set = SubResource("TileSet_5vw27")
 
 [node name="Stone" parent="Ground" instance=ExtResource("3_1bvp3")]
-z_index = -1
 tile_map_data = PackedByteArray("AAAAAPz/AAABAAEAAAABAP3/AAABAAEAAAACAPz/AAABAAEAAAABAPv/AAABAAEAAAADAP3/AAABAAEAAAAEAP7/AAABAAEAAAACAPr/AAABAAEAAAAFAP3/AAABAAEAAAAEAPz/AAADAAEAAAADAPn/AAADAAEAAAAGAPz/AAADAAEAAAAFAPv/AAACAAEAAAAEAPr/AAACAAEAAAADAPv/AAACAAEAAAAHAPv/AAADAAEAAAAIAPz/AAADAAEAAAAHAP3/AAADAAEAAAAFAP//AAABAAEAAAAGAP7/AAABAAEAAAAGAAAAAAABAAEAAAAHAP//AAABAAEAAAAIAP7/AAABAAEAAAAJAP3/AAABAAEAAAAKAPz/AAADAAEAAAAJAPv/AAADAAEAAAAIAPr/AAADAAEAAAAGAPr/AAABAAEAAAAEAPj/AAABAAEAAAD///v/AAADAAEAAAABAPn/AAADAAEAAAAAAPr/AAADAAEAAAACAPj/AAABAAEAAAADAPf/AAABAAEAAAAFAPn/AAABAAEAAAAEAPb/AAADAAEAAAAHAPn/AAADAAEAAAAFAPf/AAADAAEAAAAGAPj/AAABAAEAAAA=")
 
 [node name="Camera2D" type="Camera2D" parent="."]
+y_sort_enabled = true
 position = Vector2(144, -180)
 drag_horizontal_enabled = true
 
@@ -1324,25 +1323,28 @@ script = ExtResource("7_272bh")
 grid_width = 100
 grid_height = 100
 hex_size = 20.0
-navigation_region = NodePath("NavigationRegion2D")
+navigation_region = NodePath("../NavigationRegion2D")
 debug_mode = true
 robot = NodePath("../Robot Player")
 metadata/_custom_type_script = "uid://1qwsahkorec1"
 
-[node name="NavigationRegion2D" type="NavigationRegion2D" parent="SessionController"]
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
 y_sort_enabled = true
 navigation_polygon = SubResource("NavigationPolygon_lquwl")
 
-[node name="Barrels" parent="SessionController/NavigationRegion2D" instance=ExtResource("4_1bvp3")]
+[node name="Barrels" parent="NavigationRegion2D" instance=ExtResource("4_1bvp3")]
 position = Vector2(320, -400)
 
-[node name="Walls" type="CanvasGroup" parent="SessionController/NavigationRegion2D"]
+[node name="NavigationObstacle2D" parent="NavigationRegion2D/Barrels" index="2"]
 y_sort_enabled = true
 
-[node name="StoneWall" type="TileMapLayer" parent="SessionController/NavigationRegion2D/Walls"]
+[node name="Walls" type="CanvasGroup" parent="NavigationRegion2D"]
+y_sort_enabled = true
+
+[node name="StoneWall" type="TileMapLayer" parent="NavigationRegion2D/Walls"]
 y_sort_enabled = true
 position = Vector2(0, 1)
 tile_map_data = PackedByteArray("AAABAPn/AAAFAAAAAAD///r/AAAFAAAAAAD9//v/AAAFAAAAAAD7//z/AAABAAAAAAD9//3/AAAGAAAAAAD///7/AAAGAAAAAAABAP//AAAGAAAAAAADAAAAAAAGAAAAAAAFAAEAAAACAAAAAAAHAAAAAAAAAAAAAAAJAP//AAAAAAAAAAALAP7/AAAAAAAAAAANAP3/AAAAAAAAAAARAPv/AAAAAAAAAAAPAPz/AAAAAAAAAAADAPj/AAAFAAAAAAAFAPf/AAAFAAAAAAAHAPb/AAAFAAAAAAAJAPX/AAADAAAAAAATAPr/AAAEAAAAAAALAPb/AAAHAAAAAAANAPf/AAAHAAAAAAAPAPj/AAAHAAAAAAARAPn/AAAHAAAAAAA=")
 tile_set = SubResource("TileSet_272bh")
 
-[editable path="SessionController/NavigationRegion2D/Barrels"]
+[editable path="NavigationRegion2D/Barrels"]

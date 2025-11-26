@@ -23,6 +23,7 @@ var _debug_font: Font
 var _hex_corners: PackedVector2Array
 
 func _ready() -> void:
+	z_index = -1  # Hex grid visualization above floor, below objects
 	_debug_font = ThemeDB.fallback_font
 	if hex_grid:
 		_connect_grid_signals()
