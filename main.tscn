@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=4 uid="uid://c0ainp474es8e"]
+[gd_scene load_steps=15 format=4 uid="uid://c0ainp474es8e"]
 
 [ext_resource type="PackedScene" uid="uid://xmepjh2dfuwk" path="res://Robot/Player.tscn" id="1_0xm2m"]
 [ext_resource type="Script" uid="uid://de0cnd67yj7gq" path="res://main.gd" id="1_4c57u"]
@@ -8,6 +8,7 @@
 [ext_resource type="Texture2D" uid="uid://dq3cucr1dt6m3" path="res://Environment/Walls/Stone/stone_wall.png" id="5_lquwl"]
 [ext_resource type="Texture2D" uid="uid://ip7dwcpdpdgy" path="res://Environment/Dungeon Objects/Breakable/barrelsStacked_W.png" id="7_5vw27"]
 [ext_resource type="Script" uid="uid://8xlw2qfjncsq" path="res://Controllers/SessionController/Core/session_controller.gd" id="7_272bh"]
+[ext_resource type="PackedScene" uid="uid://dqm8uf5n1yqvw" path="res://Controllers/UIController/UIOverlay/metadata_display.tscn" id="9_metadata"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_4c57u"]
 texture = ExtResource("4_kek77")
@@ -1322,7 +1323,7 @@ drag_horizontal_enabled = true
 script = ExtResource("7_272bh")
 grid_width = 100
 grid_height = 100
-hex_size = 20.0
+hex_size = 16.0
 navigation_region = NodePath("../NavigationRegion2D")
 debug_mode = true
 robot = NodePath("../Robot Player")
@@ -1396,3 +1397,5 @@ y_sort_enabled = true
 position = Vector2(0, 1)
 tile_map_data = PackedByteArray("AAABAPn/AAAFAAAAAAD///r/AAAFAAAAAAD9//v/AAAFAAAAAAD7//z/AAABAAAAAAD9//3/AAAGAAAAAAD///7/AAAGAAAAAAABAP//AAAGAAAAAAADAAAAAAAGAAAAAAAFAAEAAAACAAAAAAAHAAAAAAAAAAAAAAAJAP//AAAAAAAAAAALAP7/AAAAAAAAAAANAP3/AAAAAAAAAAARAPv/AAAAAAAAAAAPAPz/AAAAAAAAAAADAPj/AAAFAAAAAAAFAPf/AAAFAAAAAAAHAPb/AAAFAAAAAAAJAPX/AAADAAAAAAATAPr/AAAEAAAAAAALAPb/AAAHAAAAAAANAPf/AAAHAAAAAAAPAPj/AAAHAAAAAAARAPn/AAAHAAAAAAA=")
 tile_set = SubResource("TileSet_272bh")
+
+[node name="MetadataDisplay" parent="." instance=ExtResource("9_metadata")]

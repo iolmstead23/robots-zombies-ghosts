@@ -9,6 +9,7 @@ extends Node
 const HexGridControllerScript = preload("res://Controllers/HexGridController/Core/hex_grid_controller.gd")
 const NavigationControllerScript = preload("res://Controllers/NavigationController/Core/navigation_controller.gd")
 const DebugControllerScript = preload("res://Controllers/DebugController/Core/debug_controller.gd")
+const UIControllerScript = preload("res://Controllers/UIController/Core/ui_controller.gd")
 
 # ============================================================================
 # SIGNALS - Session Lifecycle
@@ -48,6 +49,7 @@ signal terrain_initialized()
 var hex_grid_controller  # HexGridController instance
 var navigation_controller  # NavigationController instance
 var debug_controller  # DebugController instance
+var ui_controller  # UIController instance
 
 # ============================================================================
 # SESSION STATE
@@ -107,6 +109,12 @@ func _init_controllers() -> void:
 	add_child(debug_controller)
 	print("    ✓ DebugController created")
 
+	print("  Creating UIController...")
+	ui_controller = UIControllerScript.new()
+	ui_controller.name = "UIController"
+	add_child(ui_controller)
+	print("    ✓ UIController created")
+
 func _connect_controller_signals() -> void:
 	# ========================================================================
 	# HexGridController Signals
@@ -139,6 +147,12 @@ func _connect_controller_signals() -> void:
 	# ========================================================================
 	debug_controller.debug_visibility_changed.connect(_on_debug_visibility_changed)
 	debug_controller.debug_info_updated.connect(_on_debug_info_updated)
+
+	# ========================================================================
+	# UIController Signals
+	# ========================================================================
+	ui_controller.ui_visibility_changed.connect(_on_ui_visibility_changed)
+	ui_controller.selected_item_changed.connect(_on_selected_item_changed)
 
 # ============================================================================
 # SESSION MANAGEMENT
@@ -372,6 +386,21 @@ func _on_debug_info_updated(_key: String, _value: Variant) -> void:
 	pass
 
 # ============================================================================
+# EVENT HANDLERS - UIController
+# ============================================================================
+
+func _on_ui_visibility_changed(visible: bool) -> void:
+	if OS.is_debug_build():
+		print("SessionController: UI overlay %s" % ("shown" if visible else "hidden"))
+
+func _on_selected_item_changed(item_data: Dictionary) -> void:
+	if OS.is_debug_build() and item_data.get("has_selection", false):
+		print("SessionController: Selected item changed - %s (%s)" % [
+			item_data.get("item_name", "Unknown"),
+			item_data.get("item_type", "Unknown")
+		])
+
+# ============================================================================
 # INPUT HANDLING
 # ============================================================================
 
@@ -419,6 +448,9 @@ func get_navigation_controller():  # Returns NavigationController
 
 func get_debug_controller():  # Returns DebugController
 	return debug_controller
+
+func get_ui_controller():  # Returns UIController
+	return ui_controller
 
 # ============================================================================
 # PUBLIC API - Convenience Methods (emit signals to controllers)
@@ -487,6 +519,7 @@ func _print_stats() -> void:
 	print("  ✓ HexGridController")
 	print("  ✓ NavigationController")
 	print("  ✓ DebugController")
+	print("  ✓ UIController")
 	print("\nGrid Configuration:")
 	print("  Dimensions: %dx%d" % [grid_width, grid_height])
 	print("  Hex Size: %.1f" % hex_size)
