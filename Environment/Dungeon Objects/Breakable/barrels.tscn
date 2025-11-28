@@ -1,23 +1,25 @@
 [gd_scene load_steps=3 format=3 uid="uid://bmdgbb7lsxnxm"]
 
+[ext_resource type="Script" uid="uid://bk71ybb2nailb" path="res://Environment/Dungeon Objects/Breakable/selectable_barrel.gd" id="1_teha8"]
 [ext_resource type="Texture2D" uid="uid://ip7dwcpdpdgy" path="res://Environment/Dungeon Objects/Breakable/barrelsStacked_W.png" id="2_lxvle"]
-[ext_resource type="Script" path="res://Environment/Dungeon Objects/Breakable/selectable_barrel.gd" id="2_barrel_script"]
 
-[node name="Barrels" type="StaticBody2D"]
+[node name="Test Barrels 1" type="StaticBody2D"]
 y_sort_enabled = true
 input_pickable = true
-script = ExtResource("2_barrel_script")
+script = ExtResource("1_teha8")
+object_name = "Barrel 1"
 
 [node name="CollisionShape2D" type="CollisionPolygon2D" parent="."]
 y_sort_enabled = true
-position = Vector2(4.9999914, 131)
+position = Vector2(372, 138)
 scale = Vector2(10.399999, 8.999999)
-polygon = PackedVector2Array(-1.8269227, 9.111113, -4.326923, 9.222223, -6.9230776, 8.000002, -7.6923084, 5.4444447, -5.5769234, 1.6666679, 2.5000012, -1.4444447, 6.250002, -1.1111107, 7.5961556, 2, 6.4423094, 4.4444447)
+polygon = PackedVector2Array(2.2115402, 8.444445, -2.8846169, 9.555555, -6.346157, 8.444445, -7.7884636, 5, -6.4423103, 1.666666, -0.86538696, -1.7777786, 2.7884598, -2.7777786, 6.3461533, -2.333334, 8.269234, 0.22222137, 7.3076935, 4, 5, 6.333334)
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 y_sort_enabled = true
-position = Vector2(8, 161)
+position = Vector2(373, 162)
 texture = ExtResource("2_lxvle")
 offset = Vector2(-4, -173)
 
 [node name="NavigationObstacle2D" type="NavigationObstacle2D" parent="."]
+y_sort_enabled = true

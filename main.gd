@@ -6,7 +6,7 @@ extends Node2D
 
 @onready var session_controller: SessionController = $SessionController
 @onready var camera: Camera2D = $Camera2D
-@onready var robot: CharacterBody2D = $"Robot Player"
+@onready var robot: CharacterBody2D = $CharacterBody2D
 
 # IOController - will be created programmatically if not in scene
 var io_controller: IOController
@@ -27,7 +27,7 @@ func _ready() -> void:
 	print("SessionController found: ", session_controller.name)
 
 	# Configure navmesh integration before initialization
-	var nav_region: NavigationRegion2D = $SessionController/NavigationRegion2D
+	var nav_region: NavigationRegion2D = $NavigationRegion2D
 
 	if nav_region:
 		print("Found NavigationRegion2D")
@@ -57,7 +57,7 @@ func _ready() -> void:
 		nav_controller.path_not_found.connect(_on_path_not_found)
 
 	# Add NavAgent2D follower to robot for automatic movement
-	var nav_follower = preload("res://Controllers/NavigationController/RobotNavigation/NavAgent2DFollower.gd").new()
+	var nav_follower = preload("res://Controllers/NavigationController/AgentNavigation/NavAgent2DFollower.gd").new()
 	nav_follower.name = "NavAgent2DFollower"
 	nav_follower.movement_speed = 100.0
 	robot.add_child(nav_follower)
@@ -70,10 +70,14 @@ func _ready() -> void:
 	# Setup DebugUI overlay
 	_setup_debug_ui()
 
+	# Setup SelectionOverlay
+	_setup_selection_overlay()
+
 	print("\n" + "=".repeat(60))
 	print("HEX NAVIGATION SYSTEM READY - Signal-Based Architecture")
 	print("=".repeat(60))
 	print("Click a hex cell to navigate the robot")
+	print("Click on objects (barrels) to see selection info")
 	print("Right-click to toggle cell enabled/disabled")
 	print("Press R to generate pathfinding report")
 	print("Press C to clear path history")
@@ -155,6 +159,27 @@ func _setup_debug_ui() -> void:
 		print("DebugUI found in scene tree")
 
 	print("DebugUI configured")
+
+func _setup_selection_overlay() -> void:
+	"""Create and configure SelectionOverlay UI"""
+	# Check if SelectionOverlay already exists in scene
+	var selection_overlay = get_node_or_null("SelectionOverlay")
+
+	# If not in scene, load and instance it
+	if not selection_overlay:
+		print("SelectionOverlay not found in scene - loading from scene file")
+		var selection_overlay_scene = load("res://Controllers/UIController/UI/SelectionOverlay.tscn")
+		if selection_overlay_scene:
+			selection_overlay = selection_overlay_scene.instantiate()
+			add_child(selection_overlay)
+			print("SelectionOverlay created and added to scene")
+		else:
+			push_error("Failed to load SelectionOverlay.tscn")
+			return
+	else:
+		print("SelectionOverlay found in scene tree")
+
+	print("SelectionOverlay configured")
 
 # ============================================================================
 # IO CONTROLLER SIGNAL HANDLERS
@@ -319,9 +344,3 @@ func _toggle_cell(cell: HexCell) -> void:
 	hex_grid_controller.set_cell_enabled_requested.emit(coords, not cell.enabled)
 
 	print("Cell (%d,%d) %s" % [cell.q, cell.r, "enabled" if not cell.enabled else "disabled"])
-
-# ============================================================================
-# DEBUG VISUALIZATION
-# ============================================================================
-# Note: Path visualization is now handled by HexPathVisualizer in NavigationController
-# This respects debug mode settings and avoids duplicate rendering

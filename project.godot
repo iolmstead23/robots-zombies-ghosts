@@ -17,8 +17,7 @@ config/icon="res://icon.svg"
 
 [autoload]
 
-SessionData="*res://Scripts/SessionData.gd"
-SessionController="*res://Scripts/SessionController.gd"
+SessionData="*res://Controllers/SessionController/Core/SessionData.gd"
 
 [input]
 

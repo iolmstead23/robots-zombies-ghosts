@@ -1,6 +1,6 @@
 [gd_scene load_steps=4 format=3 uid="uid://xmepjh2dfuwk"]
 
-[ext_resource type="Script" uid="uid://dorhmrd6nvfn2" path="res://Controllers/IOController/Player/PlayerController.gd" id="1_wg50i"]
+[ext_resource type="Script" uid="uid://0fifwiou7tup" path="res://Controllers/IOController/Agent/AgentController.gd" id="1_wg50i"]
 [ext_resource type="SpriteFrames" uid="uid://ckswuaheqfom0" path="res://Robot/Robot.tres" id="2_kne1u"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_cxr5p"]
