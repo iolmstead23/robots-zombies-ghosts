@@ -1,7 +1,7 @@
-class_name HexRobotNavigator
+class_name HexAgentNavigator
 extends Node
 
-## Bridges hex pathfinding with robot navigation
+## Bridges hex pathfinding with agent navigation
 
 signal navigation_started(target_cell: HexCell)
 signal navigation_completed()
@@ -10,7 +10,7 @@ signal waypoint_reached(cell: HexCell, index: int)
 
 @export var hex_grid: HexGrid
 @export var hex_pathfinder: HexPathfinder
-@export var robot: CharacterBody2D
+@export var agent: CharacterBody2D
 
 # Navigation state
 var current_target_cell: HexCell = null
@@ -28,17 +28,17 @@ var last_distance_to_waypoint: float = INF
 
 func _ready() -> void:
 	if not hex_grid:
-		push_error("HexRobotNavigator: No HexGrid assigned")
+		push_error("HexAgentNavigator: No HexGrid assigned")
 	if not hex_pathfinder:
-		push_error("HexRobotNavigator: No HexPathfinder assigned")
+		push_error("HexAgentNavigator: No HexPathfinder assigned")
 
 func navigate_to_cell(target_cell: HexCell) -> bool:
 	if not _validate_navigation_request(target_cell):
 		return false
 	
-	var start_cell := hex_grid.get_cell_at_world_position(robot.global_position)
+	var start_cell := hex_grid.get_cell_at_world_position(agent.global_position)
 	if not start_cell:
-		navigation_failed.emit("Robot not on hex grid")
+		navigation_failed.emit("Agent not on hex grid")
 		return false
 	
 	var path := hex_pathfinder.find_path(start_cell, target_cell)
@@ -54,8 +54,8 @@ func _validate_navigation_request(target_cell: HexCell) -> bool:
 		navigation_failed.emit("Target invalid or disabled")
 		return false
 	
-	if not robot:
-		navigation_failed.emit("No robot assigned")
+	if not agent:
+		navigation_failed.emit("No agent assigned")
 		return false
 	
 	return true
@@ -86,15 +86,15 @@ func cancel_navigation() -> void:
 	current_hex_path.clear()
 	current_waypoint_index = 0
 	
-	_cancel_robot_navigation()
+	_cancel_agent_navigation()
 
-func _cancel_robot_navigation() -> void:
-	if not robot or not robot.has_node("NavigationAgent2D"):
+func _cancel_agent_navigation() -> void:
+	if not agent or not agent.has_node("NavigationAgent2D"):
 		return
-	
-	var nav_agent := robot.get_node("NavigationAgent2D") as NavigationAgent2D
+
+	var nav_agent := agent.get_node("NavigationAgent2D") as NavigationAgent2D
 	if nav_agent:
-		nav_agent.target_position = robot.global_position
+		nav_agent.target_position = agent.global_position
 
 func _process(_delta: float) -> void:
 	if is_navigating:
@@ -106,7 +106,7 @@ func _update_navigation() -> void:
 		return
 	
 	var waypoint := current_hex_path[current_waypoint_index]
-	var distance := robot.global_position.distance_to(waypoint.world_position)
+	var distance := agent.global_position.distance_to(waypoint.world_position)
 	var nav_finished := _is_nav_agent_finished()
 	var is_stuck := _check_if_stuck(distance)
 	
@@ -116,10 +116,10 @@ func _update_navigation() -> void:
 		_handle_waypoint_reached(waypoint, distance, nav_finished, is_stuck)
 
 func _is_nav_agent_finished() -> bool:
-	if not robot.has_node("NavigationAgent2D"):
+	if not agent.has_node("NavigationAgent2D"):
 		return false
-	
-	var nav_agent := robot.get_node("NavigationAgent2D") as NavigationAgent2D
+
+	var nav_agent := agent.get_node("NavigationAgent2D") as NavigationAgent2D
 	return nav_agent.is_navigation_finished() if nav_agent else false
 
 func _check_if_stuck(current_distance: float) -> bool:
@@ -160,7 +160,7 @@ func _navigate_to_next_waypoint() -> void:
 	waypoint_start_time = Time.get_ticks_msec() / 1000.0
 	last_distance_to_waypoint = INF
 	
-	var nav_set := _set_robot_nav_target(waypoint)
+	var nav_set := _set_agent_nav_target(waypoint)
 	
 	if OS.is_debug_build():
 		print("  → Waypoint %d: (%d,%d) at %s%s" % [
@@ -168,25 +168,25 @@ func _navigate_to_next_waypoint() -> void:
 			"" if nav_set else " [WARNING: NavAgent2D not found]"
 		])
 
-func _set_robot_nav_target(waypoint: HexCell) -> bool:
+func _set_agent_nav_target(waypoint: HexCell) -> bool:
 	var nav_set := false
-	
-	if robot.has_node("NavigationAgent2D"):
-		var nav_agent := robot.get_node("NavigationAgent2D") as NavigationAgent2D
+
+	if agent.has_node("NavigationAgent2D"):
+		var nav_agent := agent.get_node("NavigationAgent2D") as NavigationAgent2D
 		if nav_agent:
 			nav_agent.target_position = waypoint.world_position
 			nav_set = true
-	
-	if robot.has_method("set_destination"):
-		robot.call("set_destination", waypoint.world_position)
-	
+
+	if agent.has_method("set_destination"):
+		agent.call("set_destination", waypoint.world_position)
+
 	return nav_set
 
 func _complete_navigation() -> void:
 	is_navigating = false
 	
 	if OS.is_debug_build():
-		print("HexRobotNavigator: Navigation completed at (%d,%d)" % [
+		print("HexAgentNavigator: Navigation completed at (%d,%d)" % [
 			current_target_cell.q, current_target_cell.r
 		])
 	

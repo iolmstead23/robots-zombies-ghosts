@@ -1,7 +1,7 @@
 extends CharacterBody2D
-class_name PlayerController
+class_name AgentController
 
-## Main player controller for turn-based hex navigation
+## Main agent controller for turn-based hex navigation
 
 # Components
 @onready var movement_component: MovementComponent = MovementComponent.new()
@@ -16,10 +16,10 @@ class_name PlayerController
 var hex_grid: HexGrid
 var hex_pathfinder: HexPathfinder
 
-signal player_moved(position: Vector2)
-signal player_jumped()
-signal player_landed()
-signal player_shot(direction: String)
+signal agent_moved(position: Vector2)
+signal agent_jumped()
+signal agent_landed()
+signal agent_shot(direction: String)
 signal state_changed(new_state: Dictionary)
 
 func _ready() -> void:
@@ -29,7 +29,7 @@ func _ready() -> void:
 	_init_sprite()
 
 	if OS.is_debug_build():
-		print("PlayerController: Initialized for hex navigation")
+		print("AgentController: Initialized for hex navigation")
 
 func _setup_components() -> void:
 	add_child(movement_component)
@@ -74,13 +74,13 @@ func set_hex_navigation(grid: HexGrid, pathfinder: HexPathfinder) -> void:
 		turn_based_controller.set_hex_components(hex_grid, hex_pathfinder)
 
 	if OS.is_debug_build():
-		print("PlayerController: Hex navigation set")
+		print("AgentController: Hex navigation set")
 
 func activate_turn_based_mode() -> void:
 	turn_based_controller.activate()
 
 	if OS.is_debug_build():
-		print("PlayerController: Turn-based mode activated")
+		print("AgentController: Turn-based mode activated")
 
 func _on_turn_movement_started() -> void:
 	state_manager.set_state_value("is_moving", true)
@@ -90,30 +90,30 @@ func _on_turn_movement_completed(distance: float) -> void:
 	state_manager.set_state_value("is_moving", false)
 	state_manager.set_state_value("turn_based_moving", false)
 	animation_controller.update_animation()
-	player_moved.emit(global_position)
+	agent_moved.emit(global_position)
 
 	if OS.is_debug_build():
-		print("PlayerController: Movement complete (%.1f ft)" % (distance / 32.0))
+		print("AgentController: Movement complete (%.1f ft)" % (distance / 32.0))
 
 func _on_turn_ended(turn_number: int) -> void:
 	state_manager.set_state_value("turn_number", turn_number)
 
 	if OS.is_debug_build():
-		print("PlayerController: Turn %d ended" % turn_number)
+		print("AgentController: Turn %d ended" % turn_number)
 
 func _on_velocity_calculated(_vel: Vector2) -> void:
 	pass
 
 func _on_jump_started() -> void:
-	player_jumped.emit()
+	agent_jumped.emit()
 	state_manager.set_state_value("is_jumping", true)
 
 func _on_jump_landed() -> void:
-	player_landed.emit()
+	agent_landed.emit()
 	state_manager.set_state_value("is_jumping", false)
 
 func _on_weapon_fired(direction: String) -> void:
-	player_shot.emit(direction)
+	agent_shot.emit(direction)
 
 func _on_state_changed(new_state: Dictionary) -> void:
 	state_changed.emit(new_state)

@@ -65,7 +65,7 @@ signal on_cell_at_position_response(request_id: String, cell: HexCell)
 
 # Components
 var hex_pathfinder: HexPathfinder = null
-var hex_robot_navigator: HexRobotNavigator = null
+var hex_agent_navigator: HexAgentNavigator = null
 var hex_path_tracker: HexPathTracker = null
 var hex_path_visualizer: HexPathVisualizer = null
 var hex_cell_selector: HexCellSelector = null
@@ -109,18 +109,18 @@ func initialize(grid: HexGrid, robot_node: CharacterBody2D):
 	hex_pathfinder.hex_grid = grid
 	add_child(hex_pathfinder)
 
-	# Create robot navigator
-	hex_robot_navigator = HexRobotNavigator.new()
-	hex_robot_navigator.name = "HexRobotNavigator"
-	hex_robot_navigator.hex_grid = grid
-	hex_robot_navigator.hex_pathfinder = hex_pathfinder
-	hex_robot_navigator.robot = robot
-	hex_robot_navigator.waypoint_reach_distance = 15.0
-	hex_robot_navigator.navigation_started.connect(_on_robot_navigation_started)
-	hex_robot_navigator.navigation_completed.connect(_on_robot_navigation_completed)
-	hex_robot_navigator.navigation_failed.connect(_on_robot_navigation_failed)
-	hex_robot_navigator.waypoint_reached.connect(_on_robot_waypoint_reached)
-	add_child(hex_robot_navigator)
+	# Create agent navigator
+	hex_agent_navigator = HexAgentNavigator.new()
+	hex_agent_navigator.name = "HexAgentNavigator"
+	hex_agent_navigator.hex_grid = grid
+	hex_agent_navigator.hex_pathfinder = hex_pathfinder
+	hex_agent_navigator.agent = robot
+	hex_agent_navigator.waypoint_reach_distance = 15.0
+	hex_agent_navigator.navigation_started.connect(_on_agent_navigation_started)
+	hex_agent_navigator.navigation_completed.connect(_on_agent_navigation_completed)
+	hex_agent_navigator.navigation_failed.connect(_on_agent_navigation_failed)
+	hex_agent_navigator.waypoint_reached.connect(_on_agent_waypoint_reached)
+	add_child(hex_agent_navigator)
 
 	# Create path tracker
 	hex_path_tracker = HexPathTracker.new()
@@ -166,7 +166,7 @@ func _on_navigate_to_position_requested(target_pos: Vector2):
 	query_cell_at_position.emit(request_id, target_pos)
 
 func _on_navigate_to_cell_requested(target_cell: HexCell):
-	if not hex_robot_navigator:
+	if not hex_agent_navigator:
 		push_error("NavigationController: Cannot navigate - not initialized yet")
 		navigation_failed.emit("Navigation controller not initialized")
 		return
@@ -180,11 +180,11 @@ func _on_navigate_to_cell_requested(target_cell: HexCell):
 		hex_cell_selector.select_cell(target_cell)
 
 	current_target = target_cell
-	hex_robot_navigator.navigate_to_cell(target_cell)
+	hex_agent_navigator.navigate_to_cell(target_cell)
 
 func _on_cancel_navigation_requested():
-	if hex_robot_navigator:
-		hex_robot_navigator.cancel_navigation()
+	if hex_agent_navigator:
+		hex_agent_navigator.cancel_navigation()
 	_clear_navigation_state()
 
 # ============================================================================
@@ -272,12 +272,12 @@ func _handle_nav_request_response(request_id: String, cell: HexCell):
 	navigate_to_cell_requested.emit(cell)
 
 # ============================================================================
-# ROBOT NAVIGATOR CALLBACKS
+# AGENT NAVIGATOR CALLBACKS
 # ============================================================================
 
-func _on_robot_navigation_started(target_cell: HexCell):
+func _on_agent_navigation_started(target_cell: HexCell):
 	navigation_active = true
-	current_path = hex_robot_navigator.get_current_path()
+	current_path = hex_agent_navigator.get_current_path()
 	current_target = target_cell
 
 	# Visualize the navigation path
@@ -287,18 +287,18 @@ func _on_robot_navigation_started(target_cell: HexCell):
 	navigation_started.emit(target_cell)
 	_emit_navigation_state()
 
-func _on_robot_navigation_completed():
+func _on_agent_navigation_completed():
 	navigation_active = false
 	navigation_completed.emit()
 	_clear_navigation_state()
 
-func _on_robot_navigation_failed(reason: String):
+func _on_agent_navigation_failed(reason: String):
 	navigation_active = false
 	navigation_failed.emit(reason)
 	_clear_navigation_state()
 
-func _on_robot_waypoint_reached(cell: HexCell, index: int):
-	var remaining = hex_robot_navigator.get_remaining_distance()
+func _on_agent_waypoint_reached(cell: HexCell, index: int):
+	var remaining = hex_agent_navigator.get_remaining_distance()
 	waypoint_reached.emit(cell, index, remaining)
 	_emit_navigation_state()
 
@@ -308,7 +308,7 @@ func _on_robot_waypoint_reached(cell: HexCell, index: int):
 
 func _emit_navigation_state():
 	var path_length = current_path.size()
-	var remaining = hex_robot_navigator.get_remaining_distance() if hex_robot_navigator else 0
+	var remaining = hex_agent_navigator.get_remaining_distance() if hex_agent_navigator else 0
 	navigation_state_changed.emit(navigation_active, path_length, remaining)
 
 func _clear_navigation_state():
