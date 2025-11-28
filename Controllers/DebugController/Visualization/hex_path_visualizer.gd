@@ -30,11 +30,7 @@ func set_path(path: Array[HexCell]) -> void:
 		path_drawn.emit(path)
 
 		# Always queue redraw - _draw() will check debug_enabled
-		print("HexPathVisualizer: Path set with %d cells | Debug: %s" % [path.size(), "ON" if debug_enabled else "OFF"])
 		queue_redraw()
-
-		if OS.is_debug_build():
-			_print_path_info()
 	else:
 		clear_path()
 
@@ -91,32 +87,16 @@ func _calculate_pixel_distance() -> float:
 	return total
 
 func _print_path_info() -> void:
-	print("\n=== Path Visualization ===")
-	print("Length: %d cells | Cost: %d moves" % [path_statistics["path_length"], path_statistics["movement_cost"]])
-	print("Route: (%d,%d) -> (%d,%d)" % [
-		path_statistics["start_coords"].x, path_statistics["start_coords"].y,
-		path_statistics["end_coords"].x, path_statistics["end_coords"].y
-	])
-	print("Direct: %d cells | Efficiency: %.1f%% | Pixels: %.1f" % [
-		path_statistics["straight_line_distance"],
-		path_statistics["path_efficiency"] * 100.0,
-		path_statistics["total_pixel_distance"]
-	])
+	# Path info logging disabled
+	pass
 
 func _draw() -> void:
 	# Only draw path visualization in debug mode
 	if not debug_enabled:
-		if OS.is_debug_build() and current_path.size() > 0:
-			print("HexPathVisualizer: _draw() called but debug is OFF - not drawing %d cell path" % current_path.size())
 		return
 
 	if current_path.size() < 2:
-		if OS.is_debug_build():
-			print("HexPathVisualizer: _draw() called but path too short (%d cells)" % current_path.size())
 		return
-
-	if OS.is_debug_build():
-		print("HexPathVisualizer: Drawing path with %d cells" % current_path.size())
 
 	_draw_path_lines()
 	_draw_cell_highlights()
@@ -171,7 +151,6 @@ func _draw_arrow(from: Vector2, to: Vector2) -> void:
 
 func set_debug_enabled(enabled: bool) -> void:
 	debug_enabled = enabled
-	print("HexPathVisualizer: Debug mode %s | Current path: %d cells" % ["ON" if enabled else "OFF", current_path.size()])
 	queue_redraw()
 
 func export_path_data() -> Dictionary:

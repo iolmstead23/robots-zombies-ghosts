@@ -300,18 +300,10 @@ func _on_navigation_failed(reason: String) -> void:
 	print("█".repeat(60) + "\n")
 	push_warning("Navigation failed: %s" % reason)
 
-func _on_waypoint_reached(cell: HexCell, index: int, remaining: int) -> void:
+func _on_waypoint_reached(_cell: HexCell, _index: int, _remaining: int) -> void:
 	"""Called when robot reaches each waypoint"""
-	var nav_controller = session_controller.get_navigation_controller()
-	var total_waypoints = nav_controller.get_current_path().size() if nav_controller else 0
-
-	print("📍 Waypoint %d/%d reached: (%d, %d) | %d cells remaining" % [
-		index + 1,
-		total_waypoints,
-		cell.q,
-		cell.r,
-		remaining
-	])
+	# Waypoint reached - no logging needed during normal operation
+	pass
 
 # ============================================================================
 # HELPER METHODS

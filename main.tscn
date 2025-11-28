@@ -1309,7 +1309,7 @@ drag_horizontal_enabled = true
 script = ExtResource("7_272bh")
 grid_width = 100
 grid_height = 100
-hex_size = 20.0
+hex_size = 16.0
 navigation_region = NodePath("../NavigationRegion2D")
 debug_mode = true
 robot = NodePath("../Robot Player")
@@ -1321,6 +1321,9 @@ navigation_polygon = SubResource("NavigationPolygon_lquwl")
 [node name="Barrels" type="StaticBody2D" parent="NavigationRegion2D"]
 y_sort_enabled = true
 position = Vector2(320, -400)
+input_pickable = true
+script = ExtResource("7_4c57u")
+object_name = "barrel 1"
 
 [node name="CollisionShape2D" type="CollisionPolygon2D" parent="NavigationRegion2D/Barrels"]
 y_sort_enabled = true
@@ -1340,6 +1343,9 @@ y_sort_enabled = true
 [node name="Barrels3" type="StaticBody2D" parent="NavigationRegion2D"]
 y_sort_enabled = true
 position = Vector2(320, -400)
+input_pickable = true
+script = ExtResource("7_4c57u")
+object_name = "Barrel 3"
 
 [node name="CollisionShape2D" type="CollisionPolygon2D" parent="NavigationRegion2D/Barrels3"]
 y_sort_enabled = true
@@ -1359,6 +1365,9 @@ y_sort_enabled = true
 [node name="Barrels2" type="StaticBody2D" parent="NavigationRegion2D"]
 y_sort_enabled = true
 position = Vector2(320, -400)
+input_pickable = true
+script = ExtResource("7_4c57u")
+object_name = "Barrel 2"
 
 [node name="CollisionShape2D" type="CollisionPolygon2D" parent="NavigationRegion2D/Barrels2"]
 y_sort_enabled = true
