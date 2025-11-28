@@ -10,6 +10,7 @@ const HexGridControllerScript = preload("res://Controllers/HexGridController/Cor
 const NavigationControllerScript = preload("res://Controllers/NavigationController/Core/navigation_controller.gd")
 const DebugControllerScript = preload("res://Controllers/DebugController/Core/debug_controller.gd")
 const UIControllerScript = preload("res://Controllers/UIController/Core/ui_controller.gd")
+const SelectionControllerScript = preload("res://Controllers/SelectionController/Core/selection_controller.gd")
 
 # ============================================================================
 # SIGNALS - Session Lifecycle
@@ -50,6 +51,7 @@ var hex_grid_controller  # HexGridController instance
 var navigation_controller  # NavigationController instance
 var debug_controller  # DebugController instance
 var ui_controller  # UIController instance
+var selection_controller  # SelectionController instance
 
 # ============================================================================
 # SESSION STATE
@@ -115,6 +117,12 @@ func _init_controllers() -> void:
 	add_child(ui_controller)
 	print("    ✓ UIController created")
 
+	print("  Creating SelectionController...")
+	selection_controller = SelectionControllerScript.new()
+	selection_controller.name = "SelectionController"
+	add_child(selection_controller)
+	print("    ✓ SelectionController created")
+
 func _connect_controller_signals() -> void:
 	# ========================================================================
 	# HexGridController Signals
@@ -153,6 +161,12 @@ func _connect_controller_signals() -> void:
 	# ========================================================================
 	ui_controller.ui_visibility_changed.connect(_on_ui_visibility_changed)
 	ui_controller.selected_item_changed.connect(_on_selected_item_changed)
+
+	# ========================================================================
+	# SelectionController Signals
+	# ========================================================================
+	selection_controller.object_selected.connect(_on_object_selected)
+	selection_controller.selection_cleared.connect(_on_selection_cleared)
 
 # ============================================================================
 # SESSION MANAGEMENT
@@ -240,6 +254,9 @@ func initialize_session() -> void:
 	print("\n  [5/7] Configuring debug mode...")
 	debug_controller.set_debug_visibility_requested.emit(debug_mode)
 	print("    ✓ Debug mode: %s" % ("enabled" if debug_mode else "disabled"))
+
+	# Connect SelectionController to UIController
+	selection_controller.set_ui_controller(ui_controller)
 
 	# Mark session as active
 	print("\n  [6/7] Activating session...")
@@ -401,6 +418,18 @@ func _on_selected_item_changed(item_data: Dictionary) -> void:
 		])
 
 # ============================================================================
+# EVENT HANDLERS - SelectionController
+# ============================================================================
+
+func _on_object_selected(selection_data: Dictionary) -> void:
+	if OS.is_debug_build():
+		print("SessionController: Object selected - %s" % selection_data.get("item_name"))
+
+func _on_selection_cleared() -> void:
+	if OS.is_debug_build():
+		print("SessionController: Selection cleared")
+
+# ============================================================================
 # INPUT HANDLING
 # ============================================================================
 
@@ -451,6 +480,9 @@ func get_debug_controller():  # Returns DebugController
 
 func get_ui_controller():  # Returns UIController
 	return ui_controller
+
+func get_selection_controller():  # Returns SelectionController
+	return selection_controller
 
 # ============================================================================
 # PUBLIC API - Convenience Methods (emit signals to controllers)
@@ -520,6 +552,7 @@ func _print_stats() -> void:
 	print("  ✓ NavigationController")
 	print("  ✓ DebugController")
 	print("  ✓ UIController")
+	print("  ✓ SelectionController")
 	print("\nGrid Configuration:")
 	print("  Dimensions: %dx%d" % [grid_width, grid_height])
 	print("  Hex Size: %.1f" % hex_size)

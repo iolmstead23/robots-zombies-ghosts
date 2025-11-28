@@ -1,9 +1,12 @@
-[gd_scene load_steps=2 format=3 uid="uid://bmdgbb7lsxnxm"]
+[gd_scene load_steps=3 format=3 uid="uid://bmdgbb7lsxnxm"]
 
 [ext_resource type="Texture2D" uid="uid://ip7dwcpdpdgy" path="res://Environment/Dungeon Objects/Breakable/barrelsStacked_W.png" id="2_lxvle"]
+[ext_resource type="Script" path="res://Environment/Dungeon Objects/Breakable/selectable_barrel.gd" id="2_barrel_script"]
 
 [node name="Barrels" type="StaticBody2D"]
 y_sort_enabled = true
+input_pickable = true
+script = ExtResource("2_barrel_script")
 
 [node name="CollisionShape2D" type="CollisionPolygon2D" parent="."]
 y_sort_enabled = true

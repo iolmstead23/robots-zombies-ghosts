@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=4 uid="uid://c0ainp474es8e"]
+[gd_scene load_steps=16 format=4 uid="uid://c0ainp474es8e"]
 
 [ext_resource type="PackedScene" uid="uid://xmepjh2dfuwk" path="res://Robot/Player.tscn" id="1_0xm2m"]
 [ext_resource type="Script" uid="uid://de0cnd67yj7gq" path="res://main.gd" id="1_4c57u"]
@@ -6,6 +6,7 @@
 [ext_resource type="PackedScene" uid="uid://bhvhc1f11qh4e" path="res://Environment/Terrain/Stone/stone.tscn" id="3_1bvp3"]
 [ext_resource type="Texture2D" uid="uid://c2d6dmjrnq6ls" path="res://Environment/Terrain/Dirt/dirt_floor.png" id="4_kek77"]
 [ext_resource type="Texture2D" uid="uid://dq3cucr1dt6m3" path="res://Environment/Walls/Stone/stone_wall.png" id="5_lquwl"]
+[ext_resource type="Script" uid="uid://bk71ybb2nailb" path="res://Environment/Dungeon Objects/Breakable/selectable_barrel.gd" id="7_4c57u"]
 [ext_resource type="Texture2D" uid="uid://ip7dwcpdpdgy" path="res://Environment/Dungeon Objects/Breakable/barrelsStacked_W.png" id="7_5vw27"]
 [ext_resource type="Script" uid="uid://8xlw2qfjncsq" path="res://Controllers/SessionController/Core/session_controller.gd" id="7_272bh"]
 [ext_resource type="PackedScene" uid="uid://dqm8uf5n1yqvw" path="res://Controllers/UIController/UIOverlay/metadata_display.tscn" id="9_metadata"]
@@ -1335,6 +1336,9 @@ navigation_polygon = SubResource("NavigationPolygon_lquwl")
 [node name="Barrels" type="StaticBody2D" parent="NavigationRegion2D"]
 y_sort_enabled = true
 position = Vector2(320, -400)
+input_pickable = true
+script = ExtResource("7_4c57u")
+object_name = "barrel 1"
 
 [node name="CollisionShape2D" type="CollisionPolygon2D" parent="NavigationRegion2D/Barrels"]
 y_sort_enabled = true
@@ -1354,6 +1358,9 @@ y_sort_enabled = true
 [node name="Barrels3" type="StaticBody2D" parent="NavigationRegion2D"]
 y_sort_enabled = true
 position = Vector2(320, -400)
+input_pickable = true
+script = ExtResource("7_4c57u")
+object_name = "Barrel 3"
 
 [node name="CollisionShape2D" type="CollisionPolygon2D" parent="NavigationRegion2D/Barrels3"]
 y_sort_enabled = true
@@ -1373,6 +1380,9 @@ y_sort_enabled = true
 [node name="Barrels2" type="StaticBody2D" parent="NavigationRegion2D"]
 y_sort_enabled = true
 position = Vector2(320, -400)
+input_pickable = true
+script = ExtResource("7_4c57u")
+object_name = "Barrel 2"
 
 [node name="CollisionShape2D" type="CollisionPolygon2D" parent="NavigationRegion2D/Barrels2"]
 y_sort_enabled = true

@@ -67,13 +67,6 @@ func _start_navigation(target_cell: HexCell, path: Array[HexCell]) -> void:
 	is_navigating = true
 	
 	navigation_started.emit(target_cell)
-	
-	if OS.is_debug_build():
-		var start := path[0]
-		print("HexRobotNavigator: Navigating (%d,%d) -> (%d,%d) [%d cells]" % [
-			start.q, start.r, target_cell.q, target_cell.r, path.size()
-		])
-	
 	_navigate_to_next_waypoint()
 
 func navigate_to_world_position(world_pos: Vector2) -> bool:
@@ -94,9 +87,6 @@ func cancel_navigation() -> void:
 	current_waypoint_index = 0
 	
 	_cancel_robot_navigation()
-	
-	if OS.is_debug_build():
-		print("HexRobotNavigator: Navigation cancelled")
 
 func _cancel_robot_navigation() -> void:
 	if not robot or not robot.has_node("NavigationAgent2D"):
@@ -154,28 +144,13 @@ func _handle_waypoint_reached(waypoint: HexCell, distance: float, nav_finished: 
 	else:
 		_complete_navigation()
 
-func _print_waypoint_status(distance: float, nav_finished: bool, is_stuck: bool) -> void:
-	if not OS.is_debug_build():
-		return
-	
-	if is_stuck:
-		print("  ⏱ Waypoint %d timeout, skipping" % (current_waypoint_index + 1))
-	elif nav_finished and distance > waypoint_reach_distance:
-		print("  ⚠ Waypoint %d blocked, skipping" % (current_waypoint_index + 1))
-	else:
-		print("  ✓ Waypoint %d reached" % (current_waypoint_index + 1))
+func _print_waypoint_status(_distance: float, _nav_finished: bool, _is_stuck: bool) -> void:
+	# Waypoint reached - continue navigation silently
+	pass
 
-func _debug_print_progress(distance: float) -> void:
-	if not OS.is_debug_build() or Engine.get_physics_frames() % 30 != 0:
-		return
-	
-	var time_elapsed := Time.get_ticks_msec() / 1000.0 - waypoint_start_time
-	print("  [Navigator] Waypoint %d/%d: %.1fpx%s" % [
-		current_waypoint_index + 1,
-		current_hex_path.size(),
-		distance,
-		(" (%.1fs)" % time_elapsed) if time_elapsed > 2.0 else ""
-	])
+func _debug_print_progress(_distance: float) -> void:
+	# Debug progress logging disabled
+	pass
 
 func _navigate_to_next_waypoint() -> void:
 	if current_waypoint_index >= current_hex_path.size():

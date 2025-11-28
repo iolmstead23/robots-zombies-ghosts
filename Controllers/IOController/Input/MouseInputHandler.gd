@@ -55,7 +55,8 @@ func set_hex_grid(_grid: HexGrid) -> void:
 # INPUT PROCESSING
 # ============================================================================
 
-func _input(event: InputEvent) -> void:
+## Use _unhandled_input so selectable objects can handle clicks first
+func _unhandled_input(event: InputEvent) -> void:
 	if not event is InputEventMouseButton:
 		return
 
