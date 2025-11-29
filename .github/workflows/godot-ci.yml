@@ -180,6 +180,16 @@ jobs:
           mkdir -v -p ~/.local/share/godot/export_templates
           mv /root/.local/share/godot/export_templates/${GODOT_VERSION}.stable ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
 
+      - name: Setup Android SDK and Debug Keystore
+        run: |
+          # Ensure Android SDK directories exist
+          mkdir -p ~/.android
+          # Create a debug keystore
+          echo "android" | keytool -genkeypair -v -keystore ~/.android/debug.keystore -alias androiddebugkey \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass android -keypass android \
+            -dname "CN=Android Debug,O=Android,C=US" 2>/dev/null || echo "Keystore already exists or created"
+
       # Setup Android keystore from secrets (if configured for release builds)
       # Uncomment these steps once you've added the required secrets
       # - name: Setup Android Keystore
