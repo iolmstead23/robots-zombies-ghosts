@@ -9,7 +9,6 @@
 #   - Linux/X11
 #   - macOS (universal binary, unsigned)
 #   - Web/HTML5
-#   - Android (ARM64)
 #
 # Release Channels:
 #   - Canary: Auto-published on push/PR to 'dev' branch
@@ -166,91 +165,12 @@ jobs:
           retention-days: 7
 
   #############################################################################
-  # ANDROID EXPORT JOB
-  #############################################################################
-  export-android:
-    name: Android Export
-    runs-on: ubuntu-latest
-    container:
-      image: barichello/godot-ci:4.3
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          lfs: true
-
-      - name: Setup Export Templates
-        run: |
-          mkdir -v -p ~/.local/share/godot/export_templates
-          mv /root/.local/share/godot/export_templates/${GODOT_VERSION}.stable ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
-
-      - name: Setup Android SDK and Debug Keystore
-        run: |
-          # Ensure Android SDK directories exist
-          mkdir -p ~/.android
-          mkdir -p ~/.config/godot
-
-          # Create a debug keystore
-          keytool -genkeypair -v -keystore ~/.android/debug.keystore -alias androiddebugkey \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass android -keypass android \
-            -dname "CN=Android Debug,O=Android,C=US" 2>/dev/null || true
-
-          # Debug: Check Android SDK location
-          echo "Searching for Android SDK..."
-          find /usr -name "android-sdk" 2>/dev/null || echo "Android SDK not found in /usr"
-          ls -la /root/
-
-          # Configure Godot editor settings for Android
-          cat > ~/.config/godot/editor_settings-4.tres << 'EOF'
-          [gd_resource type="EditorSettings" format=3]
-
-          [resource]
-          export/android/android_sdk_path = "/usr/lib/android-sdk"
-          export/android/debug_keystore = "/root/.android/debug.keystore"
-          export/android/debug_keystore_user = "androiddebugkey"
-          export/android/debug_keystore_pass = "android"
-          export/android/force_system_user = false
-          export/android/shutdown_adb_on_exit = true
-          export/android/one_click_deploy_clear_previous_install = false
-          EOF
-
-          # Debug: Verify editor settings were created
-          echo "Editor settings created:"
-          cat ~/.config/godot/editor_settings-4.tres
-
-          # Debug: Verify keystore was created
-          ls -la ~/.android/
-
-      # Setup Android keystore from secrets (if configured for release builds)
-      # Uncomment these steps once you've added the required secrets
-      # - name: Setup Android Keystore
-      #   if: github.ref == 'refs/heads/main'
-      #   run: |
-      #     echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > /root/release.keystore
-      #     echo "export GODOT_ANDROID_KEYSTORE_RELEASE_PATH=/root/release.keystore" >> $GITHUB_ENV
-      #     echo "export GODOT_ANDROID_KEYSTORE_RELEASE_USER=${{ secrets.ANDROID_KEYSTORE_USER }}" >> $GITHUB_ENV
-      #     echo "export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
-
-      - name: Build Android (Debug)
-        run: |
-          mkdir -v -p build/android
-          godot --headless --verbose --export-debug "Android" build/android/${{ env.PROJECT_NAME }}.apk
-
-      - name: Upload Android Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-build
-          path: build/android
-          retention-days: 7
-
-  #############################################################################
   # CREATE GITHUB RELEASE
   #############################################################################
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: [export-windows, export-linux, export-macos, export-web, export-android]
+    needs: [export-windows, export-linux, export-macos, export-web]
     # Only create releases on push (not PRs)
     if: github.event_name == 'push'
     permissions:
@@ -294,12 +214,6 @@ jobs:
           name: web-build
           path: releases/web
 
-      - name: Download Android Build
-        uses: actions/download-artifact@v4
-        with:
-          name: android-build
-          path: releases/android
-
       # Create ZIP archives for each platform
       - name: Create Release Archives
         run: |
@@ -308,7 +222,6 @@ jobs:
           zip -r ${{ env.PROJECT_NAME }}-linux-${{ steps.version.outputs.version }}.zip linux/
           zip -r ${{ env.PROJECT_NAME }}-macos-${{ steps.version.outputs.version }}.zip macos/
           zip -r ${{ env.PROJECT_NAME }}-web-${{ steps.version.outputs.version }}.zip web/
-          zip -r ${{ env.PROJECT_NAME }}-android-${{ steps.version.outputs.version }}.zip android/
 
       # Create GitHub Release
       - name: Create Release
@@ -327,16 +240,6 @@ jobs:
 ################################################################################
 # ADDITIONAL SETUP NOTES
 ################################################################################
-#
-# Android Release Builds (Optional):
-# ----------------------------------
-# To create signed Android release builds, add these secrets to your repo:
-# 1. ANDROID_KEYSTORE_BASE64: Your keystore file encoded as base64
-#    Generate with: base64 -w 0 your-release-key.keystore
-# 2. ANDROID_KEYSTORE_USER: Keystore alias
-# 3. ANDROID_KEYSTORE_PASSWORD: Keystore password
-#
-# Then uncomment the "Setup Android Keystore" step in the export-android job.
 #
 # Incrementing Versions:
 # ---------------------
