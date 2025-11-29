@@ -1,10 +1,9 @@
-extends CanvasLayer
+extends BaseOverlay
 
 ## Debug UI - Signal-Based Architecture
 ## Connects to SessionController's DebugController for state updates
 
 # Reference to UI elements
-@onready var control: Control = $Control
 @onready var label: Label = $Control/Panel/MarginContainer/VBoxContainer/Label
 
 # Reference to controllers (will be set in _ready)
@@ -12,6 +11,19 @@ var session_controller = null
 var debug_controller = null
 
 func _ready():
+	# Configure the base overlay style (before super._ready())
+	gradient_color = Color(0, 0.1, 0.2)
+	gradient_alpha = 0.88
+	border_color = Color(0, 0.4, 0.7)
+	border_width = 2.0
+	anchor_position = 1  # Top Right
+	offset_from_edge = Vector2(10, 10)
+	overlay_size = Vector2(350, 200)
+	content_margin = 10
+
+	# Call parent _ready to apply configuration
+	super._ready()
+
 	# Find SessionController in the scene
 	# Assuming the main scene structure has SessionController as a child of the root
 	var root = get_tree().root
