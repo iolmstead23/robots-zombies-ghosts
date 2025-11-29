@@ -6,13 +6,17 @@ extends Node2D
 
 @onready var session_controller: SessionController = $SessionController
 @onready var camera: Camera2D = $Camera2D
-@onready var robot: CharacterBody2D = $CharacterBody2D
+@onready var agent: CharacterBody2D = get_node_or_null("CharacterBody2D")
 
 # IOController - will be created programmatically if not in scene
 var io_controller: IOController
 
 # Track selected cell for visualization
 var selected_cell: HexCell = null
+
+# Multi-agent support
+var agent_manager: AgentManager = null
+var active_agent_data: AgentData = null
 
 func _ready() -> void:
 	print("\n" + "=".repeat(60))
@@ -34,7 +38,6 @@ func _ready() -> void:
 		session_controller.navigation_region = nav_region
 		session_controller.integrate_with_navmesh = true  # Grid dimensions auto-calculated from navmesh
 		session_controller.navmesh_sample_points = 5
-		session_controller.robot = robot
 		print("Navmesh integration enabled")
 	else:
 		push_warning("NavigationRegion2D not found - integration disabled")
@@ -46,6 +49,18 @@ func _ready() -> void:
 
 	print("Session initialized signal received!")
 
+	# Get agent manager reference and connect signals
+	agent_manager = session_controller.get_agent_manager()
+	if agent_manager:
+		agent_manager.agent_turn_started.connect(_on_agent_turn_started)
+		agent_manager.agent_turn_ended.connect(_on_agent_turn_ended)
+		agent_manager.movement_action_completed.connect(_on_movement_action_completed)
+		agent_manager.all_agents_completed_round.connect(_on_all_agents_completed_round)
+
+		# Get initial active agent
+		active_agent_data = agent_manager.get_active_agent()
+		print("AgentManager initialized - Active agent: %s" % (active_agent_data.agent_name if active_agent_data else "None"))
+
 	# Connect to navigation controller signals for logging
 	var nav_controller = session_controller.get_navigation_controller()
 	if nav_controller:
@@ -56,13 +71,16 @@ func _ready() -> void:
 		nav_controller.path_found.connect(_on_path_found)
 		nav_controller.path_not_found.connect(_on_path_not_found)
 
-	# Add NavAgent2D follower to robot for automatic movement
-	var nav_follower = preload("res://Controllers/NavigationController/AgentNavigation/NavAgent2DFollower.gd").new()
-	nav_follower.name = "NavAgent2DFollower"
-	nav_follower.movement_speed = 100.0
-	robot.add_child(nav_follower)
-	nav_follower.activate()
-	print("NavAgent2DFollower added and activated on robot")
+	# Add NavAgent2D follower to agent for automatic movement (only if single agent exists)
+	if agent:
+		var nav_follower = preload("res://Controllers/NavigationController/AgentNavigation/NavAgent2DFollower.gd").new()
+		nav_follower.name = "NavAgent2DFollower"
+		nav_follower.movement_speed = 100.0
+		agent.add_child(nav_follower)
+		nav_follower.activate()
+		print("NavAgent2DFollower added and activated on agent")
+	else:
+		print("No single agent found - using multi-agent system")
 
 	# Configure IOController with dependencies
 	_setup_io_controller()
@@ -74,15 +92,30 @@ func _ready() -> void:
 	_setup_selection_overlay()
 
 	print("\n" + "=".repeat(60))
-	print("HEX NAVIGATION SYSTEM READY - Signal-Based Architecture")
+	print("HEX NAVIGATION SYSTEM READY - Multi-Agent Turn-Based")
 	print("=".repeat(60))
-	print("Click a hex cell to navigate the robot")
-	print("Click on objects (barrels) to see selection info")
-	print("Right-click to toggle cell enabled/disabled")
-	print("Press R to generate pathfinding report")
-	print("Press C to clear path history")
-	print("Press E to export path data to JSON")
-	print("Press F3 to toggle debug mode")
+	if agent_manager:
+		var all_agents = agent_manager.get_all_agents()
+		var agent_count = all_agents.size()
+		print("Agents: %d active" % agent_count)
+		print("Active Agent: %s" % (active_agent_data.agent_name if active_agent_data else "None"))
+		print("Distance Per Turn: %d meters" % (active_agent_data.max_distance_per_turn if active_agent_data else 10))
+		print("")
+	print("Click a hex cell to navigate the active agent")
+	if agent_manager:
+		var active = agent_manager.get_active_agent()
+		if active:
+			print("Each agent can travel %d meters per turn (1 hex cell = 1 meter)" % active.max_distance_per_turn)
+	print("Turns automatically switch when distance is exhausted")
+	print("")
+	print("Controls:")
+	print("  Left-click hex: Move active agent")
+	print("  Right-click hex: Toggle cell enabled/disabled")
+	print("  Space/Enter: End current turn early")
+	print("  R: Generate pathfinding report")
+	print("  C: Clear path history")
+	print("  E: Export path data to JSON")
+	print("  F3: Toggle debug mode")
 	print("=".repeat(60) + "\n")
 
 func _setup_io_controller() -> void:
@@ -136,6 +169,7 @@ func _setup_io_controller() -> void:
 	io_controller.debug_report_requested.connect(_on_io_debug_report)
 	io_controller.clear_history_requested.connect(_on_io_clear_history)
 	io_controller.export_data_requested.connect(_on_io_export_data)
+	io_controller.end_turn_requested.connect(_on_io_end_turn_requested)
 
 	print("IOController configured and signals connected")
 
@@ -240,8 +274,23 @@ func _on_io_export_data() -> void:
 			var filename = "user://pathfinding_data_%s.json" % timestamp
 			tracker.export_to_json(filename)
 
+func _on_io_end_turn_requested() -> void:
+	"""Handle end turn request from IOController"""
+	if agent_manager and active_agent_data:
+		print("\n" + "⏭".repeat(30))
+		print("⏭ MANUALLY ENDING TURN FOR %s" % active_agent_data.agent_name.to_upper())
+		print("⏭".repeat(30))
+		print("Movements Used: %d/%d" % [
+			active_agent_data.movements_used_this_turn,
+			active_agent_data.max_movements_per_turn
+		])
+		print("⏭".repeat(30) + "\n")
+		agent_manager.end_current_agent_turn()
+	else:
+		print("Cannot end turn - no active agent")
+
 func _handle_cell_click(cell: HexCell) -> void:
-	"""Handle clicking on a hex cell - request navigation via SessionController"""
+	"""Handle clicking on a hex cell - request navigation for active agent"""
 	print("\n" + "=".repeat(60))
 	print("HEX CELL SELECTION & NAVIGATION REQUEST")
 	print("=".repeat(60))
@@ -258,11 +307,99 @@ func _handle_cell_click(cell: HexCell) -> void:
 		print("=".repeat(60) + "\n")
 		return
 
-	print("\n--- Robot Current State ---")
-	print("Robot Position: %s" % robot.global_position)
+	# Check if we have an active agent
+	if not active_agent_data:
+		print("\n❌ NAVIGATION BLOCKED: No active agent")
+		print("=".repeat(60) + "\n")
+		return
 
-	# Request navigation via SessionController (signal-based)
-	session_controller.navigate_to_position(cell.world_position)
+	# Check if active agent can move
+	if not active_agent_data.can_move():
+		print("\n❌ NAVIGATION BLOCKED: %s has no movements remaining (%d/%d used)" % [
+			active_agent_data.agent_name,
+			active_agent_data.movements_used_this_turn,
+			active_agent_data.max_movements_per_turn
+		])
+		print("=".repeat(60) + "\n")
+		return
+
+	print("\n--- Active Agent Info ---")
+	print("Agent: %s" % active_agent_data.agent_name)
+	print("Current Position: %s" % active_agent_data.current_position)
+	print("Movements Remaining: %d/%d" % [
+		active_agent_data.get_movements_remaining(),
+		active_agent_data.max_movements_per_turn
+	])
+
+	# Get the active agent's controller
+	print("[main.gd] About to get agent_controller for agent_id=%s, agent_name=%s, agent_controller=%s" % [str(active_agent_data.agent_id), str(active_agent_data.agent_name), str(active_agent_data.agent_controller)])
+	var controller_node = active_agent_data.agent_controller
+	var script_type = controller_node.get_script() if controller_node else null
+	var script_class_name = script_type.get_class() if (script_type and script_type.has_method("get_class")) else ""
+	print("[DEBUG] Controller node type: %s, get_class(): %s, script: %s, script_class_name: %s" % [
+		controller_node,
+		controller_node.get_class() if controller_node else "null",
+		str(script_type),
+		str(script_class_name)
+	])
+
+	var agent_controller: Agent = controller_node as Agent
+	if not agent_controller:
+		print("\n❌ ERROR: Active agent controller is not recognized as 'Agent'")
+		if controller_node:
+			print("[DEBUG] Node class: %s, script: %s, script class_name property: %s" % [
+				controller_node.get_class(),
+				str(controller_node.get_script()),
+				str("has get_class" if controller_node.has_method("get_class") else "no get_class")
+			])
+			print("[DEBUG] Does controller_node have method request_movement_to? %s" % str(controller_node.has_method("request_movement_to")))
+			# Also try cast by manually checking class_name property if available
+			if controller_node.get_script() and controller_node.get_script().has_property("class_name"):
+				print("[DEBUG] Script class_name: %s" % str(controller_node.get_script().class_name))
+		print("=".repeat(60) + "\n")
+		return
+
+	# Navigate the active agent directly - pathfinding will calculate path
+	if agent_controller.turn_based_controller:
+		agent_controller.turn_based_controller.request_movement_to(cell.world_position)
+		# Small delay for pathfinding to complete
+		await get_tree().create_timer(0.1).timeout
+
+		if agent_controller.turn_based_controller.current_state == agent_controller.turn_based_controller.TurnState.AWAITING_CONFIRMATION:
+			# Get the number of hex cells in the path (each cell = 1 meter)
+			var pathfinder = agent_controller.turn_based_controller.pathfinder
+			if pathfinder and pathfinder.current_path and not pathfinder.current_path.is_empty():
+				var full_path_length = pathfinder.current_path.size()  # Number of hex cells in full path
+				var distance_available = active_agent_data.get_distance_remaining()
+
+				# Limit movement to available distance (max 10 meters per turn)
+				var distance_to_move = min(full_path_length, distance_available)
+
+				if distance_to_move <= 0:
+					agent_controller.turn_based_controller.cancel_movement()
+					print("\n❌ No distance remaining this turn")
+					print("=".repeat(60) + "\n")
+					return
+
+				# Truncate path if it exceeds available distance
+				if full_path_length > distance_to_move:
+					print("\n⚠️ Path truncated: %d meters requested, %d meters available" % [full_path_length, distance_to_move])
+					# Truncate the pathfinder's path to only the first distance_to_move cells
+					pathfinder.current_path = pathfinder.current_path.slice(0, distance_to_move)
+					print("   Path shortened from %d to %d cells" % [full_path_length, pathfinder.current_path.size()])
+
+				# Record movement action with actual distance to move
+				if agent_manager.record_movement_action(distance_to_move):
+					agent_controller.turn_based_controller.confirm_movement()
+					print("\n✅ Movement confirmed: %d meters (%d hex cells)" % [distance_to_move, distance_to_move])
+					print("   Distance remaining: %d meters" % int(active_agent_data.get_distance_remaining()))
+				else:
+					agent_controller.turn_based_controller.cancel_movement()
+					print("\n❌ Failed to record movement")
+			else:
+				print("\n❌ Pathfinding failed - no valid path")
+	else:
+		print("\n❌ ERROR: Agent has no turn_based_controller")
 
 	print("=".repeat(60) + "\n")
 
@@ -283,9 +420,9 @@ func _on_path_not_found(_start_pos: Vector2, _goal_pos: Vector2, reason: String)
 	print("Reason: %s" % reason)
 
 func _on_navigation_started(target_cell: HexCell) -> void:
-	"""Called when robot navigation starts"""
+	"""Called when agent navigation starts"""
 	print("\n" + "█".repeat(60))
-	print("🤖 ROBOT NAVIGATION STARTED")
+	print("🤖 AGENT NAVIGATION STARTED")
 	print("█".repeat(60))
 	print("Target Cell: (%d, %d)" % [target_cell.q, target_cell.r])
 	print("Target Position: %s" % target_cell.world_position)
@@ -299,36 +436,108 @@ func _on_navigation_started(target_cell: HexCell) -> void:
 	print("█".repeat(60) + "\n")
 
 func _on_navigation_completed() -> void:
-	"""Called when robot reaches destination"""
+	"""Called when navigation reaches destination"""
 	print("\n" + "█".repeat(60))
-	print("✅ ROBOT NAVIGATION COMPLETED")
+
+	# Get current position from either agent or active agent
+	var current_position: Vector2
+	var entity_name: String
+
+	if agent:
+		current_position = agent.global_position
+		entity_name = "AGENT"
+	elif active_agent_data and active_agent_data.agent_controller:
+		current_position = active_agent_data.agent_controller.global_position
+		entity_name = active_agent_data.agent_name.to_upper()
+	else:
+		print("❌ ERROR: No valid entity to track")
+		print("█".repeat(60) + "\n")
+		return
+
+	print("✅ %s NAVIGATION COMPLETED" % entity_name)
 	print("█".repeat(60))
-	print("Robot Position: %s" % robot.global_position)
+	print("%s Position: %s" % [entity_name.capitalize(), current_position])
 
 	if selected_cell:
-		var distance_to_target = robot.global_position.distance_to(selected_cell.world_position)
+		var distance_to_target = current_position.distance_to(selected_cell.world_position)
 		print("Distance to Target Center: %.2f pixels" % distance_to_target)
 		if distance_to_target < 20:
-			print("🎯 Robot reached target accurately!")
+			print("🎯 %s reached target accurately!" % entity_name.capitalize())
 		else:
-			print("⚠️ Robot stopped %.2f pixels from target" % distance_to_target)
+			print("⚠️ %s stopped %.2f pixels from target" % [entity_name.capitalize(), distance_to_target])
 
 	print("█".repeat(60) + "\n")
 
 func _on_navigation_failed(reason: String) -> void:
-	"""Called when robot navigation fails"""
+	"""Called when navigation fails"""
 	print("\n" + "█".repeat(60))
-	print("❌ ROBOT NAVIGATION FAILED")
+
+	# Get current position from either agent or active agent
+	var current_position: Vector2
+	var entity_name: String
+
+	if agent:
+		current_position = agent.global_position
+		entity_name = "AGENT"
+	elif active_agent_data and active_agent_data.agent_controller:
+		current_position = active_agent_data.agent_controller.global_position
+		entity_name = active_agent_data.agent_name.to_upper()
+	else:
+		print("❌ ERROR: No valid entity to track")
+		print("█".repeat(60) + "\n")
+		return
+
+	print("❌ %s NAVIGATION FAILED" % entity_name)
 	print("█".repeat(60))
 	print("Reason: %s" % reason)
-	print("Robot Position: %s" % robot.global_position)
+	print("%s Position: %s" % [entity_name.capitalize(), current_position])
 	print("█".repeat(60) + "\n")
 	push_warning("Navigation failed: %s" % reason)
 
 func _on_waypoint_reached(_cell: HexCell, _index: int, _remaining: int) -> void:
-	"""Called when robot reaches each waypoint"""
+	"""Called when agent reaches each waypoint"""
 	# Waypoint reached - no logging needed during normal operation
 	pass
+
+# ============================================================================
+# AGENT MANAGER CALLBACKS
+# ============================================================================
+
+func _on_agent_turn_started(agent_data: AgentData) -> void:
+	"""Called when a new agent's turn starts"""
+	active_agent_data = agent_data
+	print("\n" + "🎯".repeat(30))
+	print("🎯 %s TURN STARTED" % agent_data.agent_name.to_upper())
+	print("🎯".repeat(30))
+	print("Position: %s" % agent_data.current_position)
+	print("Movements Available: %d" % agent_data.max_movements_per_turn)
+	print("Turn Number: %d" % agent_data.turn_number)
+	print("🎯".repeat(30) + "\n")
+
+func _on_agent_turn_ended(agent_data: AgentData) -> void:
+	"""Called when an agent's turn ends"""
+	print("\n" + "⏸".repeat(30))
+	print("⏸ %s TURN ENDED" % agent_data.agent_name.to_upper())
+	print("⏸".repeat(30))
+	print("Movements Used: %d/%d" % [
+		agent_data.movements_used_this_turn,
+		agent_data.max_movements_per_turn
+	])
+	print("Total Lifetime Movements: %d" % agent_data.total_movements_lifetime)
+	print("⏸".repeat(30) + "\n")
+
+func _on_movement_action_completed(agent_data: AgentData, movements_remaining: int) -> void:
+	"""Called when an agent completes a movement action"""
+	print("📍 %s movement action completed (%d movements remaining)" % [
+		agent_data.agent_name,
+		movements_remaining
+	])
+
+func _on_all_agents_completed_round() -> void:
+	"""Called when all agents have completed a round"""
+	print("\n" + "🔄".repeat(30))
+	print("🔄 ALL AGENTS COMPLETED ROUND")
+	print("🔄".repeat(30) + "\n")
 
 # ============================================================================
 # HELPER METHODS

@@ -19,9 +19,9 @@ func _on_add_party_pressed():
 	# Create a new party with default values
 	var party_data = {
 		"id": party_id_counter,
-		"name": "Robot Party " + str(party_id_counter + 1),
-		"type": "robot",
-		"robot_count": 1
+		"name": "Agent Party " + str(party_id_counter + 1),
+		"type": "agent",
+		"agent_count": 1
 	}
 	party_id_counter += 1
 	parties.append(party_data)

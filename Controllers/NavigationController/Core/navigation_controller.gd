@@ -1,7 +1,7 @@
 class_name NavigationController
 extends Node
 
-## Manages pathfinding and robot navigation independently
+## Manages pathfinding and agent navigation independently
 ## Communicates exclusively through signals - no direct dependencies on other features
 
 # ============================================================================
@@ -14,16 +14,16 @@ signal path_found(start: HexCell, goal: HexCell, path: Array[HexCell], duration_
 ## Emitted when pathfinding fails
 signal path_not_found(start_pos: Vector2, goal_pos: Vector2, reason: String)
 
-## Emitted when robot navigation starts
+## Emitted when agent navigation starts
 signal navigation_started(target: HexCell)
 
-## Emitted when robot navigation completes successfully
+## Emitted when agent navigation completes successfully
 signal navigation_completed()
 
-## Emitted when robot navigation fails
+## Emitted when agent navigation fails
 signal navigation_failed(reason: String)
 
-## Emitted when robot reaches a waypoint
+## Emitted when agent reaches a waypoint
 signal waypoint_reached(cell: HexCell, index: int, remaining: int)
 
 ## Emitted when navigation state changes
@@ -36,10 +36,10 @@ signal navigation_state_changed(active: bool, path_length: int, remaining_distan
 ## Request to calculate a path
 signal calculate_path_requested(request_id: String, start_pos: Vector2, goal_pos: Vector2)
 
-## Request to navigate robot to position
+## Request to navigate agent to position
 signal navigate_to_position_requested(target_pos: Vector2)
 
-## Request to navigate robot to cell
+## Request to navigate agent to cell
 signal navigate_to_cell_requested(target_cell: HexCell)
 
 ## Request to cancel current navigation
@@ -70,8 +70,8 @@ var hex_path_tracker: HexPathTracker = null
 var hex_path_visualizer: HexPathVisualizer = null
 var hex_cell_selector: HexCellSelector = null
 
-# Robot reference (set by SessionController)
-var robot: CharacterBody2D = null
+# Agent reference (set by SessionController)
+var agent: CharacterBody2D = null
 
 # Current navigation state
 var navigation_active: bool = false
@@ -100,8 +100,8 @@ func _ready():
 # INITIALIZATION (called by SessionController)
 # ============================================================================
 
-func initialize(grid: HexGrid, robot_node: CharacterBody2D):
-	robot = robot_node
+func initialize(grid: HexGrid, agent_node: CharacterBody2D):
+	agent = agent_node
 
 	# Create pathfinder
 	hex_pathfinder = HexPathfinder.new()
@@ -114,7 +114,7 @@ func initialize(grid: HexGrid, robot_node: CharacterBody2D):
 	hex_agent_navigator.name = "HexAgentNavigator"
 	hex_agent_navigator.hex_grid = grid
 	hex_agent_navigator.hex_pathfinder = hex_pathfinder
-	hex_agent_navigator.agent = robot
+	hex_agent_navigator.agent = agent
 	hex_agent_navigator.waypoint_reach_distance = 15.0
 	hex_agent_navigator.navigation_started.connect(_on_agent_navigation_started)
 	hex_agent_navigator.navigation_completed.connect(_on_agent_navigation_completed)

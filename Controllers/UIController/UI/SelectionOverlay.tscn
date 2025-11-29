@@ -6,7 +6,16 @@
 [node name="SelectionOverlay" instance=ExtResource("1_base")]
 script = ExtResource("2_script")
 
-[node name="TitleLabel" type="Label" parent="Control/Panel/MarginContainer/VBoxContainer" index="0"]
+[node name="TurnLabel" type="Label" parent="Control/Panel/MarginContainer/VBoxContainer" index="0"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.95, 1, 1)
+theme_override_font_sizes/font_size = 12
+text = "Turn 1 / 1"
+horizontal_alignment = 1
+theme_override_colors/bg_color = Color(0, 0, 0, 0.08)
+custom_minimum_size = Vector2(0, 18)
+
+[node name="TitleLabel" type="Label" parent="Control/Panel/MarginContainer/VBoxContainer" index="1"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.5, 0.9, 1, 1)
 theme_override_font_sizes/font_size = 14

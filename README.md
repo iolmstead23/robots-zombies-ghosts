@@ -8,7 +8,7 @@ The arena acts as both a testing ground for novel decision-making models and a d
 
 ## Developer Branch Overview
 
-This feature branch implements a robust hexagonal grid-based navigation system for a 2D isometric robot shooter built in Godot 4.5. The primary objective is to replace the existing linear pathfinding system with a comprehensive hex-grid solution that provides improved spatial navigation and clearer movement mechanics for robotic units.
+This feature branch implements a robust hexagonal grid-based navigation system for a 2D isometric agent shooter built in Godot 4.5. The primary objective is to replace the existing linear pathfinding system with a comprehensive hex-grid solution that provides improved spatial navigation and clearer movement mechanics for agent units.
 
 ## Core Architecture
 
@@ -46,7 +46,7 @@ The grid visualization system renders thin, clearly-visible outlines around enab
 
 The pathfinding system leverages Godot's built-in AStarGrid and AStarNode classes exclusively. This approach takes full advantage of the engine's highly optimized, well-tested navigation features rather than introducing custom algorithms. The hex grid serves as the primary navigation structure, completely replacing the previous linear or segmented pathfinding approach.
 
-Robot units are constrained to move only through enabled hexagonal cells. Obstacle avoidance is handled inherently through the grid's enabled/disabled state system, eliminating the need for additional runtime collision checks during pathfinding operations.
+Agent units are constrained to move only through enabled hexagonal cells. Obstacle avoidance is handled inherently through the grid's enabled/disabled state system, eliminating the need for additional runtime collision checks during pathfinding operations.
 
 ## Development Philosophy
 

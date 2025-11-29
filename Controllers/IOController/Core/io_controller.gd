@@ -61,6 +61,9 @@ signal clear_history_requested()
 ## Emitted when user presses E key (export path data)
 signal export_data_requested()
 
+## Emitted when user presses Space or Enter (end current agent turn)
+signal end_turn_requested()
+
 # ============================================================================
 # COMPONENT REFERENCES
 # ============================================================================
@@ -117,6 +120,7 @@ func _connect_component_signals() -> void:
 		keyboard_handler.report_key_pressed.connect(func(): debug_report_requested.emit())
 		keyboard_handler.clear_key_pressed.connect(func(): clear_history_requested.emit())
 		keyboard_handler.export_key_pressed.connect(func(): export_data_requested.emit())
+		keyboard_handler.end_turn_requested.connect(func(): end_turn_requested.emit())
 		print("IOController: KeyboardInputHandler connected")
 
 	# Find and connect camera handler

@@ -32,7 +32,7 @@ func set_state_value(key: String, value: Variant) -> void:
 	if key not in state:
 		return
 
-	var old_value: Array[String] = state[key]
+	var old_value: Variant = state[key]
 	if old_value != value:
 		state[key] = value
 		state_value_changed.emit(key, value)

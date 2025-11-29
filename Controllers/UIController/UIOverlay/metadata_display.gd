@@ -1,3 +1,7 @@
+## SIGNAL COMPLIANCE AUDIT (SessionController.turn_changed)
+## This overlay intentionally does not interact with or react to the 'turn_changed' signal from SessionController.
+## Its responsibility is limited to presenting metadata for the currently selected item and reacting to UI visibility and selection changes.
+## The design explicitly avoids responding to turn change events, as selection and metadata display are managed independently.
 extends CanvasLayer
 
 ## Metadata Display UI - User Feedback Overlay

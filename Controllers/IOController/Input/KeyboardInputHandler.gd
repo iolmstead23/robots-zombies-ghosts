@@ -28,6 +28,9 @@ signal clear_key_pressed()
 ## Emitted when E key is pressed (request export data)
 signal export_key_pressed()
 
+## Emitted when Space or Enter is pressed (end current agent turn)
+signal end_turn_requested()
+
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
@@ -63,6 +66,10 @@ func _input(event: InputEvent) -> void:
 
 		KEY_E:
 			export_key_pressed.emit()
+
+		KEY_SPACE, KEY_ENTER:
+			print("[KeyboardInputHandler] Space/Enter pressed - requesting end turn")
+			end_turn_requested.emit()
 
 # ============================================================================
 # PUBLIC API

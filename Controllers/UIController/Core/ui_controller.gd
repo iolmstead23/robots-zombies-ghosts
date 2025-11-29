@@ -25,6 +25,9 @@ signal ui_visibility_changed(visible: bool)
 ## Emitted when selected item changes
 signal selected_item_changed(item_data: Dictionary)
 
+## Emitted when the current turn info changes (used for overlays)
+signal turn_info_changed(turn_data: Dictionary)
+
 # ============================================================================
 # SIGNALS - Commands (Received from SessionController or other features)
 # ============================================================================
@@ -64,6 +67,10 @@ func _ready():
 	_initialize_state()
 	_connect_signals()
 	_connect_feature_signals()
+
+	## Note: SessionController connects its 'turn_changed' signal to this controller's
+	## '_on_turn_changed' handler in SessionController._connect_controller_signals()
+	## No manual connection needed here.
 
 	print("UIController: Initialized with atomized features")
 
@@ -184,6 +191,18 @@ func _on_visibility_controller_changed(overlay_name: String, is_visible: bool):
 func _on_state_manager_changed(old_state: String, new_state: String, _data: Dictionary):
 	"""Handle state changes from StateManager"""
 	print("UIController: State changed from '%s' to '%s'" % [old_state, new_state])
+
+# ============================================================================
+# SIGNAL HANDLERS - SessionController (runtime connection)
+# ============================================================================
+
+## Handler stub for SessionController's 'turn_changed' signal.
+## Called when the session advances turns. Implement business logic as appropriate.
+func _on_turn_changed(turn_data: Dictionary):
+	# Forward turn info to overlays
+	turn_info_changed.emit(turn_data)
+	if OS.is_debug_build():
+		print("[UIController] Forwarded turn_info_changed: %s" % str(turn_data))
 
 # ============================================================================
 # PUBLIC API (called internally via signals) - Legacy Compatibility

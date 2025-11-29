@@ -1,7 +1,19 @@
 extends CharacterBody2D
-class_name AgentController
+class_name Agent
 
 ## Main agent controller for turn-based hex navigation
+
+var can_receive_input: bool = false
+
+func set_controllable(is_active: bool) -> void:
+	can_receive_input = is_active
+	if turn_based_controller:
+		if is_active:
+			turn_based_controller.activate()
+		else:
+			turn_based_controller.deactivate()
+	if OS.is_debug_build():
+		print("Agent controllable: %s" % is_active)
 
 # Components
 @onready var movement_component: MovementComponent = MovementComponent.new()
@@ -29,7 +41,7 @@ func _ready() -> void:
 	_init_sprite()
 
 	if OS.is_debug_build():
-		print("AgentController: Initialized for hex navigation")
+		print("Agent: Initialized for hex navigation")
 
 func _setup_components() -> void:
 	add_child(movement_component)
@@ -74,13 +86,13 @@ func set_hex_navigation(grid: HexGrid, pathfinder: HexPathfinder) -> void:
 		turn_based_controller.set_hex_components(hex_grid, hex_pathfinder)
 
 	if OS.is_debug_build():
-		print("AgentController: Hex navigation set")
+		print("Agent: Hex navigation set")
 
 func activate_turn_based_mode() -> void:
 	turn_based_controller.activate()
 
 	if OS.is_debug_build():
-		print("AgentController: Turn-based mode activated")
+		print("Agent: Turn-based mode activated")
 
 func _on_turn_movement_started() -> void:
 	state_manager.set_state_value("is_moving", true)
@@ -93,13 +105,13 @@ func _on_turn_movement_completed(distance: float) -> void:
 	agent_moved.emit(global_position)
 
 	if OS.is_debug_build():
-		print("AgentController: Movement complete (%.1f ft)" % (distance / 32.0))
+		print("Agent: Movement complete (%.1f ft)" % (distance / 32.0))
 
 func _on_turn_ended(turn_number: int) -> void:
 	state_manager.set_state_value("turn_number", turn_number)
 
 	if OS.is_debug_build():
-		print("AgentController: Turn %d ended" % turn_number)
+		print("Agent: Turn %d ended" % turn_number)
 
 func _on_velocity_calculated(_vel: Vector2) -> void:
 	pass
