@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=4 uid="uid://dkm8x9p7qh3wv"]
+[gd_scene load_steps=2 format=4 uid="uid://dkm8yap7qh3wv"]
 
 [ext_resource type="PackedScene" uid="uid://bv8k3m7p9qh2x" path="res://Controllers/UIController/Core/base_overlay.tscn" id="1_base"]
 [ext_resource type="Script" path="res://Controllers/UIController/UI/selection_overlay.gd" id="2_script"]

@@ -11,7 +11,7 @@ const NavigationControllerScript = preload("res://Controllers/NavigationControll
 const DebugControllerScript = preload("res://Controllers/DebugController/Core/debug_controller.gd")
 const UIControllerScript = preload("res://Controllers/UIController/Core/ui_controller.gd")
 const SelectionControllerScript = preload("res://Controllers/SelectionController/Core/selection_controller.gd")
-const AgentManagerScript = preload("res://Controllers/AgentManager/Core/agent_manager.gd")
+const AgentControllerScript = preload("res://Controllers/AgentController/Core/agent_controller.gd")
 
 # ============================================================================
 # SIGNALS - Session Lifecycle
@@ -21,7 +21,7 @@ signal session_initialized()
 signal session_started()
 signal session_ended()
 signal terrain_initialized()
-# Emitted when the current agent's turn changes (mirrors AgentManager's agent_turn_started).
+# Emitted when the current agent's turn changes (mirrors AgentController's agent_turn_started).
 signal turn_changed(agent_data)
 
 # ============================================================================
@@ -66,7 +66,7 @@ var navigation_controller # NavigationController instance
 var debug_controller # DebugController instance
 var ui_controller # UIController instance
 var selection_controller # SelectionController instance
-var agent_manager # AgentManager instance
+var agent_manager # AgentController instance
 
 # ============================================================================
 # SESSION STATE
@@ -165,18 +165,18 @@ func _init_controllers() -> void:
 		add_child(selection_controller)
 		print("    ✓ SelectionController created")
 
-	print("  Creating AgentManager...")
+	print("  Creating AgentController...")
 	agent_manager = null
-	agent_manager = AgentManagerScript.new() if typeof(AgentManagerScript) == TYPE_OBJECT else null
+	agent_manager = AgentControllerScript.new() if typeof(AgentControllerScript) == TYPE_OBJECT else null
 	if agent_manager == null:
-		push_error("Failed to create AgentManager!")
+		push_error("Failed to create AgentController!")
 		failed = true
 	else:
-		agent_manager.name = "AgentManager"
+		agent_manager.name = "AgentController"
 		agent_manager.agent_count = number_of_agents
 		agent_manager.max_movements_per_turn = max_movements_per_turn
 		add_child(agent_manager)
-		print("    ✓ AgentManager created")
+		print("    ✓ AgentController created")
 
 	if failed:
 		push_warning("One or more controllers failed to initialize. See errors above.")
@@ -227,7 +227,7 @@ func _connect_controller_signals() -> void:
 	try_connect(selection_controller.object_selected, _on_object_selected, "object_selected", "selection_controller")
 	try_connect(selection_controller.selection_cleared, _on_selection_cleared, "selection_cleared", "selection_controller")
 
-	# AgentManager Signals
+	# AgentController Signals
 	try_connect(agent_manager.agents_spawned, _on_agents_spawned, "agents_spawned", "agent_manager")
 	try_connect(agent_manager.agent_turn_started, _on_agent_turn_started, "agent_turn_started", "agent_manager")
 	try_connect(agent_manager.agent_turn_ended, _on_agent_turn_ended, "agent_turn_ended", "agent_manager")
@@ -546,7 +546,7 @@ func _on_selection_cleared() -> void:
 		print("SessionController: Selection cleared")
 
 # ============================================================================
-# EVENT HANDLERS - AgentManager
+# EVENT HANDLERS - AgentController
 # ============================================================================
 
 func _on_agents_spawned(agent_count: int) -> void:
@@ -699,7 +699,7 @@ func get_ui_controller(): # Returns UIController
 func get_selection_controller(): # Returns SelectionController
 	return selection_controller
 
-func get_agent_manager(): # Returns AgentManager
+func get_agent_manager(): # Returns AgentController
 	return agent_manager
 
 # ============================================================================

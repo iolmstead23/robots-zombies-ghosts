@@ -135,7 +135,7 @@ func refresh_turn_info(turn_data: Dictionary) -> void:
 	print("[SelectionOverlay] Updated turn info: %s" % label_text)
 
 func _request_initial_turn_info() -> void:
-	"""Request the current turn info from AgentManager in case we missed the initial signal"""
+	"""Request the current turn info from AgentController in case we missed the initial signal"""
 	if not session_controller:
 		return
 

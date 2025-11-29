@@ -1,5 +1,4 @@
 extends CharacterBody2D
-class_name Agent
 
 ## Main agent controller for turn-based hex navigation
 

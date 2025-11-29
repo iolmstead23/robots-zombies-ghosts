@@ -15,7 +15,7 @@ var io_controller: IOController
 var selected_cell: HexCell = null
 
 # Multi-agent support
-var agent_manager: AgentManager = null
+var agent_manager: AgentController = null
 var active_agent_data: AgentData = null
 
 func _ready() -> void:
@@ -59,7 +59,7 @@ func _ready() -> void:
 
 		# Get initial active agent
 		active_agent_data = agent_manager.get_active_agent()
-		print("AgentManager initialized - Active agent: %s" % (active_agent_data.agent_name if active_agent_data else "None"))
+		print("AgentController initialized - Active agent: %s" % (active_agent_data.agent_name if active_agent_data else "None"))
 
 	# Connect to navigation controller signals for logging
 	var nav_controller = session_controller.get_navigation_controller()
@@ -343,9 +343,9 @@ func _handle_cell_click(cell: HexCell) -> void:
 		str(script_class_name)
 	])
 
-	var agent_controller: Agent = controller_node as Agent
+	var agent_controller: CharacterBody2D = controller_node as CharacterBody2D
 	if not agent_controller:
-		print("\n❌ ERROR: Active agent controller is not recognized as 'Agent'")
+		print("\n❌ ERROR: Active agent controller is not a CharacterBody2D")
 		if controller_node:
 			print("[DEBUG] Node class: %s, script: %s, script class_name property: %s" % [
 				controller_node.get_class(),

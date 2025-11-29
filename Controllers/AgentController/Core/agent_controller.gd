@@ -1,7 +1,7 @@
-class_name AgentManager
+class_name AgentController
 extends Node
 
-## AgentManager
+## AgentController
 ##
 ## Manages multiple agents in a turn-based system.
 ## Handles agent spawning, turn order, and movement tracking.
@@ -46,7 +46,7 @@ func _ensure_agent_scene_loaded() -> void:
 		# Try to load default agent scene
 		agent_scene = load("res://Agents/agent.tscn")
 		if agent_scene == null:
-			push_error("[AgentManager] Failed to load default agent scene from res://Agents/agent.tscn")
+			push_error("[AgentController] Failed to load default agent scene from res://Agents/agent.tscn")
 
 
 ## Initialize the agent manager with required references
@@ -55,48 +55,48 @@ func initialize(grid: HexGrid, nav_controller: Node) -> void:
 	navigation_controller = nav_controller
 	_ensure_agent_scene_loaded()
 	is_initialized = true
-	print("[AgentManager] Initialized with grid and navigation controller")
+	print("[AgentController] Initialized with grid and navigation controller")
 
 
 ## Spawn agents at random positions within the navigation map
 func spawn_agents(count: int = -1) -> void:
-	print("[AgentManager] ===== SPAWN_AGENTS CALLED =====")
-	print("[AgentManager] Requested count: %d" % count)
-	print("[AgentManager] Initialized: %s" % is_initialized)
-	print("[AgentManager] In scene tree: %s" % is_inside_tree())
-	print("[AgentManager] Agent scene: %s" % ("Loaded" if agent_scene != null else "NULL"))
+	print("[AgentController] ===== SPAWN_AGENTS CALLED =====")
+	print("[AgentController] Requested count: %d" % count)
+	print("[AgentController] Initialized: %s" % is_initialized)
+	print("[AgentController] In scene tree: %s" % is_inside_tree())
+	print("[AgentController] Agent scene: %s" % ("Loaded" if agent_scene != null else "NULL"))
 
 	if not is_initialized:
-		push_error("[AgentManager] Cannot spawn agents - not initialized")
+		push_error("[AgentController] Cannot spawn agents - not initialized")
 		return
 
 	if count > 0:
 		agent_count = clamp(count, 1, 4)
 
-	print("[AgentManager] Will spawn %d agents" % agent_count)
+	print("[AgentController] Will spawn %d agents" % agent_count)
 
 	# Clear existing agents
 	_clear_agents()
 
 	# Get valid spawn positions
 	var spawn_positions = _get_random_spawn_positions(agent_count)
-	print("[AgentManager] Found %d valid spawn positions (need %d)" % [spawn_positions.size(), agent_count])
+	print("[AgentController] Found %d valid spawn positions (need %d)" % [spawn_positions.size(), agent_count])
 
 	if spawn_positions.size() < agent_count:
-		push_error("[AgentManager] Not enough valid spawn positions found")
+		push_error("[AgentController] Not enough valid spawn positions found")
 		return
 
 	# Spawn each agent
 	for i in range(agent_count):
-		print("[AgentManager] Spawning agent %d/%d..." % [i + 1, agent_count])
+		print("[AgentController] Spawning agent %d/%d..." % [i + 1, agent_count])
 		var agent = _spawn_agent(i, spawn_positions[i])
 		if agent:
 			agents.append(agent)
-			print("[AgentManager] ✓ Agent %d spawned successfully" % (i + 1))
+			print("[AgentController] ✓ Agent %d spawned successfully" % (i + 1))
 		else:
-			push_error("[AgentManager] ✗ Failed to spawn agent %d" % (i + 1))
+			push_error("[AgentController] ✗ Failed to spawn agent %d" % (i + 1))
 
-	print("[AgentManager] ===== SPAWN COMPLETE: %d/%d agents spawned =====" % [agents.size(), agent_count])
+	print("[AgentController] ===== SPAWN COMPLETE: %d/%d agents spawned =====" % [agents.size(), agent_count])
 	
 	# Strict validation: Agents array must be exactly agent_count in length, and must not contain nulls
 	var valid_agent_count := (agents.size() == agent_count)
@@ -107,7 +107,7 @@ func spawn_agents(count: int = -1) -> void:
 			break
 
 	if not valid_agent_count or has_null_agent:
-		push_error("[AgentManager] ERROR - Agent array invalid after spawn: Expected %d, Got %d, Null: %s" % [
+		push_error("[AgentController] ERROR - Agent array invalid after spawn: Expected %d, Got %d, Null: %s" % [
 			agent_count, agents.size(), str(has_null_agent)
 		])
 		_clear_agents()
@@ -120,7 +120,7 @@ func spawn_agents(count: int = -1) -> void:
 		session_active = true
 		_start_next_agent_turn()
 	else:
-		push_error("[AgentManager] No agents were successfully spawned!")
+		push_error("[AgentController] No agents were successfully spawned!")
 
 
 ## Get random spawn positions within the navigation map
@@ -207,8 +207,8 @@ func _spawn_agent(index: int, position: Vector2) -> AgentData:
 		if pathfinder:
 			agent_controller.set_hex_navigation(hex_grid, pathfinder)
 
-	print("[AgentManager] Spawned %s at %s" % [agent_data.agent_name, position])
-	print("[AgentManager] AgentData constructed: id=%s, creation_time=%s, controller=%s" % [str(agent_data.agent_id), str(agent_data.creation_time), str(agent_controller.get_path())])
+	print("[AgentController] Spawned %s at %s" % [agent_data.agent_name, position])
+	print("[AgentController] AgentData constructed: id=%s, creation_time=%s, controller=%s" % [str(agent_data.agent_id), str(agent_data.creation_time), str(agent_controller.get_path())])
 	return agent_data
 
 
@@ -253,7 +253,7 @@ func _start_next_agent_turn() -> void:
 		active_agent_index = 0
 		current_round += 1
 		all_agents_completed_round.emit()
-		print("[AgentManager] Round %d completed" % current_round)
+		print("[AgentController] Round %d completed" % current_round)
 
 	# Set controllability: enable only for next_agent
 	for i in range(agents.size()):
@@ -274,13 +274,13 @@ func _start_next_agent_turn() -> void:
 	agent_turn_started.emit(next_agent)
 
 	# Turn debug print
-	print("[AgentManager] ===== AGENT TURN =====")
-	print("[AgentManager] Active agent: %s (Index: %d, Round: %d)" % [
+	print("[AgentController] ===== AGENT TURN =====")
+	print("[AgentController] Active agent: %s (Index: %d, Round: %d)" % [
 		next_agent.agent_name,
 		active_agent_index,
 		current_round
 	])
-	print("[AgentManager] =======================")
+	print("[AgentController] =======================")
 
 
 ## Get the currently active agent
@@ -294,11 +294,11 @@ func get_active_agent() -> AgentData:
 func get_all_agents() -> Array[AgentData]:
 	# Enforce agent array validity
 	if agents.size() != agent_count:
-		push_error("[AgentManager] get_all_agents(): agents.size (%d) != expected agent_count (%d)" % [agents.size(), agent_count])
+		push_error("[AgentController] get_all_agents(): agents.size (%d) != expected agent_count (%d)" % [agents.size(), agent_count])
 		return []
 	for a in agents:
 		if a == null:
-			push_error("[AgentManager] get_all_agents(): Null agent detected in agents array.")
+			push_error("[AgentController] get_all_agents(): Null agent detected in agents array.")
 			return []
 	return agents
 
@@ -311,14 +311,14 @@ func record_movement_action(distance_meters: int = 0) -> bool:
 		return false
 
 	if not active_agent.use_movement_action(distance_meters):
-		print("[AgentManager] %s has no distance remaining (%d / %d meters used)" % [
+		print("[AgentController] %s has no distance remaining (%d / %d meters used)" % [
 			active_agent.agent_name,
 			active_agent.distance_traveled_this_turn,
 			active_agent.max_distance_per_turn
 		])
 		return false
 
-	print("[AgentManager] %s moved %d meters (%d / %d meters used)" % [
+	print("[AgentController] %s moved %d meters (%d / %d meters used)" % [
 		active_agent.agent_name,
 		distance_meters,
 		active_agent.distance_traveled_this_turn,
@@ -329,7 +329,7 @@ func record_movement_action(distance_meters: int = 0) -> bool:
 
 	# Auto-advance turn if distance exhausted
 	if not active_agent.can_move():
-		print("[AgentManager] %s exhausted distance budget (%d / %d meters), ending turn" % [
+		print("[AgentController] %s exhausted distance budget (%d / %d meters), ending turn" % [
 			active_agent.agent_name,
 			active_agent.distance_traveled_this_turn,
 			active_agent.max_distance_per_turn
@@ -343,7 +343,7 @@ func record_movement_action(distance_meters: int = 0) -> bool:
 func end_current_agent_turn() -> void:
 	var active_agent = get_active_agent()
 	if active_agent:
-		print("[AgentManager] Manually ending %s turn" % active_agent.agent_name)
+		print("[AgentController] Manually ending %s turn" % active_agent.agent_name)
 		_start_next_agent_turn()
 
 
@@ -360,11 +360,11 @@ func _on_agent_movement_action_used(_movements_remaining: int, _agent_data: Agen
 
 
 func _on_agent_turn_started(agent_id: String) -> void:
-	print("[AgentManager] Agent turn started: %s" % agent_id)
+	print("[AgentController] Agent turn started: %s" % agent_id)
 
 
 func _on_agent_turn_ended(agent_id: String, total_movements: int) -> void:
-	print("[AgentManager] Agent turn ended: %s (used %d movements)" % [agent_id, total_movements])
+	print("[AgentController] Agent turn ended: %s (used %d movements)" % [agent_id, total_movements])
 
 	# Find the agent and re-emit the signal for external listeners
 	for agent_data in agents:
@@ -387,7 +387,7 @@ func get_state() -> Dictionary:
 
 ## Print debug information
 func print_state() -> void:
-	print("=== AgentManager State ===")
+	print("=== AgentController State ===")
 	var state = get_state()
 	for key in state:
 		print("  %s: %s" % [key, state[key]])
