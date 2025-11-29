@@ -32,7 +32,7 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.9, 0.9, 0.95, 1)
 theme_override_font_sizes/font_size = 20
-text = "Robot Party 1"
+text = "Agent Party 1"
 
 [node name="RemoveButton" type="Button" parent="MarginContainer/VBoxContainer/HeaderRow"]
 custom_minimum_size = Vector2(100, 35)
@@ -49,7 +49,7 @@ theme_override_constants/separation = 20
 layout_mode = 2
 theme_override_colors/font_color = Color(0.9, 0.9, 0.95, 1)
 theme_override_font_sizes/font_size = 16
-text = "Robot Count:"
+text = "Agent Count:"
 vertical_alignment = 1
 
 [node name="RobotCountSpinBox" type="SpinBox" parent="MarginContainer/VBoxContainer/ConfigRow"]
@@ -60,4 +60,4 @@ max_value = 100.0
 value = 1.0
 
 [connection signal="pressed" from="MarginContainer/VBoxContainer/HeaderRow/RemoveButton" to="." method="_on_remove_pressed"]
-[connection signal="value_changed" from="MarginContainer/VBoxContainer/ConfigRow/RobotCountSpinBox" to="." method="_on_robot_count_changed"]
+[connection signal="value_changed" from="MarginContainer/VBoxContainer/ConfigRow/RobotCountSpinBox" to="." method="_on_agent_count_changed"]

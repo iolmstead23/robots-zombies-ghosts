@@ -1,6 +1,5 @@
-[gd_scene load_steps=11 format=4 uid="uid://c0ainp474es8e"]
+[gd_scene load_steps=10 format=4 uid="uid://c0ainp474es8e"]
 
-[ext_resource type="PackedScene" uid="uid://xmepjh2dfuwk" path="res://Robot/Agent.tscn" id="1_0xm2m"]
 [ext_resource type="Script" uid="uid://de0cnd67yj7gq" path="res://main.gd" id="1_4c57u"]
 [ext_resource type="PackedScene" uid="uid://c0ajtsn61q85p" path="res://Environment/Terrain/Dirt/dirt.tscn" id="2_h2yge"]
 [ext_resource type="PackedScene" uid="uid://bhvhc1f11qh4e" path="res://Environment/Terrain/Stone/stone.tscn" id="3_1bvp3"]
@@ -97,6 +96,3 @@ tile_map_data = PackedByteArray("AAD6//r/AAABAAAAAAD8//n/AAAFAAAAAAD+//j/AAAFAAA
 tile_set = SubResource("TileSet_272bh")
 
 [node name="NavigationObstacle2D" type="NavigationObstacle2D" parent="NavigationRegion2D/Walls"]
-
-[node name="CharacterBody2D" parent="." instance=ExtResource("1_0xm2m")]
-position = Vector2(331, -265)

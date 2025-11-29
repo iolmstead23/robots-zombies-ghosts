@@ -130,15 +130,17 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not is_active:
 		return
 
-	# Left click to request movement when idle
-	if current_state == TurnState.IDLE:
-		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-			var click_pos: Vector2 = get_viewport().get_mouse_position()
-			if DEBUG:
-				print("Turn-based: Requesting movement to ", click_pos)
-			request_movement_to(click_pos)
-			get_viewport().set_input_as_handled()
-			return
+	# NOTE: Mouse click handling disabled - main.gd controls movement via IOController
+	# This prevents duplicate handling of the same click event
+	# # Left click to request movement when idle
+	# if current_state == TurnState.IDLE:
+	# 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+	# 		var click_pos: Vector2 = get_viewport().get_mouse_position()
+	# 		if DEBUG:
+	# 			print("Turn-based: Requesting movement to ", click_pos)
+	# 		request_movement_to(click_pos)
+	# 		get_viewport().set_input_as_handled()
+	# 		return
 
 	# Confirmation / cancellation while awaiting confirmation
 	if current_state == TurnState.AWAITING_CONFIRMATION:
@@ -150,11 +152,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			cancel_movement()
 			get_viewport().set_input_as_handled()
 			return
-		# Clicking again confirms
-		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-			confirm_movement()
-			get_viewport().set_input_as_handled()
-			return
+		# NOTE: Mouse click auto-confirmation disabled - main.gd now controls confirmation flow
+		# This allows distance validation before confirming movements
+		# if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		# 	confirm_movement()
+		# 	get_viewport().set_input_as_handled()
+		# 	return
 
 # ----------------------
 # Public API (alphabetized)
@@ -395,12 +398,24 @@ func _show_path_preview() -> void:
 	path_preview_line.clear_points()
 
 	var points := PackedVector2Array()
-	points.append(player.get_parent().to_local(player.global_position))
+
+	# Check if parent is a Node2D (required for to_local)
+	var parent = player.get_parent()
+	var use_local_coords = parent is Node2D
+
+	if use_local_coords:
+		points.append(parent.to_local(player.global_position))
+	else:
+		# Parent is not Node2D, use global coordinates directly
+		points.append(player.global_position)
 
 	# Add points from pathfinder.path_segments (assumes segments are arrays of global Vector2s)
 	for segment in pathfinder.path_segments:
 		for point in segment:
-			points.append(player.get_parent().to_local(point))
+			if use_local_coords:
+				points.append(parent.to_local(point))
+			else:
+				points.append(point)
 
 	path_preview_line.points = points
 
@@ -417,13 +432,18 @@ func _setup_ui() -> void:
 	# Create path preview line if missing
 	if path_preview_line == null:
 		path_preview_line = Line2D.new()
-		path_preview_line.width = 3.0
-		path_preview_line.default_color = Color.CYAN
-		path_preview_line.z_index = 10
+		path_preview_line.name = "PathPreviewLine"
+		path_preview_line.width = 4.0
+		path_preview_line.default_color = Color(0.0, 1.0, 1.0, 0.8)  # Bright cyan with some transparency
+		path_preview_line.z_index = 100  # Draw on top
 		path_preview_line.points = PackedVector2Array()
-		# Defer adding to player's parent until player exists in scene tree
-		if player != null and player.get_parent() != null:
-			player.get_parent().call_deferred("add_child", path_preview_line)
+		# Add to scene root for visibility (works for both robot and multi-agent modes)
+		if player != null:
+			var scene_root = player.get_tree().root.get_child(player.get_tree().root.get_child_count() - 1)
+			if scene_root:
+				scene_root.call_deferred("add_child", path_preview_line)
+			else:
+				call_deferred("add_child", path_preview_line)
 		else:
 			# Fallback: add to this controller node if player not ready yet
 			call_deferred("add_child", path_preview_line)

@@ -51,6 +51,12 @@ var gradient_texture: GradientTexture2D
 
 func _ready():
 	_apply_configuration()
+	
+	## Audit requirement: Explicitly connect to SessionController's "turn_changed" signal.
+	## This ensures overlays can robustly respond to turn changes if needed, and is auditable for session-awareness.
+	var session_controller = get_tree().get_root().find_child("SessionController", true, false)
+	if session_controller and not session_controller.is_connected("turn_changed", Callable(self, "_on_turn_changed")):
+		session_controller.connect("turn_changed", Callable(self, "_on_turn_changed"))
 
 # ============================================================================
 # CONFIGURATION
@@ -168,3 +174,14 @@ func update_style(new_gradient_color: Color = gradient_color, new_border_color: 
 	gradient_alpha = new_alpha
 	_setup_gradient()
 	_setup_border()
+
+# =============================================================================
+# TURN HANDLING (AUDIT STUB)
+# =============================================================================
+
+## Handler for SessionController's "turn_changed" signal.
+##
+## Stub provided for audit and robustness—child classes should override to implement turn-specific behavior.
+## Ensures overlays can safely and explicitly react to turn changes.
+func _on_turn_changed(turn_info):
+	pass
