@@ -120,6 +120,10 @@ jobs:
 
       - name: Build macOS
         run: |
+          # Debug: Check project settings
+          echo "Checking project.godot for ETC2 ASTC setting:"
+          grep -A 5 "\[rendering\]" project.godot || echo "No rendering section found"
+
           mkdir -v -p build/macos
           godot --headless --verbose --export-release "macOS" build/macos/${{ env.PROJECT_NAME }}.zip
 
@@ -192,8 +196,13 @@ jobs:
             -storepass android -keypass android \
             -dname "CN=Android Debug,O=Android,C=US" 2>/dev/null || true
 
+          # Debug: Check Android SDK location
+          echo "Searching for Android SDK..."
+          find /usr -name "android-sdk" 2>/dev/null || echo "Android SDK not found in /usr"
+          ls -la /root/
+
           # Configure Godot editor settings for Android
-          cat > ~/.config/godot/editor_settings-4.tres << EOF
+          cat > ~/.config/godot/editor_settings-4.tres << 'EOF'
           [gd_resource type="EditorSettings" format=3]
 
           [resource]
@@ -205,6 +214,13 @@ jobs:
           export/android/shutdown_adb_on_exit = true
           export/android/one_click_deploy_clear_previous_install = false
           EOF
+
+          # Debug: Verify editor settings were created
+          echo "Editor settings created:"
+          cat ~/.config/godot/editor_settings-4.tres
+
+          # Debug: Verify keystore was created
+          ls -la ~/.android/
 
       # Setup Android keystore from secrets (if configured for release builds)
       # Uncomment these steps once you've added the required secrets
