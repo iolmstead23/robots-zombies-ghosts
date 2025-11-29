@@ -1,10 +1,9 @@
-extends CanvasLayer
+extends BaseOverlay
 
 ## Selection Overlay UI - Displays selected object information
 ## Connects to UIController for selection data updates
 
 # Reference to UI elements
-@onready var control: Control = $Control
 @onready var title_label: Label = $Control/Panel/MarginContainer/VBoxContainer/TitleLabel
 @onready var type_label: Label = $Control/Panel/MarginContainer/VBoxContainer/TypeLabel
 @onready var metadata_label: Label = $Control/Panel/MarginContainer/VBoxContainer/MetadataLabel
@@ -14,6 +13,19 @@ var session_controller = null
 var ui_controller = null
 
 func _ready():
+	# Configure the base overlay style (before super._ready())
+	gradient_color = Color(0, 0.2, 0.4)
+	gradient_alpha = 0.9
+	border_color = Color(0, 0.6, 1)
+	border_width = 2.0
+	anchor_position = 0  # Top Left
+	offset_from_edge = Vector2(10, 10)
+	overlay_size = Vector2(350, 200)
+	content_margin = 15
+
+	# Call parent _ready to apply configuration
+	super._ready()
+
 	# Start visible with empty state
 	visible = true
 	_show_empty_state()
