@@ -8,9 +8,6 @@ extends Node2D
 @onready var camera: Camera2D = $Camera2D
 @onready var agent: CharacterBody2D = get_node_or_null("CharacterBody2D")
 
-# IOController - will be created programmatically if not in scene
-var io_controller: IOController
-
 # Track selected cell for visualization
 var selected_cell: HexCell = null
 
@@ -29,6 +26,11 @@ func _ready() -> void:
 		return
 
 	print("SessionController found: ", session_controller.name)
+
+	# Configure camera and viewport for IOController
+	session_controller.camera = camera
+	session_controller.viewport = get_viewport()
+	print("Camera and viewport configured for SessionController")
 
 	# Configure navmesh integration before initialization
 	var nav_region: NavigationRegion2D = $NavigationRegion2D
@@ -82,9 +84,6 @@ func _ready() -> void:
 	else:
 		print("No single agent found - using multi-agent system")
 
-	# Configure IOController with dependencies
-	_setup_io_controller()
-
 	# Setup DebugUI overlay
 	_setup_debug_ui()
 
@@ -117,61 +116,6 @@ func _ready() -> void:
 	print("  E: Export path data to JSON")
 	print("  F3: Toggle debug mode")
 	print("=".repeat(60) + "\n")
-
-func _setup_io_controller() -> void:
-	"""Configure IOController with necessary dependencies and connect signals"""
-	# Check if IOController exists in scene tree
-	io_controller = get_node_or_null("IOController")
-
-	# If not in scene, create it programmatically
-	if not io_controller:
-		print("IOController not found in scene - creating programmatically")
-		io_controller = preload("res://Controllers/IOController/Core/io_controller.gd").new()
-		io_controller.name = "IOController"
-		add_child(io_controller)
-
-		# Create and add input handler components
-		var mouse_handler = preload("res://Controllers/IOController/Input/MouseInputHandler.gd").new()
-		mouse_handler.name = "MouseInputHandler"
-		io_controller.add_child(mouse_handler)
-
-		var keyboard_handler = preload("res://Controllers/IOController/Input/KeyboardInputHandler.gd").new()
-		keyboard_handler.name = "KeyboardInputHandler"
-		io_controller.add_child(keyboard_handler)
-
-		var camera_handler = preload("res://Controllers/IOController/Input/CameraInputHandler.gd").new()
-		camera_handler.name = "CameraInputHandler"
-		io_controller.add_child(camera_handler)
-
-		# Set dependencies directly on mouse handler (timing fix)
-		mouse_handler.set_camera(camera)
-		mouse_handler.set_viewport(get_viewport())
-
-		print("IOController and input handlers created")
-	else:
-		print("IOController found in scene tree")
-
-	# Set dependencies for IOController
-	io_controller.set_camera(camera)
-	io_controller.set_viewport(get_viewport())
-
-	var grid: HexGrid = session_controller.get_terrain()
-	if grid:
-		io_controller.set_hex_grid(grid)
-
-	# Connect to IOController signals
-	io_controller.hex_cell_left_clicked.connect(_on_io_cell_left_clicked)
-	io_controller.hex_cell_right_clicked.connect(_on_io_cell_right_clicked)
-	io_controller.hex_cell_hovered.connect(_on_io_cell_hovered)
-	io_controller.hex_cell_hover_ended.connect(_on_io_cell_hover_ended)
-	io_controller.camera_zoom_in_requested.connect(_on_io_zoom_in)
-	io_controller.camera_zoom_out_requested.connect(_on_io_zoom_out)
-	io_controller.debug_report_requested.connect(_on_io_debug_report)
-	io_controller.clear_history_requested.connect(_on_io_clear_history)
-	io_controller.export_data_requested.connect(_on_io_export_data)
-	io_controller.end_turn_requested.connect(_on_io_end_turn_requested)
-
-	print("IOController configured and signals connected")
 
 func _setup_debug_ui() -> void:
 	"""Create and configure DebugUI overlay"""
@@ -214,194 +158,6 @@ func _setup_selection_overlay() -> void:
 		print("SelectionOverlay found in scene tree")
 
 	print("SelectionOverlay configured")
-
-# ============================================================================
-# IO CONTROLLER SIGNAL HANDLERS
-# ============================================================================
-
-func _on_io_cell_left_clicked(cell: HexCell) -> void:
-	"""Handle left click on hex cell from IOController"""
-	_handle_cell_click(cell)
-
-func _on_io_cell_right_clicked(cell: HexCell) -> void:
-	"""Handle right click on hex cell from IOController"""
-	_toggle_cell(cell)
-
-func _on_io_cell_hovered(cell: HexCell) -> void:
-	"""Handle hover on hex cell from IOController"""
-	var debug_controller = session_controller.get_debug_controller()
-	if debug_controller:
-		debug_controller.set_hovered_cell(cell)
-
-func _on_io_cell_hover_ended() -> void:
-	"""Handle hover end from IOController"""
-	var debug_controller = session_controller.get_debug_controller()
-	if debug_controller:
-		debug_controller.set_hovered_cell(null)
-
-func _on_io_zoom_in() -> void:
-	"""Handle zoom in request from IOController"""
-	camera.zoom *= 1.1
-
-func _on_io_zoom_out() -> void:
-	"""Handle zoom out request from IOController"""
-	camera.zoom *= 0.9
-
-func _on_io_debug_report() -> void:
-	"""Handle debug report request from IOController"""
-	var nav_controller = session_controller.get_navigation_controller()
-	if nav_controller:
-		var tracker = nav_controller.get_path_tracker()
-		if tracker:
-			tracker.print_report()
-
-func _on_io_clear_history() -> void:
-	"""Handle clear history request from IOController"""
-	var nav_controller = session_controller.get_navigation_controller()
-	if nav_controller:
-		var tracker = nav_controller.get_path_tracker()
-		if tracker:
-			tracker.clear_history()
-			print("Path history cleared")
-
-func _on_io_export_data() -> void:
-	"""Handle export data request from IOController"""
-	var nav_controller = session_controller.get_navigation_controller()
-	if nav_controller:
-		var tracker = nav_controller.get_path_tracker()
-		if tracker:
-			var timestamp = Time.get_datetime_string_from_system().replace(":", "-")
-			var filename = "user://pathfinding_data_%s.json" % timestamp
-			tracker.export_to_json(filename)
-
-func _on_io_end_turn_requested() -> void:
-	"""Handle end turn request from IOController"""
-	if agent_manager and active_agent_data:
-		print("\n" + "⏭".repeat(30))
-		print("⏭ MANUALLY ENDING TURN FOR %s" % active_agent_data.agent_name.to_upper())
-		print("⏭".repeat(30))
-		print("Movements Used: %d/%d" % [
-			active_agent_data.movements_used_this_turn,
-			active_agent_data.max_movements_per_turn
-		])
-		print("⏭".repeat(30) + "\n")
-		agent_manager.end_current_agent_turn()
-	else:
-		print("Cannot end turn - no active agent")
-
-func _handle_cell_click(cell: HexCell) -> void:
-	"""Handle clicking on a hex cell - request navigation for active agent"""
-	print("\n" + "=".repeat(60))
-	print("HEX CELL SELECTION & NAVIGATION REQUEST")
-	print("=".repeat(60))
-
-	selected_cell = cell
-
-	print("\n--- Target Cell Info ---")
-	print("Cell Coordinates: (%d, %d)" % [cell.q, cell.r])
-	print("World Position: %s" % cell.world_position)
-	print("Cell Enabled: %s" % cell.enabled)
-
-	if not cell.enabled:
-		print("\n❌ NAVIGATION BLOCKED: Cell is disabled")
-		print("=".repeat(60) + "\n")
-		return
-
-	# Check if we have an active agent
-	if not active_agent_data:
-		print("\n❌ NAVIGATION BLOCKED: No active agent")
-		print("=".repeat(60) + "\n")
-		return
-
-	# Check if active agent can move
-	if not active_agent_data.can_move():
-		print("\n❌ NAVIGATION BLOCKED: %s has no movements remaining (%d/%d used)" % [
-			active_agent_data.agent_name,
-			active_agent_data.movements_used_this_turn,
-			active_agent_data.max_movements_per_turn
-		])
-		print("=".repeat(60) + "\n")
-		return
-
-	print("\n--- Active Agent Info ---")
-	print("Agent: %s" % active_agent_data.agent_name)
-	print("Current Position: %s" % active_agent_data.current_position)
-	print("Movements Remaining: %d/%d" % [
-		active_agent_data.get_movements_remaining(),
-		active_agent_data.max_movements_per_turn
-	])
-
-	# Get the active agent's controller
-	print("[main.gd] About to get agent_controller for agent_id=%s, agent_name=%s, agent_controller=%s" % [str(active_agent_data.agent_id), str(active_agent_data.agent_name), str(active_agent_data.agent_controller)])
-	var controller_node = active_agent_data.agent_controller
-	var script_type = controller_node.get_script() if controller_node else null
-	var script_class_name = script_type.get_class() if (script_type and script_type.has_method("get_class")) else ""
-	print("[DEBUG] Controller node type: %s, get_class(): %s, script: %s, script_class_name: %s" % [
-		controller_node,
-		controller_node.get_class() if controller_node else "null",
-		str(script_type),
-		str(script_class_name)
-	])
-
-	var agent_controller: Agent = controller_node as Agent
-	if not agent_controller:
-		print("\n❌ ERROR: Active agent controller is not recognized as 'Agent'")
-		if controller_node:
-			print("[DEBUG] Node class: %s, script: %s, script class_name property: %s" % [
-				controller_node.get_class(),
-				str(controller_node.get_script()),
-				str("has get_class" if controller_node.has_method("get_class") else "no get_class")
-			])
-			print("[DEBUG] Does controller_node have method request_movement_to? %s" % str(controller_node.has_method("request_movement_to")))
-			# Also try cast by manually checking class_name property if available
-			if controller_node.get_script() and controller_node.get_script().has_property("class_name"):
-				print("[DEBUG] Script class_name: %s" % str(controller_node.get_script().class_name))
-		print("=".repeat(60) + "\n")
-		return
-
-	# Navigate the active agent directly - pathfinding will calculate path
-	if agent_controller.turn_based_controller:
-		agent_controller.turn_based_controller.request_movement_to(cell.world_position)
-		# Small delay for pathfinding to complete
-		await get_tree().create_timer(0.1).timeout
-
-		if agent_controller.turn_based_controller.current_state == agent_controller.turn_based_controller.TurnState.AWAITING_CONFIRMATION:
-			# Get the number of hex cells in the path (each cell = 1 meter)
-			var pathfinder = agent_controller.turn_based_controller.pathfinder
-			if pathfinder and pathfinder.current_path and not pathfinder.current_path.is_empty():
-				var full_path_length = pathfinder.current_path.size()  # Number of hex cells in full path
-				var distance_available = active_agent_data.get_distance_remaining()
-
-				# Limit movement to available distance (max 10 meters per turn)
-				var distance_to_move = min(full_path_length, distance_available)
-
-				if distance_to_move <= 0:
-					agent_controller.turn_based_controller.cancel_movement()
-					print("\n❌ No distance remaining this turn")
-					print("=".repeat(60) + "\n")
-					return
-
-				# Truncate path if it exceeds available distance
-				if full_path_length > distance_to_move:
-					print("\n⚠️ Path truncated: %d meters requested, %d meters available" % [full_path_length, distance_to_move])
-					# Truncate the pathfinder's path to only the first distance_to_move cells
-					pathfinder.current_path = pathfinder.current_path.slice(0, distance_to_move)
-					print("   Path shortened from %d to %d cells" % [full_path_length, pathfinder.current_path.size()])
-
-				# Record movement action with actual distance to move
-				if agent_manager.record_movement_action(distance_to_move):
-					agent_controller.turn_based_controller.confirm_movement()
-					print("\n✅ Movement confirmed: %d meters (%d hex cells)" % [distance_to_move, distance_to_move])
-					print("   Distance remaining: %d meters" % int(active_agent_data.get_distance_remaining()))
-				else:
-					agent_controller.turn_based_controller.cancel_movement()
-					print("\n❌ Failed to record movement")
-			else:
-				print("\n❌ Pathfinding failed - no valid path")
-	else:
-		print("\n❌ ERROR: Agent has no turn_based_controller")
-
-	print("=".repeat(60) + "\n")
 
 # ============================================================================
 # NAVIGATION CONTROLLER CALLBACKS
@@ -538,18 +294,3 @@ func _on_all_agents_completed_round() -> void:
 	print("\n" + "🔄".repeat(30))
 	print("🔄 ALL AGENTS COMPLETED ROUND")
 	print("🔄".repeat(30) + "\n")
-
-# ============================================================================
-# HELPER METHODS
-# ============================================================================
-
-func _toggle_cell(cell: HexCell) -> void:
-	"""Toggle a cell between enabled and disabled via SessionController"""
-	var hex_grid_controller = session_controller.get_hex_grid_controller()
-	if not hex_grid_controller:
-		return
-
-	var coords = Vector2i(cell.q, cell.r)
-	hex_grid_controller.set_cell_enabled_requested.emit(coords, not cell.enabled)
-
-	print("Cell (%d,%d) %s" % [cell.q, cell.r, "enabled" if not cell.enabled else "disabled"])
