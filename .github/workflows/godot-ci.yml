@@ -184,11 +184,27 @@ jobs:
         run: |
           # Ensure Android SDK directories exist
           mkdir -p ~/.android
+          mkdir -p ~/.config/godot
+
           # Create a debug keystore
-          echo "android" | keytool -genkeypair -v -keystore ~/.android/debug.keystore -alias androiddebugkey \
+          keytool -genkeypair -v -keystore ~/.android/debug.keystore -alias androiddebugkey \
             -keyalg RSA -keysize 2048 -validity 10000 \
             -storepass android -keypass android \
-            -dname "CN=Android Debug,O=Android,C=US" 2>/dev/null || echo "Keystore already exists or created"
+            -dname "CN=Android Debug,O=Android,C=US" 2>/dev/null || true
+
+          # Configure Godot editor settings for Android
+          cat > ~/.config/godot/editor_settings-4.tres << EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "/usr/lib/android-sdk"
+          export/android/debug_keystore = "/root/.android/debug.keystore"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          export/android/force_system_user = false
+          export/android/shutdown_adb_on_exit = true
+          export/android/one_click_deploy_clear_previous_install = false
+          EOF
 
       # Setup Android keystore from secrets (if configured for release builds)
       # Uncomment these steps once you've added the required secrets
