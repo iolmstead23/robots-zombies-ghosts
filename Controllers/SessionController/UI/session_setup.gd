@@ -1,7 +1,7 @@
 extends Control
 
 # Preload the PartyItem scene
-const PartyItem = preload("res://Controllers/SessionController/UI/PartyItem.tscn")
+const PartyItem = preload("res://Controllers/SessionController/UI/party_item.tscn")
 
 # Session data
 var parties = []
@@ -13,7 +13,7 @@ func _ready():
 	pass
 
 func _on_back_pressed():
-	get_tree().change_scene_to_file("res://Controllers/SessionController/UI/MainMenu.tscn")
+	get_tree().change_scene_to_file("res://Controllers/SessionController/UI/main_menu.tscn")
 
 func _on_add_party_pressed():
 	# Create a new party with default values

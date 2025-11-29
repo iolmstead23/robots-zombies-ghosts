@@ -11,13 +11,13 @@ config_version=5
 [application]
 
 config/name="robots-zombies-ghosts"
-run/main_scene="res://Controllers/SessionController/UI/MainMenu.tscn"
+run/main_scene="res://Controllers/SessionController/UI/main_menu.tscn"
 config/features=PackedStringArray("4.5", "Forward Plus")
 config/icon="res://icon.svg"
 
 [autoload]
 
-SessionData="*res://Controllers/SessionController/Core/SessionData.gd"
+SessionData="*res://Controllers/SessionController/Core/session_data.gd"
 
 [input]
 

@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=4 uid="uid://cj3p8x1dqh0e7"]
 
-[ext_resource type="Script" path="res://Controllers/SessionController/UI/PartyItem.gd" id="1_party_item"]
+[ext_resource type="Script" path="res://Controllers/SessionController/UI/party_item.gd" id="1_party_item"]
 
 [node name="PartyItem" type="PanelContainer"]
 custom_minimum_size = Vector2(0, 120)

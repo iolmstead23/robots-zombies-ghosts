@@ -44,9 +44,9 @@ func _ready() -> void:
 func _ensure_agent_scene_loaded() -> void:
 	if agent_scene == null:
 		# Try to load default agent scene
-		agent_scene = load("res://Agents/Agent.tscn")
+		agent_scene = load("res://Agents/agent.tscn")
 		if agent_scene == null:
-			push_error("[AgentManager] Failed to load default agent scene from res://Agents/Agent.tscn")
+			push_error("[AgentManager] Failed to load default agent scene from res://Agents/agent.tscn")
 
 
 ## Initialize the agent manager with required references

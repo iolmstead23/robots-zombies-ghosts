@@ -73,7 +73,7 @@ func _ready() -> void:
 
 	# Add NavAgent2D follower to agent for automatic movement (only if single agent exists)
 	if agent:
-		var nav_follower = preload("res://Controllers/NavigationController/AgentNavigation/NavAgent2DFollower.gd").new()
+		var nav_follower = preload("res://Controllers/NavigationController/AgentNavigation/nav_agent_2d_follower.gd").new()
 		nav_follower.name = "NavAgent2DFollower"
 		nav_follower.movement_speed = 100.0
 		agent.add_child(nav_follower)
@@ -131,15 +131,15 @@ func _setup_io_controller() -> void:
 		add_child(io_controller)
 
 		# Create and add input handler components
-		var mouse_handler = preload("res://Controllers/IOController/Input/MouseInputHandler.gd").new()
+		var mouse_handler = preload("res://Controllers/IOController/Input/mouse_input_handler.gd").new()
 		mouse_handler.name = "MouseInputHandler"
 		io_controller.add_child(mouse_handler)
 
-		var keyboard_handler = preload("res://Controllers/IOController/Input/KeyboardInputHandler.gd").new()
+		var keyboard_handler = preload("res://Controllers/IOController/Input/keyboard_input_handler.gd").new()
 		keyboard_handler.name = "KeyboardInputHandler"
 		io_controller.add_child(keyboard_handler)
 
-		var camera_handler = preload("res://Controllers/IOController/Input/CameraInputHandler.gd").new()
+		var camera_handler = preload("res://Controllers/IOController/Input/camera_input_handler.gd").new()
 		camera_handler.name = "CameraInputHandler"
 		io_controller.add_child(camera_handler)
 
@@ -181,7 +181,7 @@ func _setup_debug_ui() -> void:
 	# If not in scene, load and instance it
 	if not debug_ui:
 		print("DebugUI not found in scene - loading from scene file")
-		var debug_ui_scene = load("res://Controllers/DebugController/UI/DebugUI.tscn")
+		var debug_ui_scene = load("res://Controllers/DebugController/UI/debug_ui.tscn")
 		if debug_ui_scene:
 			debug_ui = debug_ui_scene.instantiate()
 			add_child(debug_ui)
@@ -202,7 +202,7 @@ func _setup_selection_overlay() -> void:
 	# If not in scene, load and instance it
 	if not selection_overlay:
 		print("SelectionOverlay not found in scene - loading from scene file")
-		var selection_overlay_scene = load("res://Controllers/UIController/UI/SelectionOverlay.tscn")
+		var selection_overlay_scene = load("res://Controllers/UIController/UI/selection_overlay.tscn")
 		if selection_overlay_scene:
 			selection_overlay = selection_overlay_scene.instantiate()
 			add_child(selection_overlay)
