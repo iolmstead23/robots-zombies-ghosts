@@ -367,6 +367,9 @@ func get_path_tracker() -> HexPathTracker:
 func get_path_visualizer() -> HexPathVisualizer:
 	return hex_path_visualizer
 
+func get_pathfinder() -> HexPathfinder:
+	return hex_pathfinder
+
 func set_active_agent(agent_node: CharacterBody2D) -> void:
 	"""Set the active agent for navigation"""
 	agent = agent_node

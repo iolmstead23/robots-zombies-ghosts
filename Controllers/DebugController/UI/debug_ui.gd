@@ -99,6 +99,17 @@ func _update_display():
 	if grid_cells != null:
 		lines.append("Grid: %d (%d/%d)" % [grid_cells, enabled_cells if enabled_cells != null else 0, disabled_cells if disabled_cells != null else 0])
 
+	# Navigable Cells Info
+	var navigable_count = debug_data.get("navigable_cells_count")
+	if navigable_count != null:
+		lines.append("Navigable: %d cells" % navigable_count)
+
+	# Current Agent Cell
+	var agent_cell_q = debug_data.get("current_agent_cell_q")
+	var agent_cell_r = debug_data.get("current_agent_cell_r")
+	if agent_cell_q != null and agent_cell_r != null:
+		lines.append("Agent at: (%d, %d)" % [agent_cell_q, agent_cell_r])
+
 	# Navigation Status (compact)
 	var path_length = debug_data.get("path_length")
 	if path_length != null and path_length > 0:
@@ -113,10 +124,14 @@ func _update_display():
 	var cell_r = debug_data.get("hovered_cell_r")
 	var cell_index = debug_data.get("hovered_cell_index")
 	var cell_enabled = debug_data.get("hovered_cell_enabled")
+	var cell_navigable = debug_data.get("hovered_cell_navigable")
 
 	if cell_q != null and cell_r != null and cell_index != null and cell_enabled != null:
 		lines.append("Coords: (%d, %d) #%d" % [cell_q, cell_r, cell_index])
 		lines.append("State: %s" % ("Enabled" if cell_enabled else "Disabled"))
+
+		if cell_navigable != null:
+			lines.append("Navigable: %s" % ("YES" if cell_navigable else "NO"))
 
 		var world_pos = debug_data.get("hovered_cell_world_pos")
 		if world_pos != null:

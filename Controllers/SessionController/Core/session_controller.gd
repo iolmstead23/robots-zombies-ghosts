@@ -23,6 +23,8 @@ signal session_ended()
 signal terrain_initialized()
 # Emitted when the current agent's turn changes (mirrors AgentController's agent_turn_started).
 signal turn_changed(agent_data)
+# Emitted when the list of navigable cells is updated (at turn start)
+signal navigable_cells_updated(cells: Array[HexCell])
 
 # ============================================================================
 # CONFIGURATION
@@ -79,6 +81,10 @@ var session_start_time: float = 0.0
 var _session_state: Dictionary = {}
 var _grid_state: Dictionary = {}
 var _navigation_state: Dictionary = {}
+
+# Navigable cells tracking (for hover feedback and debug visualization)
+var navigable_cells: Array[HexCell] = []
+var current_agent_cell: HexCell = null
 
 # ============================================================================
 # LIFECYCLE
@@ -140,6 +146,7 @@ func _init_controllers() -> void:
 		failed = true
 	else:
 		debug_controller.name = "DebugController"
+		debug_controller.session_controller = self
 		add_child(debug_controller)
 		print("    ✓ DebugController created")
 
@@ -408,9 +415,19 @@ func _setup_debug_visualizations() -> void:
 		var hex_grid_debug = HexGridDebug.new()
 		hex_grid_debug.name = "HexGridDebug"
 		hex_grid_debug.hex_grid = grid
+		hex_grid_debug.session_controller = self
 		hex_grid_debug.debug_enabled = debug_mode
 		hex_grid_controller.add_child(hex_grid_debug)
 		debug_controller.set_hex_grid_debug(hex_grid_debug)
+
+		# Create HexCellHoverVisualizer for normal mode hover feedback
+		var hex_cell_hover_visualizer = HexCellHoverVisualizer.new()
+		hex_cell_hover_visualizer.name = "HexCellHoverVisualizer"
+		hex_cell_hover_visualizer.hex_grid = grid
+		hex_cell_hover_visualizer.session_controller = self
+		hex_cell_hover_visualizer.hover_enabled = not debug_mode  # Disabled in debug mode
+		hex_grid_controller.add_child(hex_cell_hover_visualizer)
+		debug_controller.set_hex_cell_hover_visualizer(hex_cell_hover_visualizer)
 
 func end_session() -> void:
 	if not session_active:
@@ -555,6 +572,11 @@ func _on_agents_spawned(agent_count: int) -> void:
 func _on_agent_turn_started(agent_data: AgentData) -> void:
 	if OS.is_debug_build():
 		print("SessionController: %s turn started" % agent_data.agent_name)
+
+	# Update navigable cells at the start of the turn
+	# Pass the agent_data directly instead of relying on current_agent_index
+	update_navigable_cells(agent_data)
+
 	# Build and emit turn status dictionary for UI integration
 	var turn_info = {
 		"turn_number": agent_manager.current_round + 1,
@@ -678,6 +700,117 @@ func get_total_turns() -> int:
 ## The agent type is determined by your agent instantiation (e.g., AgentData, Node, or custom class).
 func get_current_turn_agent() -> Variant:
 	return agents[current_agent_index] if agents.size() > 0 else null
+
+# ============================================================================
+# PUBLIC API - Navigable Cells Management
+# ============================================================================
+
+## Updates the list of cells that are navigable (within movement range) from the current agent's position
+## This should be called at the start of each turn to recalculate accessible cells
+## @param agent: Optional agent to use. If not provided, uses get_current_turn_agent()
+func update_navigable_cells(agent = null) -> void:
+	navigable_cells.clear()
+
+	# Get current agent and their cell position
+	var current_agent = agent if agent != null else get_current_turn_agent()
+	if not current_agent:
+		if OS.is_debug_build():
+			print("[SessionController] update_navigable_cells: No current agent found")
+		navigable_cells_updated.emit(navigable_cells)
+		return
+
+	if OS.is_debug_build():
+		print("[SessionController] update_navigable_cells: Current agent = %s" % current_agent)
+
+	# Get the hex grid first (needed to find agent's cell)
+	var hex_grid = hex_grid_controller.get_hex_grid()
+	if not hex_grid:
+		if OS.is_debug_build():
+			print("[SessionController] update_navigable_cells: No hex grid found")
+		navigable_cells_updated.emit(navigable_cells)
+		return
+
+	# Get agent's current cell - check both AgentData and controller
+	current_agent_cell = null
+
+	# Try to get current_cell from the agent directly
+	if current_agent.get("current_cell") != null:
+		current_agent_cell = current_agent.current_cell
+	# If agent is AgentData, try the controller
+	elif current_agent.get("controller") != null:
+		var controller = current_agent.controller
+		if OS.is_debug_build():
+			print("[SessionController] update_navigable_cells: Found controller: %s" % controller)
+
+		if controller.get("current_cell") != null:
+			current_agent_cell = controller.current_cell
+		# If controller doesn't have current_cell, calculate it from position
+		elif controller.get("global_position") != null:
+			current_agent_cell = hex_grid.get_cell_at_world_position(controller.global_position)
+			if OS.is_debug_build():
+				print("[SessionController] update_navigable_cells: Calculated agent cell from position: %s" % controller.global_position)
+
+	if not current_agent_cell:
+		if OS.is_debug_build():
+			print("[SessionController] update_navigable_cells: Could not determine agent's current cell")
+			print("[SessionController] update_navigable_cells: Agent type: %s" % current_agent.get_class())
+			var ctrl = current_agent.get("controller")
+			if ctrl:
+				print("[SessionController] update_navigable_cells: Controller exists: %s" % ctrl)
+				print("[SessionController] update_navigable_cells: Controller has global_position: %s" % (ctrl.get("global_position") != null))
+		navigable_cells_updated.emit(navigable_cells)
+		return
+
+	if OS.is_debug_build():
+		print("[SessionController] update_navigable_cells: Agent cell = (%d, %d)" % [current_agent_cell.q, current_agent_cell.r])
+
+	# Get pathfinder from navigation controller
+	var pathfinder = navigation_controller.get_pathfinder()
+	if not pathfinder:
+		if OS.is_debug_build():
+			print("[SessionController] update_navigable_cells: No pathfinder found")
+		navigable_cells_updated.emit(navigable_cells)
+		return
+
+	# Calculate all cells within movement range using pathfinding
+	# Only check enabled cells to avoid unnecessary pathfinding calculations
+	for cell in hex_grid.enabled_cells:
+		if cell == current_agent_cell:
+			# Agent's current cell is always navigable
+			navigable_cells.append(cell)
+			continue
+
+		# Find path from current agent cell to target cell
+		var path = pathfinder.find_path(current_agent_cell, cell)
+
+		# If path exists and is within movement range, cell is navigable
+		# Path length includes the starting cell, so we need to subtract 1
+		if path.size() > 0 and (path.size() - 1) <= max_movements_per_turn:
+			navigable_cells.append(cell)
+
+	# Emit signal to notify visualizers
+	navigable_cells_updated.emit(navigable_cells)
+
+	# Update debug info
+	debug_controller.update_debug_info_requested.emit("navigable_cells_count", navigable_cells.size())
+	debug_controller.update_debug_info_requested.emit("current_agent_cell_q", current_agent_cell.q if current_agent_cell else null)
+	debug_controller.update_debug_info_requested.emit("current_agent_cell_r", current_agent_cell.r if current_agent_cell else null)
+
+	if OS.is_debug_build():
+		print("[SessionController] Updated navigable cells: %d cells within %d movement range" % [
+			navigable_cells.size(),
+			max_movements_per_turn
+		])
+
+## Checks if a given cell is navigable (within movement range) from the current agent
+## Returns true if the cell is in the navigable cells list
+func is_cell_navigable(cell: HexCell) -> bool:
+	return navigable_cells.has(cell)
+
+## Returns the list of navigable cells
+func get_navigable_cells() -> Array[HexCell]:
+	return navigable_cells
+
 # PUBLIC API - Direct Accessors (for backward compatibility)
 # ============================================================================
 
