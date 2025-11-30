@@ -4,6 +4,8 @@
 ### Godot ###
 # Godot 4+ specific ignores
 .godot/
+.claude/
+.vscode/
 
 # Godot-specific ignores
 .import/

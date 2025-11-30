@@ -29,7 +29,7 @@ on:
 
 # Environment variables used across all jobs
 env:
-  GODOT_VERSION: 4.3
+  GODOT_VERSION: 4.5
   # Update these versions as you release
   STABLE_VERSION: "0.0.1"
   CANARY_VERSION: "0.0.1-canary.${{ github.run_number }}"
@@ -43,7 +43,7 @@ jobs:
     name: Windows Export
     runs-on: ubuntu-latest
     container:
-      image: barichello/godot-ci:${{ github.event.repository.default_branch == 'main' && '4.3' || '4.3' }}
+      image: barichello/godot-ci:4.5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -74,7 +74,7 @@ jobs:
     name: Linux Export
     runs-on: ubuntu-latest
     container:
-      image: barichello/godot-ci:4.3
+      image: barichello/godot-ci:4.5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -105,7 +105,7 @@ jobs:
     name: macOS Export
     runs-on: ubuntu-latest
     container:
-      image: barichello/godot-ci:4.3
+      image: barichello/godot-ci:4.5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -140,7 +140,7 @@ jobs:
     name: Web Export
     runs-on: ubuntu-latest
     container:
-      image: barichello/godot-ci:4.3
+      image: barichello/godot-ci:4.5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
