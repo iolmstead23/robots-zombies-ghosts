@@ -28,3 +28,8 @@ func set_velocity(vel: Vector2) -> void:
 
 func is_moving() -> bool:
 	return current_velocity.length() > MOVEMENT_THRESHOLD
+
+func update_direction(direction: Vector2) -> void:
+	"""Update movement direction (for animation/facing direction)"""
+	if state_manager != null:
+		state_manager.set_state_value("direction", direction)

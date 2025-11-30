@@ -224,7 +224,65 @@ func _clear_agents() -> void:
 	session_active = false
 
 
-## Start the next agent's turn
+## Start a specific agent's turn (called by SessionController)
+func start_agent_turn(agent_data: AgentData) -> void:
+	if agents.is_empty():
+		push_error("[AgentController] start_agent_turn: No agents available")
+		return
+
+	# Find the agent in the array
+	var agent_index = -1
+	for i in range(agents.size()):
+		if agents[i] == agent_data:
+			agent_index = i
+			break
+
+	if agent_index == -1:
+		push_error("[AgentController] start_agent_turn: Agent not found in agents array")
+		return
+
+	# End current agent's turn if there is one active
+	if active_agent_index < agents.size():
+		var current_agent = agents[active_agent_index]
+		if current_agent.is_active_agent and current_agent != agent_data:
+			# Disable controllability for ending agent
+			if current_agent.agent_controller and current_agent.agent_controller.has_method("set_controllable"):
+				current_agent.agent_controller.set_controllable(false)
+			# Deactivate turn-based controller for ending agent
+			if current_agent.agent_controller and current_agent.agent_controller.turn_based_controller:
+				current_agent.agent_controller.turn_based_controller.deactivate()
+			current_agent.end_turn()
+
+	# Set new active agent
+	active_agent_index = agent_index
+
+	# Set controllability: enable only for this agent
+	for i in range(agents.size()):
+		var agent = agents[i]
+		if agent.agent_controller and agent.agent_controller.has_method("set_controllable"):
+			agent.agent_controller.set_controllable(i == active_agent_index)
+
+	# Start agent's turn
+	agent_data.start_turn()
+
+	# Activate turn-based controller for this agent
+	if agent_data.agent_controller and agent_data.agent_controller.has_method("activate_turn_based_mode"):
+		agent_data.agent_controller.activate_turn_based_mode()
+		if agent_data.agent_controller.turn_based_controller:
+			agent_data.agent_controller.turn_based_controller.start_new_turn()
+
+	agent_turn_started.emit(agent_data)
+
+	print("[AgentController] ===== AGENT TURN (Manual Start) =====")
+	print("[AgentController] Active agent: %s (Index: %d, Round: %d)" % [
+		agent_data.agent_name,
+		active_agent_index,
+		current_round
+	])
+	print("[AgentController] ======================================")
+
+
+## Start the next agent's turn (internal cycling)
 func _start_next_agent_turn() -> void:
 	if agents.is_empty():
 		return

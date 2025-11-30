@@ -3,6 +3,11 @@ extends Node
 
 ## Manages pathfinding and agent navigation independently
 ## Communicates exclusively through signals - no direct dependencies on other features
+##
+## NAVIGATION MODE: Turn-based movement is ACTIVE
+## Real-time navigation is DISABLED but code is preserved for future use
+##
+## Refactored to use Core components for better organization and reusability.
 
 # ============================================================================
 # SIGNALS - State Changes (Emitted)
@@ -63,12 +68,17 @@ signal on_cell_at_position_response(request_id: String, cell: HexCell)
 # STATE
 # ============================================================================
 
-# Components
+# Pathfinding Components (Shared by both navigation modes)
 var hex_pathfinder: HexPathfinder = null
-var hex_agent_navigator: HexAgentNavigator = null
 var hex_path_tracker: HexPathTracker = null
 var hex_path_visualizer: HexPathVisualizer = null
 var hex_cell_selector: HexCellSelector = null
+
+# REAL-TIME NAVIGATION (DISABLED - Preserved for future use)
+# var hex_agent_navigator: HexAgentNavigator = null
+
+# TURN-BASED NAVIGATION (ACTIVE)
+var turn_based_controller: TurnBasedMovementController = null
 
 # Agent reference (set by SessionController)
 var agent: CharacterBody2D = null
@@ -78,15 +88,18 @@ var navigation_active: bool = false
 var current_path: Array[HexCell] = []
 var current_target: HexCell = null
 
-# Pending requests (for async cell queries)
-var pending_path_requests: Dictionary = {}  # request_id -> {start_pos, goal_pos}
-var pending_nav_requests: Dictionary = {}  # request_id -> target_pos
+# Core components
+var _request_manager: RequestManager = null
 
 # ============================================================================
 # LIFECYCLE
 # ============================================================================
 
 func _ready():
+	# Initialize Core components
+	_request_manager = RequestManager.new()
+	add_child(_request_manager)
+
 	# Connect to command signals
 	calculate_path_requested.connect(_on_calculate_path_requested)
 	navigate_to_position_requested.connect(_on_navigate_to_position_requested)
@@ -103,24 +116,34 @@ func _ready():
 func initialize(grid: HexGrid, agent_node: CharacterBody2D):
 	agent = agent_node
 
-	# Create pathfinder
+	# Create pathfinder (shared by both turn-based and real-time navigation)
 	hex_pathfinder = HexPathfinder.new()
 	hex_pathfinder.name = "HexPathfinder"
 	hex_pathfinder.hex_grid = grid
 	add_child(hex_pathfinder)
 
-	# Create agent navigator
-	hex_agent_navigator = HexAgentNavigator.new()
-	hex_agent_navigator.name = "HexAgentNavigator"
-	hex_agent_navigator.hex_grid = grid
-	hex_agent_navigator.hex_pathfinder = hex_pathfinder
-	hex_agent_navigator.agent = agent
-	hex_agent_navigator.waypoint_reach_distance = 15.0
-	hex_agent_navigator.navigation_started.connect(_on_agent_navigation_started)
-	hex_agent_navigator.navigation_completed.connect(_on_agent_navigation_completed)
-	hex_agent_navigator.navigation_failed.connect(_on_agent_navigation_failed)
-	hex_agent_navigator.waypoint_reached.connect(_on_agent_waypoint_reached)
-	add_child(hex_agent_navigator)
+	# ========== REAL-TIME NAVIGATION (DISABLED) ==========
+	# Real-time navigation is disabled but code preserved for future use
+	# To enable: Uncomment the section below
+	#
+	# hex_agent_navigator = HexAgentNavigator.new()
+	# hex_agent_navigator.name = "HexAgentNavigator"
+	# hex_agent_navigator.hex_grid = grid
+	# hex_agent_navigator.hex_pathfinder = hex_pathfinder
+	# hex_agent_navigator.agent = agent
+	# hex_agent_navigator.waypoint_reach_distance = 15
+	# hex_agent_navigator.navigation_started.connect(_on_agent_navigation_started)
+	# hex_agent_navigator.navigation_completed.connect(_on_agent_navigation_completed)
+	# hex_agent_navigator.navigation_failed.connect(_on_agent_navigation_failed)
+	# hex_agent_navigator.waypoint_reached.connect(_on_agent_waypoint_reached)
+	# add_child(hex_agent_navigator)
+	# ====================================================
+
+	# ========== TURN-BASED NAVIGATION (ACTIVE) ==========
+	# Turn-based movement is the current active navigation system
+	# Note: TurnBasedMovementController is typically managed by individual agents
+	# This controller primarily provides pathfinding support for turn-based movement
+	# ====================================================
 
 	# Create path tracker
 	hex_path_tracker = HexPathTracker.new()
@@ -144,11 +167,19 @@ func initialize(grid: HexGrid, agent_node: CharacterBody2D):
 # ============================================================================
 
 func _on_calculate_path_requested(request_id: String, start_pos: Vector2, goal_pos: Vector2):
-	# Store the request
-	pending_path_requests[request_id] = {
-		"start_pos": start_pos,
-		"goal_pos": goal_pos
-	}
+	# Store the request using Core RequestManager
+	var req_id := _request_manager.create_path_request(start_pos, goal_pos)
+
+	# Override with provided request_id if different
+	if req_id != request_id:
+		# For compatibility, use the provided request_id
+		_request_manager.cancel_path_request(req_id)
+		req_id = request_id
+		_request_manager.pending_path_requests[request_id] = {
+			"start_pos": start_pos,
+			"goal_pos": goal_pos,
+			"timestamp": Time.get_ticks_msec()
+		}
 
 	# Query for start cell
 	var start_request_id = request_id + "_start"
@@ -159,17 +190,16 @@ func _on_calculate_path_requested(request_id: String, start_pos: Vector2, goal_p
 	query_cell_at_position.emit(goal_request_id, goal_pos)
 
 func _on_navigate_to_position_requested(target_pos: Vector2):
-	var request_id = "nav_" + str(Time.get_ticks_msec())
-	pending_nav_requests[request_id] = target_pos
+	# Use Core RequestManager to create navigation request
+	var request_id := _request_manager.create_nav_request(target_pos)
 
 	# Query for target cell
 	query_cell_at_position.emit(request_id, target_pos)
 
 func _on_navigate_to_cell_requested(target_cell: HexCell):
-	if not hex_agent_navigator:
-		push_error("NavigationController: Cannot navigate - not initialized yet")
-		navigation_failed.emit("Navigation controller not initialized")
-		return
+	# REAL-TIME NAVIGATION DISABLED
+	# This function is preserved but disabled for turn-based gameplay
+	# Turn-based movement is handled by TurnBasedMovementController in each agent
 
 	if not target_cell or not target_cell.enabled:
 		navigation_failed.emit("Target cell is invalid or disabled")
@@ -180,11 +210,17 @@ func _on_navigate_to_cell_requested(target_cell: HexCell):
 		hex_cell_selector.select_cell(target_cell)
 
 	current_target = target_cell
-	hex_agent_navigator.navigate_to_cell(target_cell)
+
+	# DISABLED: Real-time navigation
+	# hex_agent_navigator.navigate_to_cell(target_cell)
+
+	# NOTE: For turn-based movement, agents should use their own TurnBasedMovementController
+	push_warning("NavigationController: Real-time navigation is disabled. Use TurnBasedMovementController for turn-based movement.")
 
 func _on_cancel_navigation_requested():
-	if hex_agent_navigator:
-		hex_agent_navigator.cancel_navigation()
+	# DISABLED: Real-time navigation cancellation
+	# if hex_agent_navigator:
+	# 	hex_agent_navigator.cancel_navigation()
 	_clear_navigation_state()
 
 # ============================================================================
@@ -192,115 +228,104 @@ func _on_cancel_navigation_requested():
 # ============================================================================
 
 func _on_cell_at_position_response(request_id: String, cell: HexCell):
-	# Check if this is a pathfinding request
-	for path_request_id in pending_path_requests.keys():
-		if request_id.begins_with(path_request_id):
-			_handle_path_request_response(path_request_id, request_id, cell)
-			return
+	# Check if this is a pathfinding request using Core RequestManager
+	var path_request_id := _request_manager.find_path_request_for_cell(request_id)
+	if path_request_id != "":
+		_handle_path_request_response(path_request_id, request_id, cell)
+		return
 
 	# Check if this is a navigation request
-	if request_id in pending_nav_requests:
+	if _request_manager.is_nav_request(request_id):
 		_handle_nav_request_response(request_id, cell)
 		return
 
 func _handle_path_request_response(path_request_id: String, cell_request_id: String, cell: HexCell):
-	var request = pending_path_requests[path_request_id]
+	# Update request using Core RequestManager
+	_request_manager.update_path_request(path_request_id, cell_request_id, cell)
 
-	# Store the cell response
-	if cell_request_id.ends_with("_start"):
-		request["start_cell"] = cell
-	elif cell_request_id.ends_with("_goal"):
-		request["goal_cell"] = cell
-
-	# Check if we have both cells
-	if request.has("start_cell") and request.has("goal_cell"):
-		var start_cell = request.start_cell
-		var goal_cell = request.goal_cell
-
-		# Clean up
-		pending_path_requests.erase(path_request_id)
-
-		# Check if pathfinder is initialized
-		if not hex_pathfinder:
-			push_error("NavigationController: Pathfinder not initialized")
-			path_not_found.emit(request.start_pos, request.goal_pos, "Navigation controller not initialized")
-			return
-
-		# Validate cells
-		if not start_cell:
-			path_not_found.emit(request.start_pos, request.goal_pos, "Start position is not on the grid")
-			return
-
-		if not goal_cell:
-			path_not_found.emit(request.start_pos, request.goal_pos, "Goal position is not on the grid")
-			return
-
-		if not goal_cell.enabled:
-			path_not_found.emit(request.start_pos, request.goal_pos, "Goal cell is disabled")
-			return
-
-		# Calculate path
-		var start_time = Time.get_ticks_msec()
-		var path = hex_pathfinder.find_path(start_cell, goal_cell)
-		var duration = Time.get_ticks_msec() - start_time
-
-		if path.size() > 0:
-			# Visualize the path
-			if hex_path_visualizer:
-				hex_path_visualizer.set_path(path)
-
-			# Log the path
-			if hex_path_tracker:
-				hex_path_tracker.log_path(start_cell, goal_cell, path, float(duration))
-
-			path_found.emit(start_cell, goal_cell, path, float(duration))
-		else:
-			path_not_found.emit(request.start_pos, request.goal_pos, "No path found")
-
-func _handle_nav_request_response(request_id: String, cell: HexCell):
-	pending_nav_requests.erase(request_id)
-
-	if not cell:
-		navigation_failed.emit("Target position is not on the grid")
+	# Check if request is complete
+	if not _request_manager.is_path_request_complete(path_request_id):
 		return
 
-	if not cell.enabled:
-		navigation_failed.emit("Target cell is disabled")
+	# Get and complete the request
+	var request = _request_manager.complete_path_request(path_request_id)
+	var start_cell = request.get("start_cell")
+	var goal_cell = request.get("goal_cell")
+
+	# Check if pathfinder is initialized
+	if not hex_pathfinder:
+		push_error("NavigationController: Pathfinder not initialized")
+		path_not_found.emit(request.start_pos, request.goal_pos, "Navigation controller not initialized")
+		return
+
+	# Validate cells using Core PathValidator
+	if not PathValidator.are_cells_valid(start_cell, goal_cell):
+		path_not_found.emit(request.start_pos, request.goal_pos, "Invalid start or goal cell")
+		return
+
+	# Calculate path
+	var start_time = Time.get_ticks_msec()
+	var path = hex_pathfinder.find_path(start_cell, goal_cell)
+	var duration = Time.get_ticks_msec() - start_time
+
+	if path.size() > 0:
+		# Visualize the path
+		if hex_path_visualizer:
+			hex_path_visualizer.set_path(path)
+
+		# Log the path
+		if hex_path_tracker:
+			hex_path_tracker.log_path(start_cell, goal_cell, path, float(duration))
+
+		path_found.emit(start_cell, goal_cell, path, float(duration))
+	else:
+		path_not_found.emit(request.start_pos, request.goal_pos, "No path found")
+
+func _handle_nav_request_response(request_id: String, cell: HexCell):
+	# Update and complete request using Core RequestManager
+	_request_manager.update_nav_request(request_id, cell)
+	var request = _request_manager.complete_nav_request(request_id)
+
+	# Validate cell using Core PathValidator
+	if not PathValidator.is_cell_valid(cell):
+		navigation_failed.emit("Target cell is invalid or disabled")
 		return
 
 	# Navigate to the cell
 	navigate_to_cell_requested.emit(cell)
 
 # ============================================================================
-# AGENT NAVIGATOR CALLBACKS
+# AGENT NAVIGATOR CALLBACKS (DISABLED - Real-time navigation)
 # ============================================================================
+# These callbacks are preserved but disabled for turn-based gameplay
+# To enable: Uncomment and reconnect to hex_agent_navigator signals
 
-func _on_agent_navigation_started(target_cell: HexCell):
-	navigation_active = true
-	current_path = hex_agent_navigator.get_current_path()
-	current_target = target_cell
-
-	# Visualize the navigation path
-	if hex_path_visualizer and current_path.size() > 0:
-		hex_path_visualizer.set_path(current_path)
-
-	navigation_started.emit(target_cell)
-	_emit_navigation_state()
-
-func _on_agent_navigation_completed():
-	navigation_active = false
-	navigation_completed.emit()
-	_clear_navigation_state()
-
-func _on_agent_navigation_failed(reason: String):
-	navigation_active = false
-	navigation_failed.emit(reason)
-	_clear_navigation_state()
-
-func _on_agent_waypoint_reached(cell: HexCell, index: int):
-	var remaining = hex_agent_navigator.get_remaining_distance()
-	waypoint_reached.emit(cell, index, remaining)
-	_emit_navigation_state()
+# func _on_agent_navigation_started(target_cell: HexCell):
+# 	navigation_active = true
+# 	current_path = hex_agent_navigator.get_current_path()
+# 	current_target = target_cell
+#
+# 	# Visualize the navigation path
+# 	if hex_path_visualizer and current_path.size() > 0:
+# 		hex_path_visualizer.set_path(current_path)
+#
+# 	navigation_started.emit(target_cell)
+# 	_emit_navigation_state()
+#
+# func _on_agent_navigation_completed():
+# 	navigation_active = false
+# 	navigation_completed.emit()
+# 	_clear_navigation_state()
+#
+# func _on_agent_navigation_failed(reason: String):
+# 	navigation_active = false
+# 	navigation_failed.emit(reason)
+# 	_clear_navigation_state()
+#
+# func _on_agent_waypoint_reached(cell: HexCell, index: int):
+# 	var remaining = hex_agent_navigator.get_remaining_distance()
+# 	waypoint_reached.emit(cell, index, remaining)
+# 	_emit_navigation_state()
 
 # ============================================================================
 # STATE MANAGEMENT
@@ -308,7 +333,8 @@ func _on_agent_waypoint_reached(cell: HexCell, index: int):
 
 func _emit_navigation_state():
 	var path_length = current_path.size()
-	var remaining = hex_agent_navigator.get_remaining_distance() if hex_agent_navigator else 0
+	# DISABLED: Real-time navigation distance tracking
+	var remaining = 0  # hex_agent_navigator.get_remaining_distance() if hex_agent_navigator else 0
 	navigation_state_changed.emit(navigation_active, path_length, remaining)
 
 func _clear_navigation_state():
@@ -340,3 +366,12 @@ func get_path_tracker() -> HexPathTracker:
 
 func get_path_visualizer() -> HexPathVisualizer:
 	return hex_path_visualizer
+
+func set_active_agent(agent_node: CharacterBody2D) -> void:
+	"""Set the active agent for navigation"""
+	agent = agent_node
+
+	# DISABLED: Real-time navigation agent update
+	# Update agent reference in navigator
+	# if hex_agent_navigator:
+	# 	hex_agent_navigator.agent = agent_node

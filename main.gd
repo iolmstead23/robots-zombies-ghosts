@@ -73,7 +73,7 @@ func _ready() -> void:
 
 	# Add NavAgent2D follower to agent for automatic movement (only if single agent exists)
 	if agent:
-		var nav_follower = preload("res://Controllers/NavigationController/AgentNavigation/nav_agent_2d_follower.gd").new()
+		var nav_follower = preload("res://Controllers/NavigationController/Packages/Pathfinding/hex_pathfinder.gd").new()
 		nav_follower.name = "NavAgent2DFollower"
 		nav_follower.movement_speed = 100.0
 		agent.add_child(nav_follower)
@@ -343,29 +343,24 @@ func _handle_cell_click(cell: HexCell) -> void:
 		str(script_class_name)
 	])
 
-	var agent_controller: CharacterBody2D = controller_node as CharacterBody2D
-	if not agent_controller:
-		print("\n❌ ERROR: Active agent controller is not a CharacterBody2D")
-		if controller_node:
-			print("[DEBUG] Node class: %s, script: %s, script class_name property: %s" % [
-				controller_node.get_class(),
-				str(controller_node.get_script()),
-				str("has get_class" if controller_node.has_method("get_class") else "no get_class")
-			])
-			print("[DEBUG] Does controller_node have method request_movement_to? %s" % str(controller_node.has_method("request_movement_to")))
-			# Also try cast by manually checking class_name property if available
-			if controller_node.get_script() and controller_node.get_script().has_property("class_name"):
-				print("[DEBUG] Script class_name: %s" % str(controller_node.get_script().class_name))
+	# Use controller_node directly instead of casting (cast can fail with dynamically loaded scenes)
+	var agent_controller = controller_node
+	if not agent_controller or not agent_controller.turn_based_controller:
+		print("\n❌ ERROR: Active agent has no turn_based_controller")
 		print("=".repeat(60) + "\n")
 		return
 
 	# Navigate the active agent directly - pathfinding will calculate path
 	if agent_controller.turn_based_controller:
+		print("[main.gd] Calling request_movement_to() with position: %s" % str(cell.world_position))
 		agent_controller.turn_based_controller.request_movement_to(cell.world_position)
 		# Small delay for pathfinding to complete
 		await get_tree().create_timer(0.1).timeout
 
-		if agent_controller.turn_based_controller.current_state == agent_controller.turn_based_controller.TurnState.AWAITING_CONFIRMATION:
+		var is_awaiting = agent_controller.turn_based_controller.is_awaiting_confirmation()
+		print("[main.gd] After request_movement_to, is_awaiting_confirmation: %s" % str(is_awaiting))
+
+		if is_awaiting:
 			# Get the number of hex cells in the path (each cell = 1 meter)
 			var pathfinder = agent_controller.turn_based_controller.pathfinder
 			if pathfinder and pathfinder.current_path and not pathfinder.current_path.is_empty():
