@@ -206,7 +206,6 @@ func _on_navigate_to_cell_requested(target_cell: HexCell):
 	# REAL-TIME NAVIGATION DISABLED
 	# This function is preserved but disabled for turn-based gameplay
 	# Turn-based movement is handled by TurnBasedMovementController in each agent
-
 	if not target_cell or not target_cell.enabled:
 		navigation_failed.emit("Target cell is invalid or disabled")
 		return
@@ -340,7 +339,7 @@ func _handle_nav_request_response(request_id: String, cell: HexCell):
 func _emit_navigation_state():
 	var path_length = current_path.size()
 	# DISABLED: Real-time navigation distance tracking
-	var remaining = 0  # hex_agent_navigator.get_remaining_distance() if hex_agent_navigator else 0
+	var remaining = 0 # hex_agent_navigator.get_remaining_distance() if hex_agent_navigator else 0
 	navigation_state_changed.emit(navigation_active, path_length, remaining)
 
 func _clear_navigation_state():

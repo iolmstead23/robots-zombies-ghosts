@@ -55,7 +55,7 @@ signal on_grid_state_changed(grid_data: Dictionary)
 # STATE (Legacy - maintained for compatibility)
 # ============================================================================
 
-var ui_visible: bool = true  # UI overlay is always visible (unlike debug overlay)
+var ui_visible: bool = true # UI overlay is always visible (unlike debug overlay)
 var selected_item_data: Dictionary = {}
 
 # ============================================================================

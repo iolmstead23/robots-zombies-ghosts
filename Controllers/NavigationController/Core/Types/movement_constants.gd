@@ -19,7 +19,7 @@ Design notes:
 const PIXELS_PER_METER: int = 32
 
 ## Maximum movement distance per turn (in meters/hex cells)
-const MAX_MOVEMENT_DISTANCE: int = 10  # 10 meters = 10 hex cells
+const MAX_MOVEMENT_DISTANCE: int = 10 # 10 meters = 10 hex cells
 
 # ----------------------
 # Movement Thresholds

@@ -16,31 +16,31 @@ Design notes:
 
 ## Turn-based movement state machine
 enum TurnState {
-	IDLE,                  ## No movement in progress
-	PLANNING,              ## Calculating path
-	PREVIEW,               ## Showing path preview to user
+	IDLE, ## No movement in progress
+	PLANNING, ## Calculating path
+	PREVIEW, ## Showing path preview to user
 	AWAITING_CONFIRMATION, ## Waiting for user to confirm/cancel
-	EXECUTING,             ## Moving along path
-	COMPLETED              ## Movement finished
+	EXECUTING, ## Moving along path
+	COMPLETED ## Movement finished
 }
 
 ## Navigation status for real-time navigation
 enum NavigationStatus {
-	INACTIVE,    ## No navigation in progress
-	ACTIVE,      ## Currently navigating
-	COMPLETED,   ## Navigation completed successfully
-	FAILED,      ## Navigation failed
-	CANCELLED    ## Navigation cancelled by user
+	INACTIVE, ## No navigation in progress
+	ACTIVE, ## Currently navigating
+	COMPLETED, ## Navigation completed successfully
+	FAILED, ## Navigation failed
+	CANCELLED ## Navigation cancelled by user
 }
 
 ## Path validation result
 enum PathValidation {
-	VALID,              ## Path is valid and can be used
-	INVALID_START,      ## Start position is invalid
-	INVALID_GOAL,       ## Goal position is invalid
-	NO_PATH_FOUND,      ## No path exists between start and goal
-	EXCEEDS_DISTANCE,   ## Path exceeds maximum allowed distance
-	BLOCKED             ## Path is blocked
+	VALID, ## Path is valid and can be used
+	INVALID_START, ## Start position is invalid
+	INVALID_GOAL, ## Goal position is invalid
+	NO_PATH_FOUND, ## No path exists between start and goal
+	EXCEEDS_DISTANCE, ## Path exceeds maximum allowed distance
+	BLOCKED ## Path is blocked
 }
 
 # ----------------------
@@ -76,7 +76,7 @@ class PathRequest:
 	var request_id: String
 	var start_pos: Vector2
 	var goal_pos: Vector2
-	var max_distance: int = -1  # -1 means no limit
+	var max_distance: int = -1 # -1 means no limit
 
 	func _init(id: String, start: Vector2, goal: Vector2, max_dist: int = -1):
 		request_id = id

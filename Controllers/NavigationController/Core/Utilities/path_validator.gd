@@ -33,7 +33,7 @@ static func are_cells_valid(start: HexCell, goal: HexCell) -> bool:
 ## Check if a path exceeds maximum distance
 static func exceeds_max_distance(path: Array[Vector2], max_distance: int) -> bool:
 	if max_distance < 0:
-		return false  # No limit
+		return false # No limit
 
 	var total_distance: int = DistanceCalculator.path_distance(path)
 	return total_distance > max_distance

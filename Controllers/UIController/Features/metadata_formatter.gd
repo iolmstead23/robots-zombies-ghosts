@@ -10,16 +10,16 @@ extends RefCounted
 # ============================================================================
 
 enum VectorFormat {
-	ROUNDED,      # (123, 456)
-	PRECISE,      # (123.45, 456.78)
-	SCIENTIFIC    # (1.2e2, 4.6e2)
+	ROUNDED, # (123, 456)
+	PRECISE, # (123.45, 456.78)
+	SCIENTIFIC # (1.2e2, 4.6e2)
 }
 
 enum BoolFormat {
-	YES_NO,       # Yes/No
-	TRUE_FALSE,   # True/False
-	ON_OFF,       # On/Off
-	ENABLED_DISABLED  # Enabled/Disabled
+	YES_NO, # Yes/No
+	TRUE_FALSE, # True/False
+	ON_OFF, # On/Off
+	ENABLED_DISABLED # Enabled/Disabled
 }
 
 var vector_format: VectorFormat = VectorFormat.ROUNDED

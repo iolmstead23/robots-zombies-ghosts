@@ -120,9 +120,9 @@ func _setup_position():
 			control.anchor_top = 0.0
 			control.anchor_right = 1.0
 			control.anchor_bottom = 0.0
-			control.offset_left = -(offset_from_edge.x + overlay_size.x)
+			control.offset_left = - (offset_from_edge.x + overlay_size.x)
 			control.offset_top = offset_from_edge.y
-			control.offset_right = -offset_from_edge.x
+			control.offset_right = - offset_from_edge.x
 			control.offset_bottom = offset_from_edge.y + overlay_size.y
 			control.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 			control.grow_vertical = Control.GROW_DIRECTION_END
@@ -133,9 +133,9 @@ func _setup_position():
 			control.anchor_right = 0.0
 			control.anchor_bottom = 1.0
 			control.offset_left = offset_from_edge.x
-			control.offset_top = -(offset_from_edge.y + overlay_size.y)
+			control.offset_top = - (offset_from_edge.y + overlay_size.y)
 			control.offset_right = offset_from_edge.x + overlay_size.x
-			control.offset_bottom = -offset_from_edge.y
+			control.offset_bottom = - offset_from_edge.y
 			control.grow_horizontal = Control.GROW_DIRECTION_END
 			control.grow_vertical = Control.GROW_DIRECTION_BEGIN
 
@@ -144,10 +144,10 @@ func _setup_position():
 			control.anchor_top = 1.0
 			control.anchor_right = 1.0
 			control.anchor_bottom = 1.0
-			control.offset_left = -(offset_from_edge.x + overlay_size.x)
-			control.offset_top = -(offset_from_edge.y + overlay_size.y)
-			control.offset_right = -offset_from_edge.x
-			control.offset_bottom = -offset_from_edge.y
+			control.offset_left = - (offset_from_edge.x + overlay_size.x)
+			control.offset_top = - (offset_from_edge.y + overlay_size.y)
+			control.offset_right = - offset_from_edge.x
+			control.offset_bottom = - offset_from_edge.y
 			control.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 			control.grow_vertical = Control.GROW_DIRECTION_BEGIN
 

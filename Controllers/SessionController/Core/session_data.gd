@@ -22,7 +22,6 @@ func _recursive_find_node(val, path := "") -> Variant:
 	return null
 
 func set_session_parties(parties):
-	
 	var node_ref_details = _recursive_find_node(parties, "root")
 	if node_ref_details != null:
 		var path = "[unknown]"

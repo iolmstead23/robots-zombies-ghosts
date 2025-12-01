@@ -373,7 +373,7 @@ func _complete_movement() -> void:
 	# Accumulate movement used in meters (hex cells)
 	if pathfinder != null:
 		# Distance is measured in hex cells (each cell = 1 meter)
-		var path_distance_meters = pathfinder.current_hex_path.size() - 1  # Subtract 1 for starting cell
+		var path_distance_meters = pathfinder.current_hex_path.size() - 1 # Subtract 1 for starting cell
 		movement_used_this_turn += path_distance_meters
 
 		if DEBUG:
@@ -418,7 +418,7 @@ func _show_path_preview() -> void:
 	# Update distance label if present
 	if distance_label != null:
 		# Distance is measured in hex cells (each cell = 1 meter)
-		var dist_meters: int = pathfinder.current_hex_path.size() - 1  # Subtract 1 for starting cell
+		var dist_meters: int = pathfinder.current_hex_path.size() - 1 # Subtract 1 for starting cell
 		distance_label.text = "Distance: %d m (%d hex cells)" % [dist_meters, dist_meters]
 
 func _update_animation_and_state(direction: Vector2) -> void:

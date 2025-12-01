@@ -123,7 +123,6 @@ func connect_signals_all() -> void:
 		# --- AgentController signals are connected in _init_and_spawn_agents()
 
 
-
 # ========== SESSION MANAGEMENT ==========
 func set_party_size(count: int) -> void:
 	number_of_agents = clamp(count, 1, MAX_AGENTS)
@@ -305,7 +304,7 @@ func _on_waypoint_reached(_cell: HexCell, _idx: int, _rem: int): pass
 func _on_navigation_state_changed(active: bool, plen: int, remain: int):
 	_navigation_state = {"active": active, "path_length": plen, "remaining_distance": remain}
 	debug_controller.on_navigation_state_changed.emit(_navigation_state)
-func _on_debug_visibility_changed(vis: bool): debug_mode = vis; _print_debug("Debug %s" % ("ON" if vis else"OFF"))
+func _on_debug_visibility_changed(vis: bool): debug_mode = vis; _print_debug("Debug %s" % ("ON" if vis else "OFF"))
 func _on_debug_info_updated(_k: String, _v: Variant): pass
 func _on_ui_visibility_changed(vis: bool): _print_debug("UI overlay %s" % ("shown" if vis else "hidden"))
 func _on_selected_item_changed(d: Dictionary): if d.get("has_selection", false): _print_debug("Selected: %s [%s]" % [d.get("item_name", "Unknown"), d.get("item_type", "Unknown")])
@@ -415,7 +414,7 @@ func update_navigable_cells(agent) -> void:
 	#         Movement budget: Based on agent's REMAINING distance this turn
 	#         Conservative filter: 2x remaining distance
 	# Layer 3: Cell must have a valid A* path within the agent's remaining movement budget
-	const HEX_DISTANCE_MULTIPLIER = 2.0  # Account for paths around obstacles
+	const HEX_DISTANCE_MULTIPLIER = 2.0 # Account for paths around obstacles
 	var max_hex_range = int(remaining_distance * HEX_DISTANCE_MULTIPLIER)
 	var candidates = grid.get_enabled_cells_in_range(current_agent_cell, max_hex_range)
 

@@ -138,7 +138,7 @@ func _process_hex_path() -> void:
 	_calculate_distance()
 
 	# Distance is measured in hex cells (each cell = 1 meter)
-	var path_length_meters = current_hex_path.size() - 1  # Subtract 1 because first cell is current position
+	var path_length_meters = current_hex_path.size() - 1 # Subtract 1 because first cell is current position
 
 	if path_length_meters > MovementConstants.MAX_MOVEMENT_DISTANCE:
 		_trim_to_max_distance(MovementConstants.MAX_MOVEMENT_DISTANCE)
@@ -158,7 +158,7 @@ func _calculate_distance() -> void:
 
 func _trim_to_max_distance(max_meters: int) -> void:
 	# Trim hex path to max_meters hex cells (plus 1 for starting cell)
-	var max_cells = max_meters + 1  # +1 because first cell is current position
+	var max_cells = max_meters + 1 # +1 because first cell is current position
 
 	if current_hex_path.size() > max_cells:
 		current_hex_path = current_hex_path.slice(0, max_cells)

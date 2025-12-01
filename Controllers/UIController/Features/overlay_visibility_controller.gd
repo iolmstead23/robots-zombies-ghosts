@@ -17,7 +17,7 @@ signal all_shown()
 # STATE
 # ============================================================================
 
-var _overlay_states: Dictionary = {}  # {overlay_name: bool}
+var _overlay_states: Dictionary = {} # {overlay_name: bool}
 var _global_visibility: bool = true
 
 # ============================================================================
