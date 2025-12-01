@@ -114,7 +114,13 @@ func _ready():
 # ============================================================================
 
 func initialize(grid: HexGrid, agent_node: CharacterBody2D):
-	agent = agent_node
+	# Agent is optional - only needed for real-time navigation (which is disabled)
+	# Turn-based navigation uses agents' individual pathfinders
+	if agent_node != null:
+		if not _validate_agent(agent_node, "NavigationController.initialize"):
+			push_warning("[NavigationController] Invalid agent_node passed to initialize(). Agent not set, but continuing with initialization.")
+		else:
+			agent = agent_node
 
 	# Create pathfinder (shared by both turn-based and real-time navigation)
 	hex_pathfinder = HexPathfinder.new()
@@ -372,9 +378,46 @@ func get_pathfinder() -> HexPathfinder:
 
 func set_active_agent(agent_node: CharacterBody2D) -> void:
 	"""Set the active agent for navigation"""
+	if not _validate_agent(agent_node, "NavigationController.set_active_agent"):
+		push_error("[NavigationController] Invalid agent_node passed to set_active_agent(). See log above for details. Agent not set.")
+		return
 	agent = agent_node
 
 	# DISABLED: Real-time navigation agent update
 	# Update agent reference in navigator
 	# if hex_agent_navigator:
 	# 	hex_agent_navigator.agent = agent_node
+
+# =============================================================================
+# INTERNAL - AGENT VALIDATION
+# =============================================================================
+func _validate_agent(agent_ref: Variant, context: String) -> bool:
+	# Accepts agent node, context string for diagnostics.
+	var is_valid := true
+	var messages := []
+	var conditions := {
+		"null_or_freed": (agent_ref == null or (typeof(agent_ref) == TYPE_OBJECT and agent_ref.is_queued_for_deletion())),
+		"not_character_body": (not (agent_ref is CharacterBody2D)),
+		"lacks_position": (typeof(agent_ref) == TYPE_OBJECT and not agent_ref.has_method("global_position")),
+	}
+	if conditions["null_or_freed"]:
+		is_valid = false
+		messages.append("Agent is null or freed.")
+	if conditions["not_character_body"]:
+		is_valid = false
+		messages.append("Agent is not a CharacterBody2D (got type: %s)." % [typeof(agent_ref)])
+	if conditions["lacks_position"]:
+		is_valid = false
+		messages.append("Agent lacks 'global_position' property/method.")
+
+	if not is_valid:
+		push_error("[Agent Validation Error] in %s: Failing agent reference. Details: type=%s value=%s; Checks=[%s]\nCallstack:\n%s"
+			% [
+				context,
+				typeof(agent_ref),
+				str(agent_ref),
+				", ".join(messages),
+				get_stack()
+			]
+		)
+	return is_valid

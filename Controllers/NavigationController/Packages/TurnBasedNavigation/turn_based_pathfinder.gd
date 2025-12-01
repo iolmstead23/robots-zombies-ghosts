@@ -137,8 +137,11 @@ func _process_hex_path() -> void:
 	_convert_hex_to_world()
 	_calculate_distance()
 
-	if total_path_distance > MovementConstants.MAX_MOVEMENT_DISTANCE:
-		_trim_to_max_distance()
+	# Distance is measured in hex cells (each cell = 1 meter)
+	var path_length_meters = current_hex_path.size() - 1  # Subtract 1 because first cell is current position
+
+	if path_length_meters > MovementConstants.MAX_MOVEMENT_DISTANCE:
+		_trim_to_max_distance(MovementConstants.MAX_MOVEMENT_DISTANCE)
 
 	_generate_segments()
 	is_path_valid = not current_path.is_empty()
@@ -149,30 +152,23 @@ func _convert_hex_to_world() -> void:
 		current_path.append(cell.world_position)
 
 func _calculate_distance() -> void:
-	# Use Core distance calculator
-	total_path_distance = DistanceCalculator.path_distance(current_path)
+	# Distance is measured in hex cells (each cell = 1 meter)
+	# Subtract 1 because the first cell is the current position
+	total_path_distance = current_hex_path.size() - 1
 
-func _trim_to_max_distance() -> void:
-	# Use Core path validator for trimming
-	var trimmed_path := PathValidator.trim_path_to_distance(
-		current_path,
-		MovementConstants.MAX_MOVEMENT_DISTANCE
-	)
+func _trim_to_max_distance(max_meters: int) -> void:
+	# Trim hex path to max_meters hex cells (plus 1 for starting cell)
+	var max_cells = max_meters + 1  # +1 because first cell is current position
 
-	# Update hex path to match trimmed world path
-	var trimmed_hex: Array[HexCell] = []
-	var trimmed_length: int = min(trimmed_path.size(), current_hex_path.size())
+	if current_hex_path.size() > max_cells:
+		current_hex_path = current_hex_path.slice(0, max_cells)
 
-	for i in range(trimmed_length):
-		trimmed_hex.append(current_hex_path[i])
-
-	current_path = trimmed_path
-	current_hex_path = trimmed_hex
-	total_path_distance = DistanceCalculator.path_distance(current_path)
+	# Update world path to match
+	_convert_hex_to_world()
+	_calculate_distance()
 
 	if OS.is_debug_build():
-		print("TurnBasedPathfinder: Trimmed to %d ft" %
-			MovementConstants.pixels_to_feet(total_path_distance))
+		print("TurnBasedPathfinder: Trimmed to %d m (%d hex cells)" % [max_meters, current_hex_path.size() - 1])
 
 func _generate_segments() -> void:
 	path_segments.clear()
@@ -189,7 +185,8 @@ func _log_path_failure() -> void:
 
 func _log_path_success() -> void:
 	if OS.is_debug_build():
-		print("TurnBasedPathfinder: Path found - %d waypoints, %d ft" % [
+		print("TurnBasedPathfinder: Path found - %d waypoints, %d m (%d hex cells)" % [
 			current_path.size(),
-			MovementConstants.pixels_to_feet(total_path_distance)
+			total_path_distance,
+			total_path_distance
 		])

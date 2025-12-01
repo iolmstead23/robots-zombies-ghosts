@@ -1,11 +1,9 @@
 class_name SessionController
 extends Node
 
-## Central state manager for the game session
-## Routes signals between feature controllers and maintains session state
-## Uses signal-based architecture to prevent tight coupling between features
+# Central manager for session & state; routes signals among feature controllers
 
-# Preload controller classes to avoid circular dependency issues
+# Preloads to avoid circular dependencies
 const HexGridControllerScript = preload("res://Controllers/HexGridController/Core/hex_grid_controller.gd")
 const NavigationControllerScript = preload("res://Controllers/NavigationController/Core/navigation_controller.gd")
 const DebugControllerScript = preload("res://Controllers/DebugController/Core/debug_controller.gd")
@@ -13,30 +11,22 @@ const UIControllerScript = preload("res://Controllers/UIController/Core/ui_contr
 const SelectionControllerScript = preload("res://Controllers/SelectionController/Core/selection_controller.gd")
 const AgentControllerScript = preload("res://Controllers/AgentController/Core/agent_controller.gd")
 
-# ============================================================================
-# SIGNALS - Session Lifecycle
-# ============================================================================
-
+# ========== SIGNALS ==========
 signal session_initialized()
 signal session_started()
 signal session_ended()
 signal terrain_initialized()
-# Emitted when the current agent's turn changes (mirrors AgentController's agent_turn_started).
 signal turn_changed(agent_data)
-# Emitted when the list of navigable cells is updated (at turn start)
 signal navigable_cells_updated(cells: Array[HexCell])
 
-# ============================================================================
-# CONFIGURATION
-# ============================================================================
-
-@export_group("Grid Configuration")
+# ========== CONFIGURATION / EXPORTS ==========
+@export_group("Grid")
 @export var grid_width: int = 20
 @export var grid_height: int = 15
 @export var hex_size: float = 32.0
 @export var auto_initialize: bool = true
 
-@export_group("Navigation Integration")
+@export_group("Navigation")
 @export var navigation_region: NavigationRegion2D
 @export var integrate_with_navmesh: bool = true
 @export var navmesh_sample_points: int = 5
@@ -45,827 +35,473 @@ signal navigable_cells_updated(cells: Array[HexCell])
 @export var debug_mode: bool = false
 @export var debug_hotkey_enabled: bool = true
 
-
-@export_group("Agent Management")
-## Max allowed agents per session
+@export_group("Agents")
 const MAX_AGENTS: int = 4
-## Number of agents - set by main menu at runtime, or defaults to 1
-var number_of_agents: int = 4 # Temporarily set to 4 for testing
+var number_of_agents: int = 4 # Testing default
 @export var max_movements_per_turn: int = 10
 @export var spawn_agents_on_init: bool = true
 
-## Ordered list of session's agents for turn cycling (always 1–MAX_AGENTS elements)
+# ========== STATE ==========
 var agents: Array = []
-## Current agent turn index
 var current_agent_index: int = 0
-
-# ============================================================================
-# FEATURE CONTROLLERS
-# ============================================================================
-
-var hex_grid_controller # HexGridController instance
-var navigation_controller # NavigationController instance
-var debug_controller # DebugController instance
-var ui_controller # UIController instance
-var selection_controller # SelectionController instance
-var agent_manager # AgentController instance
-
-# ============================================================================
-# SESSION STATE
-# ============================================================================
-
 var session_active: bool = false
 var session_start_time: float = 0.0
 
-# State cache for selectors
-var _session_state: Dictionary = {}
-var _grid_state: Dictionary = {}
-var _navigation_state: Dictionary = {}
-
-# Navigable cells tracking (for hover feedback and debug visualization)
+var _session_state := {}
+var _grid_state := {}
+var _navigation_state := {}
 var navigable_cells: Array[HexCell] = []
 var current_agent_cell: HexCell = null
 
-# ============================================================================
-# LIFECYCLE
-# ============================================================================
+# ========== CONTROLLER INSTANCES ==========
+var hex_grid_controller
+var navigation_controller
+var debug_controller
+var ui_controller
+var selection_controller
+var agent_manager
 
+# ========== LIFECYCLE ==========
 func _ready() -> void:
-	print("\n" + "━".repeat(70))
-	print("SESSIONCONTROLLER _ready() CALLED")
-	print("━".repeat(70))
-
-	print("Step 1: Initializing controllers...")
-	_init_controllers()
-
-	print("Step 2: Connecting controller signals...")
-	_connect_controller_signals()
-
+	_print_header("SessionController READY")
+	_init_all_controllers()
+	connect_signals_all()
 	if auto_initialize:
-		print("Step 3: Auto-initialize is enabled, waiting for process frame...")
 		await get_tree().process_frame
-		print("Step 4: Calling initialize_session()...")
 		initialize_session()
-	else:
-		print("Auto-initialize is disabled, waiting for manual initialization")
 
-# ============================================================================
-# CONTROLLER INITIALIZATION
-# ============================================================================
+func _init_all_controllers() -> void:
+	hex_grid_controller = _try_new(HexGridControllerScript, "HexGridController")
+	navigation_controller = _try_new(NavigationControllerScript, "NavigationController")
+	debug_controller = _try_new(DebugControllerScript, "DebugController", {"session_controller": self})
+	ui_controller = _try_new(UIControllerScript, "UIController")
+	selection_controller = _try_new(SelectionControllerScript, "SelectionController")
+	agent_manager = _try_new(AgentControllerScript, "AgentController", {
+		"agent_count": number_of_agents,
+		"max_movements_per_turn": max_movements_per_turn
+	})
 
-func _init_controllers() -> void:
-	var failed = false
+func _try_new(script: Resource, item_name: String, props := {}) -> Node:
+	if typeof(script) == TYPE_OBJECT:
+		var node = script.new()
+		node.name = item_name
+		for k in props: node.set(k, props[k])
+		add_child(node)
+		return node
+	push_error("Failed to create %s!" % name)
+	return null
 
-	print("  Creating HexGridController...")
-	hex_grid_controller = null
-	hex_grid_controller = HexGridControllerScript.new() if typeof(HexGridControllerScript) == TYPE_OBJECT else null
-	if hex_grid_controller == null:
-		push_error("Failed to create HexGridController!")
-		failed = true
-	else:
-		hex_grid_controller.name = "HexGridController"
-		add_child(hex_grid_controller)
-		print("    ✓ HexGridController created")
-
-	print("  Creating NavigationController...")
-	navigation_controller = null
-	navigation_controller = NavigationControllerScript.new() if typeof(NavigationControllerScript) == TYPE_OBJECT else null
-	if navigation_controller == null:
-		push_error("Failed to create NavigationController!")
-		failed = true
-	else:
-		navigation_controller.name = "NavigationController"
-		add_child(navigation_controller)
-		print("    ✓ NavigationController created")
-
-	print("  Creating DebugController...")
-	debug_controller = null
-	debug_controller = DebugControllerScript.new() if typeof(DebugControllerScript) == TYPE_OBJECT else null
-	if debug_controller == null:
-		push_error("Failed to create DebugController!")
-		failed = true
-	else:
-		debug_controller.name = "DebugController"
-		debug_controller.session_controller = self
-		add_child(debug_controller)
-		print("    ✓ DebugController created")
-
-	print("  Creating UIController...")
-	ui_controller = null
-	ui_controller = UIControllerScript.new() if typeof(UIControllerScript) == TYPE_OBJECT else null
-	if ui_controller == null:
-		push_error("Failed to create UIController!")
-		failed = true
-	else:
-		ui_controller.name = "UIController"
-		add_child(ui_controller)
-		print("    ✓ UIController created")
-
-	print("  Creating SelectionController...")
-	selection_controller = null
-	selection_controller = SelectionControllerScript.new() if typeof(SelectionControllerScript) == TYPE_OBJECT else null
-	if selection_controller == null:
-		push_error("Failed to create SelectionController!")
-		failed = true
-	else:
-		selection_controller.name = "SelectionController"
-		add_child(selection_controller)
-		print("    ✓ SelectionController created")
-
-	print("  Creating AgentController...")
-	agent_manager = null
-	agent_manager = AgentControllerScript.new() if typeof(AgentControllerScript) == TYPE_OBJECT else null
-	if agent_manager == null:
-		push_error("Failed to create AgentController!")
-		failed = true
-	else:
-		agent_manager.name = "AgentController"
-		agent_manager.agent_count = number_of_agents
-		agent_manager.max_movements_per_turn = max_movements_per_turn
-		add_child(agent_manager)
-		print("    ✓ AgentController created")
-
-	if failed:
-		push_warning("One or more controllers failed to initialize. See errors above.")
-
-# Put this helper at the top or in a utility script.
-func try_connect(signal_ref, target_method: Callable, signal_name: String, controller_name: String) -> void:
-	var result = signal_ref.connect(target_method)
-	if result != OK:
-		push_error("Error connecting '"
-			+ signal_name
-			+"' from "
-			+ controller_name
-			+": "
-			+ error_string(result)
-		)
-
-func _connect_controller_signals() -> void:
-	# HexGridController Signals
-	try_connect(hex_grid_controller.grid_initialized, _on_grid_initialized, "grid_initialized", "hex_grid_controller")
-	try_connect(hex_grid_controller.cell_state_changed, _on_cell_state_changed, "cell_state_changed", "hex_grid_controller")
-	try_connect(hex_grid_controller.grid_stats_changed, _on_grid_stats_changed, "grid_stats_changed", "hex_grid_controller")
-
-	try_connect(hex_grid_controller.cell_at_position_response, _route_to_navigation_controller, "cell_at_position_response", "hex_grid_controller")
-	try_connect(hex_grid_controller.distance_calculated, _route_distance_to_navigation, "distance_calculated", "hex_grid_controller")
-	try_connect(hex_grid_controller.cells_in_range_response, _route_cells_to_navigation, "cells_in_range_response", "hex_grid_controller")
-
-	# NavigationController Signals
-	try_connect(navigation_controller.path_found, _on_path_found, "path_found", "navigation_controller")
-	try_connect(navigation_controller.path_not_found, _on_path_not_found, "path_not_found", "navigation_controller")
-	try_connect(navigation_controller.navigation_started, _on_navigation_started, "navigation_started", "navigation_controller")
-	try_connect(navigation_controller.navigation_completed, _on_navigation_completed, "navigation_completed", "navigation_controller")
-	try_connect(navigation_controller.navigation_failed, _on_navigation_failed, "navigation_failed", "navigation_controller")
-	try_connect(navigation_controller.waypoint_reached, _on_waypoint_reached, "waypoint_reached", "navigation_controller")
-	try_connect(navigation_controller.navigation_state_changed, _on_navigation_state_changed, "navigation_state_changed", "navigation_controller")
-	try_connect(navigation_controller.query_cell_at_position, _route_to_hex_grid_controller, "query_cell_at_position", "navigation_controller")
-
-	# DebugController Signals
-	try_connect(debug_controller.debug_visibility_changed, _on_debug_visibility_changed, "debug_visibility_changed", "debug_controller")
-	try_connect(debug_controller.debug_info_updated, _on_debug_info_updated, "debug_info_updated", "debug_controller")
-
-	# UIController Signals
-	try_connect(ui_controller.ui_visibility_changed, _on_ui_visibility_changed, "ui_visibility_changed", "ui_controller")
-	try_connect(ui_controller.selected_item_changed, _on_selected_item_changed, "selected_item_changed", "ui_controller")
-	# Connect SessionController's turn_changed to UIController's handler
-	try_connect(turn_changed, ui_controller._on_turn_changed, "turn_changed", "self->ui_controller")
-
-	# SelectionController Signals
-	try_connect(selection_controller.object_selected, _on_object_selected, "object_selected", "selection_controller")
-	try_connect(selection_controller.selection_cleared, _on_selection_cleared, "selection_cleared", "selection_controller")
-
-	# AgentController Signals
-	try_connect(agent_manager.agents_spawned, _on_agents_spawned, "agents_spawned", "agent_manager")
-	try_connect(agent_manager.agent_turn_started, _on_agent_turn_started, "agent_turn_started", "agent_manager")
-	try_connect(agent_manager.agent_turn_ended, _on_agent_turn_ended, "agent_turn_ended", "agent_manager")
-	try_connect(agent_manager.all_agents_completed_round, _on_all_agents_completed_round, "all_agents_completed_round", "agent_manager")
-	try_connect(agent_manager.movement_action_completed, _on_movement_action_completed, "movement_action_completed", "agent_manager")
+func connect_signals_all() -> void:
+		# --- HexGridController
+		print("TYPE of hex_grid_controller.grid_initialized:", typeof(hex_grid_controller.grid_initialized), " VALUE:", hex_grid_controller.grid_initialized) # DEBUG LOG
+		connect("grid_initialized", _on_grid_initialized)
+		connect("cell_state_changed", _on_cell_state_changed)
+		connect("grid_stats_changed", _on_grid_stats_changed)
+		connect("cell_at_position_response", _route_to_navigation_controller)
+		connect("distance_calculated", _route_distance_to_navigation)
+		connect("cells_in_range_response", _route_cells_to_navigation)
+		# --- NavigationController
+		connect("path_found", _on_path_found)
+		connect("path_not_found", _on_path_not_found)
+		connect("navigation_started", _on_navigation_started)
+		connect("navigation_completed", _on_navigation_completed)
+		connect("navigation_failed", _on_navigation_failed)
+		connect("waypoint_reached", _on_waypoint_reached)
+		connect("navigation_state_changed", _on_navigation_state_changed)
+		connect("query_cell_at_position", _route_to_hex_grid_controller)
+		# --- DebugController
+		connect("debug_visibility_changed", _on_debug_visibility_changed)
+		connect("debug_info_updated", _on_debug_info_updated)
+		# --- UIController
+		connect("ui_visibility_changed", _on_ui_visibility_changed)
+		connect("selected_item_changed", _on_selected_item_changed)
+		print("TYPE of turn_changed:", typeof(turn_changed), " VALUE:", turn_changed) # DEBUG LOG
+		connect("turn_changed", ui_controller._on_turn_changed)
+		# --- SelectionController
+		connect("object_selected", _on_object_selected)
+		connect("selection_cleared", _on_selection_cleared)
+		# --- AgentController signals are connected in _init_and_spawn_agents()
 
 
-# ============================================================================
-# SESSION MANAGEMENT
-# ============================================================================
 
-## Set the number of agents from main menu before session initialization
-## Should be called before initialize_session() is run
+# ========== SESSION MANAGEMENT ==========
 func set_party_size(count: int) -> void:
-	# Cap party size at MAX_AGENTS
 	number_of_agents = clamp(count, 1, MAX_AGENTS)
-	print("[SessionController] Party size set to %d agents" % number_of_agents)
-
-	# Update agent manager if it already exists
 	if agent_manager:
 		agent_manager.agent_count = number_of_agents
+	_print_debug("Party size set: %d" % number_of_agents)
 
 func initialize_session() -> void:
-	print("\n┏" + "━".repeat(68) + "┓")
-	print("┃ SESSIONCONTROLLER: initialize_session() STARTED" + " ".repeat(19) + "┃")
-	print("┗" + "━".repeat(68) + "┛")
+	_print_header("SessionController: INITIALIZATION")
 
-	# Initialize hex grid
-	print("\n  [1/8] Initializing hex grid...")
+	var grid_offset = _align_grid_with_navmesh()
+	await _wait_for_grid_init(grid_offset)
 
-	# Calculate grid offset to align with navigation region if available
-	var grid_offset = Vector2.ZERO
-	if integrate_with_navmesh and navigation_region and navigation_region.navigation_polygon:
-		var nav_poly := navigation_region.navigation_polygon
-		var bounds := _calculate_navmesh_bounds(nav_poly)
-		if bounds.size.x > 0 and bounds.size.y > 0:
-			grid_offset = navigation_region.global_position + bounds.position
-			print("    Calculated grid_offset from navmesh: %s" % grid_offset)
-
-	print("    Config: %dx%d, hex_size=%.1f, offset=%s" % [grid_width, grid_height, hex_size, grid_offset])
-
-	# Set up one-shot signal connection to wait for initialization
-	var init_state = {"complete": false}
-	var on_grid_init = func(_grid_data):
-		init_state.complete = true
-
-	hex_grid_controller.grid_initialized.connect(on_grid_init, CONNECT_ONE_SHOT)
-
-	hex_grid_controller.initialize_grid_requested.emit(
-		grid_width,
-		grid_height,
-		hex_size,
-		grid_offset
-	)
-
-	# Wait for grid initialization if not already complete
-	print("    Waiting for grid initialization...")
-	while not init_state.complete:
-		await get_tree().process_frame
-
-	print("    ✓ Grid initialized")
-
-	# Initialize navigation controller (multi-agent mode)
-	print("\n  [2/8] Initializing navigation...")
 	var grid = hex_grid_controller.get_hex_grid()
 	if grid:
-		print("    Grid reference obtained")
 		navigation_controller.initialize(grid, null)
-		print("    ✓ Navigation controller initialized for agents (multi-agent mode always enabled)")
 	else:
-		push_error("    ✗ ERROR: Grid reference is null!")
+		abort_session("[ERROR] Grid is null during navigation init")
 
-	# Integrate with navmesh if configured
-	print("\n  [3/8] Navmesh integration...")
-	if integrate_with_navmesh and navigation_region:
-		print("    Starting navmesh integration...")
-
-		# The integrate_navmesh_requested is async, so we need to wait
-		hex_grid_controller.integrate_navmesh_requested.emit(
-			navigation_region,
-			navmesh_sample_points
-		)
-
-		# Wait for navmesh integration to complete
-		# This will enable/disable cells based on polygon containment
-		await get_tree().create_timer(0.5).timeout
-
-		print("    ✓ Navmesh integration completed")
-	else:
-		print("    Skipped (disabled or no nav region)")
-
-	# Initialize and spawn agents
-	print("\n  [4/8] Initializing agents...")
-
-	# --- PATCH: Respect SessionData agent count exactly ---
-	number_of_agents = SessionData.get_total_agent_count()
-	print("[SessionController] Updated number_of_agents from SessionData: %d" % number_of_agents)
-	# ------------------------------------------------------
-
-	var agent_grid = hex_grid_controller.get_hex_grid()
-	if agent_grid:
-		agent_manager.initialize(agent_grid, navigation_controller)
-		if spawn_agents_on_init:
-			agent_manager.spawn_agents(number_of_agents)
-			print("    ✓ %d agents spawned" % number_of_agents)
-			# Immediately update central agent collection (must match turn order semantics)
-			agents = agent_manager.get_all_agents()
-			# Strict validation: No partial or broken agent arrays allowed
-			var null_agent_found := false
-			for a in agents:
-				if a == null:
-					null_agent_found = true
-					break
-			if agents.size() != number_of_agents or null_agent_found:
-				push_error("[SessionController] ERROR: agents array invalid after registration! Expected %d, Got %d, Nulls: %s" % [
-					number_of_agents, agents.size(), str(null_agent_found)
-				])
-				agents = []
-				current_agent_index = 0
-				push_error("[SessionController] Aborting session initialization due to agent registration failure.")
-				return
-			if agents.size() > MAX_AGENTS:
-				agents = agents.slice(0, MAX_AGENTS)
-			current_agent_index = 0
-		else:
-			print("    Agent spawning disabled (spawn_agents_on_init=false)")
-			agents = []
-			current_agent_index = 0
-	else:
-		push_error("    ✗ ERROR: Cannot initialize agents - grid reference is null!")
-		agents = []
-		current_agent_index = 0
-
-	# Set up debug visualizations
-	print("\n  [5/8] Setting up debug visualizations...")
-	_setup_debug_visualizations()
-	print("    ✓ Debug visualizations configured")
-
-	# Set debug mode
-	print("\n  [6/8] Configuring debug mode...")
+	await _integrate_navmesh_if_needed()
+	_init_and_spawn_agents()
+	_setup_debug_visuals()
+	
 	debug_controller.set_debug_visibility_requested.emit(debug_mode)
-	print("    ✓ Debug mode: %s" % ("enabled" if debug_mode else "disabled"))
-
-	# Connect SelectionController to UIController
 	selection_controller.set_ui_controller(ui_controller)
-
-	# Mark session as active
-	print("\n  [7/8] Activating session...")
+	
 	session_active = true
 	session_start_time = Time.get_ticks_msec() / 1000.0
 	_update_session_state()
-	print("    ✓ Session marked as active")
 
-	# Emit signals
-	print("\n  [8/8] Emitting session signals...")
 	terrain_initialized.emit()
-	print("    ✓ terrain_initialized emitted")
 	session_started.emit()
-	print("    ✓ session_started emitted")
 	session_initialized.emit()
-	print("    ✓ session_initialized emitted")
-
 	_print_stats()
 
-	print("\n┏" + "━".repeat(68) + "┓")
-	print("┃ SESSIONCONTROLLER: INITIALIZATION COMPLETE" + " ".repeat(25) + "┃")
-	print("┗" + "━".repeat(68) + "┛\n")
+func abort_session(msg: String) -> void:
+	push_error(msg)
+	_reset_agents()
+	session_active = false
 
-func _setup_debug_visualizations() -> void:
-	# Get visualization components from navigation controller
+func _wait_for_grid_init(grid_offset: Vector2) -> void:
+	var state = {"done": false}
+	hex_grid_controller.grid_initialized.connect(func(_data): state.done = true, CONNECT_ONE_SHOT)
+	hex_grid_controller.initialize_grid_requested.emit(grid_width, grid_height, hex_size, grid_offset)
+	while not state.done:
+		await get_tree().process_frame
+
+func _align_grid_with_navmesh() -> Vector2:
+	if integrate_with_navmesh and navigation_region and navigation_region.navigation_polygon:
+		var bounds := _calculate_navmesh_bounds(navigation_region.navigation_polygon)
+		return navigation_region.global_position + bounds.position if bounds.size.x > 0 else Vector2.ZERO
+	return Vector2.ZERO
+
+func _integrate_navmesh_if_needed() -> void:
+	if not integrate_with_navmesh or not navigation_region:
+		return
+
+	# Use signal-based blocking to wait for integration to complete
+	# navmesh_integration_complete is emitted ONLY after navmesh integration finishes
+	var state = {"done": false}
+	hex_grid_controller.navmesh_integration_complete.connect(
+		func(_stats): state.done = true,
+		CONNECT_ONE_SHOT
+	)
+	hex_grid_controller.integrate_navmesh_requested.emit(navigation_region, navmesh_sample_points)
+
+	# Block until navmesh integration actually completes
+	while not state.done:
+		await get_tree().process_frame
+
+func _init_and_spawn_agents() -> void:
+	number_of_agents = SessionData.get_total_agent_count()
+	var agent_grid = hex_grid_controller.get_hex_grid()
+	if not agent_grid:
+		abort_session("No grid for agent initialization")
+		return
+
+	agent_manager.initialize(agent_grid, navigation_controller)
+
+	# Connect agent_manager signals to SessionController handlers
+	agent_manager.agents_spawned.connect(_on_agents_spawned)
+	agent_manager.agent_turn_started.connect(_on_agent_turn_started)
+	agent_manager.agent_turn_ended.connect(_on_agent_turn_ended)
+	agent_manager.all_agents_completed_round.connect(_on_all_agents_completed_round)
+	agent_manager.movement_action_completed.connect(_on_movement_action_completed)
+
+	if spawn_agents_on_init:
+		agent_manager.spawn_agents(number_of_agents)
+		agents = agent_manager.get_all_agents()
+		if agents.size() != number_of_agents or not _validate_agents_array("after spawn"):
+			abort_session("[ERROR] Agent init failed")
+		if agents.size() > MAX_AGENTS:
+			agents = agents.slice(0, MAX_AGENTS)
+		current_agent_index = 0
+	else:
+		_reset_agents()
+
+func _setup_debug_visuals() -> void:
+	var grid = hex_grid_controller.get_hex_grid()
+	if not grid: return
+	var d = HexGridDebug.new()
+	d.name = "HexGridDebug"
+	d.hex_grid = grid
+	d.session_controller = self
+	d.debug_enabled = debug_mode
+	hex_grid_controller.add_child(d)
+	debug_controller.set_hex_grid_debug(d)
+	var hover = HexCellHoverVisualizer.new()
+	hover.name = "HexCellHoverVisualizer"
+	hover.hex_grid = grid
+	hover.session_controller = self
+	hover.hover_enabled = not debug_mode
+	hex_grid_controller.add_child(hover)
+	debug_controller.set_hex_cell_hover_visualizer(hover)
 	var path_visualizer = navigation_controller.get_path_visualizer()
 	if path_visualizer:
 		debug_controller.set_hex_path_visualizer(path_visualizer)
 
-	# Create HexGridDebug if needed
-	var grid = hex_grid_controller.get_hex_grid()
-	if grid:
-		var hex_grid_debug = HexGridDebug.new()
-		hex_grid_debug.name = "HexGridDebug"
-		hex_grid_debug.hex_grid = grid
-		hex_grid_debug.session_controller = self
-		hex_grid_debug.debug_enabled = debug_mode
-		hex_grid_controller.add_child(hex_grid_debug)
-		debug_controller.set_hex_grid_debug(hex_grid_debug)
-
-		# Create HexCellHoverVisualizer for normal mode hover feedback
-		var hex_cell_hover_visualizer = HexCellHoverVisualizer.new()
-		hex_cell_hover_visualizer.name = "HexCellHoverVisualizer"
-		hex_cell_hover_visualizer.hex_grid = grid
-		hex_cell_hover_visualizer.session_controller = self
-		hex_cell_hover_visualizer.hover_enabled = not debug_mode  # Disabled in debug mode
-		hex_grid_controller.add_child(hex_cell_hover_visualizer)
-		debug_controller.set_hex_cell_hover_visualizer(hex_cell_hover_visualizer)
+func _reset_agents():
+	agents = []
+	current_agent_index = 0
 
 func end_session() -> void:
-	if not session_active:
-		return
-
-	session_active = false
-	hex_grid_controller.clear_grid_requested.emit()
-	navigation_controller.cancel_navigation_requested.emit()
-	_update_session_state()
-	session_ended.emit()
+	if session_active:
+		session_active = false
+		hex_grid_controller.clear_grid_requested.emit()
+		navigation_controller.cancel_navigation_requested.emit()
+		_update_session_state()
+		session_ended.emit()
 
 func reset_session() -> void:
 	end_session()
 	await get_tree().process_frame
 	initialize_session()
 
-# ============================================================================
-# SIGNAL ROUTING - HexGridController to NavigationController
-# ============================================================================
+# ========== VALIDATION ==========
+func _validate_agent_ref(agent, idx := -1, ctx := "") -> bool:
+	# Agents array contains AgentData objects, not CharacterBody2D
+	if !agent or !is_instance_valid(agent):
+		printerr("[SessionController] Invalid agent ref at %d (%s)" % [idx, ctx])
+		return false
 
-func _route_to_navigation_controller(request_id: String, cell: HexCell) -> void:
-	navigation_controller.on_cell_at_position_response.emit(request_id, cell)
+	# Check if it's AgentData with a valid controller
+	if agent is AgentData:
+		var controller = agent.agent_controller
+		if !controller or !is_instance_valid(controller) or not controller is CharacterBody2D:
+			printerr("[SessionController] Invalid agent controller at %d (%s)" % [idx, ctx])
+			return false
+		return true
 
-func _route_distance_to_navigation(_request_id: String, _distance: int) -> void:
-	# Future: add distance response to navigation controller if needed
-	pass
+	# Legacy support: Direct CharacterBody2D reference
+	if agent is CharacterBody2D:
+		return true
 
-func _route_cells_to_navigation(_request_id: String, _cells: Array[HexCell]) -> void:
-	# Future: add cells response to navigation controller if needed
-	pass
+	printerr("[SessionController] Unknown agent type at %d (%s): %s" % [idx, ctx, typeof(agent)])
+	return false
 
-# ============================================================================
-# SIGNAL ROUTING - NavigationController to HexGridController
-# ============================================================================
+func _validate_agents_array(ctx := "agents array assignment") -> bool:
+	for i in agents.size():
+		if not _validate_agent_ref(agents[i], i, ctx): return false
+	return agents.size() > 0
 
-func _route_to_hex_grid_controller(request_id: String, world_pos: Vector2) -> void:
-	hex_grid_controller.request_cell_at_position.emit(request_id, world_pos)
+# ========== SIGNAL ROUTING ==========
+func _route_to_navigation_controller(request_id: String, cell: HexCell): navigation_controller.on_cell_at_position_response.emit(request_id, cell)
+func _route_distance_to_navigation(_req: String, _dist: int): pass
+func _route_cells_to_navigation(_req: String, _cells: Array[HexCell]): pass
+func _route_to_hex_grid_controller(request_id: String, world_pos: Vector2): hex_grid_controller.request_cell_at_position.emit(request_id, world_pos)
 
-# ============================================================================
-# EVENT HANDLERS - HexGridController
-# ============================================================================
-
-func _on_grid_initialized(grid_data: Dictionary) -> void:
-	_grid_state = grid_data
-	debug_controller.on_grid_state_changed.emit(grid_data)
-	print("SessionController: Grid initialized - %dx%d (%d cells)" % [
-		grid_data.width,
-		grid_data.height,
-		grid_data.total_cells
-	])
-
-func _on_cell_state_changed(_coords: Vector2i, _enabled: bool) -> void:
-	# Update grid stats
-	pass
-
-func _on_grid_stats_changed(stats: Dictionary) -> void:
-	_grid_state.merge(stats, true)
-	debug_controller.on_grid_state_changed.emit(_grid_state)
-
-# ============================================================================
-# EVENT HANDLERS - NavigationController
-# ============================================================================
-
-func _on_path_found(_start: HexCell, _goal: HexCell, path: Array[HexCell], duration_ms: float) -> void:
-	if OS.is_debug_build():
-		print("SessionController: Path found - %d cells in %.2f ms" % [path.size(), duration_ms])
-
-func _on_path_not_found(_start_pos: Vector2, _goal_pos: Vector2, reason: String) -> void:
-	if OS.is_debug_build():
-		print("SessionController: Path not found - %s" % reason)
-
-func _on_navigation_started(target: HexCell) -> void:
-	if OS.is_debug_build():
-		print("SessionController: Navigation started to (%d, %d)" % [target.q, target.r])
-
-func _on_navigation_completed() -> void:
-	if OS.is_debug_build():
-		print("SessionController: Navigation completed")
-
-func _on_navigation_failed(reason: String) -> void:
-	if OS.is_debug_build():
-		print("SessionController: Navigation failed - %s" % reason)
-
-func _on_waypoint_reached(_cell: HexCell, _index: int, _remaining: int) -> void:
-	pass
-
-func _on_navigation_state_changed(active: bool, path_length: int, remaining_distance: int) -> void:
-	_navigation_state = {
-		"active": active,
-		"path_length": path_length,
-		"remaining_distance": remaining_distance
-	}
+# ========== EVENT HANDLERS ==========
+func _on_grid_initialized(data: Dictionary): _grid_state = data; debug_controller.on_grid_state_changed.emit(data)
+func _on_cell_state_changed(_coords: Vector2i, _en: bool): pass
+func _on_grid_stats_changed(stats: Dictionary): _grid_state.merge(stats, true); debug_controller.on_grid_state_changed.emit(_grid_state)
+func _on_path_found(_st: HexCell, _go: HexCell, path: Array[HexCell], dur: float): _print_debug("Path found: %d cells in %.2f ms" % [path.size(), dur])
+func _on_path_not_found(_sp: Vector2, _gp: Vector2, reason: String): _print_debug("Path not found %s" % reason)
+func _on_navigation_started(tgt: HexCell): _print_debug("Navigation started %s" % tgt)
+func _on_navigation_completed(): _print_debug("Navigation completed")
+func _on_navigation_failed(reason: String): _print_debug("Navigation failed: %s" % reason)
+func _on_waypoint_reached(_cell: HexCell, _idx: int, _rem: int): pass
+func _on_navigation_state_changed(active: bool, plen: int, remain: int):
+	_navigation_state = {"active": active, "path_length": plen, "remaining_distance": remain}
 	debug_controller.on_navigation_state_changed.emit(_navigation_state)
+func _on_debug_visibility_changed(vis: bool): debug_mode = vis; _print_debug("Debug %s" % ("ON" if vis else"OFF"))
+func _on_debug_info_updated(_k: String, _v: Variant): pass
+func _on_ui_visibility_changed(vis: bool): _print_debug("UI overlay %s" % ("shown" if vis else "hidden"))
+func _on_selected_item_changed(d: Dictionary): if d.get("has_selection", false): _print_debug("Selected: %s [%s]" % [d.get("item_name", "Unknown"), d.get("item_type", "Unknown")])
+func _on_object_selected(sel: Dictionary): _print_debug("Object selected: %s" % sel.get("item_name"))
+func _on_selection_cleared(): _print_debug("Selection cleared")
 
-# ============================================================================
-# EVENT HANDLERS - DebugController
-# ============================================================================
-
-func _on_debug_visibility_changed(visible: bool) -> void:
-	debug_mode = visible
-	if OS.is_debug_build():
-		print("SessionController: Debug mode %s" % ("ON" if visible else "OFF"))
-
-func _on_debug_info_updated(_key: String, _value: Variant) -> void:
-	# Debug info updated
-	pass
-
-# ============================================================================
-# EVENT HANDLERS - UIController
-# ============================================================================
-
-func _on_ui_visibility_changed(visible: bool) -> void:
-	if OS.is_debug_build():
-		print("SessionController: UI overlay %s" % ("shown" if visible else "hidden"))
-
-func _on_selected_item_changed(item_data: Dictionary) -> void:
-	if OS.is_debug_build() and item_data.get("has_selection", false):
-		print("SessionController: Selected item changed - %s (%s)" % [
-			item_data.get("item_name", "Unknown"),
-			item_data.get("item_type", "Unknown")
-		])
-
-# ============================================================================
-# EVENT HANDLERS - SelectionController
-# ============================================================================
-
-func _on_object_selected(selection_data: Dictionary) -> void:
-	if OS.is_debug_build():
-		print("SessionController: Object selected - %s" % selection_data.get("item_name"))
-
-func _on_selection_cleared() -> void:
-	if OS.is_debug_build():
-		print("SessionController: Selection cleared")
-
-# ============================================================================
-# EVENT HANDLERS - AgentController
-# ============================================================================
-
-func _on_agents_spawned(agent_count: int) -> void:
-	print("SessionController: %d agents spawned" % agent_count)
-
-func _on_agent_turn_started(agent_data: AgentData) -> void:
-	if OS.is_debug_build():
-		print("SessionController: %s turn started" % agent_data.agent_name)
-
-	# Update navigable cells at the start of the turn
-	# Pass the agent_data directly instead of relying on current_agent_index
-	update_navigable_cells(agent_data)
-
-	# Build and emit turn status dictionary for UI integration
+func _on_agents_spawned(count: int): _print_debug("%d agents spawned" % count)
+func _on_agent_turn_started(data: AgentData):
+	_print_debug("%s turn started" % data.agent_name)
+	update_navigable_cells(data)
 	var turn_info = {
 		"turn_number": agent_manager.current_round + 1,
-		"agent_name": agent_data.agent_name,
+		"agent_name": data.agent_name,
 		"agent_index": agent_manager.active_agent_index,
 		"total_agents": agent_manager.get_all_agents().size(),
-		"movements_left": agent_data.get_movements_remaining() if agent_data.has_method("get_movements_remaining") else agent_data.max_movements_per_turn,
-		"actions_left": agent_data.get_actions_remaining() if agent_data.has_method("get_actions_remaining") else "-"
+		"movements_left": data.get_movements_remaining() if data.has_method("get_movements_remaining") else data.max_movements_per_turn,
+		"actions_left": data.get_actions_remaining() if data.has_method("get_actions_remaining") else "-"
 	}
+	turn_changed.emit(turn_info)
 	if OS.is_debug_build():
 		print("[SessionController] Emitting turn_changed: %s" % str(turn_info))
-	turn_changed.emit(turn_info)
 
-func _on_agent_turn_ended(agent_data: AgentData) -> void:
-	if OS.is_debug_build():
-		print("SessionController: %s turn ended (used %d movements)" % [
-			agent_data.agent_name,
-			agent_data.movements_used_this_turn
-		])
+func _on_agent_turn_ended(data: AgentData): _print_debug("%s turn ended (used %d)" % [data.agent_name, data.movements_used_this_turn])
+func _on_all_agents_completed_round(): _print_debug("All agents completed round")
+func _on_movement_action_completed(data: AgentData, moves: int):
+	# Update navigable cells to reflect remaining distance
+	update_navigable_cells(data)
 
-func _on_all_agents_completed_round() -> void:
-	if OS.is_debug_build():
-		print("SessionController: All agents completed round")
-
-func _on_movement_action_completed(agent_data: AgentData, movements_remaining: int) -> void:
-	if OS.is_debug_build():
-		print("SessionController: %s movement action (%d remaining)" % [
-			agent_data.agent_name,
-			movements_remaining
-		])
-
-	# Emit turn_changed to update UI with new distance remaining
-	var turn_info = {
+	turn_changed.emit({
 		"turn_number": agent_manager.current_round + 1,
-		"agent_name": agent_data.agent_name,
+		"agent_name": data.agent_name,
 		"agent_index": agent_manager.active_agent_index,
 		"total_agents": agent_manager.get_all_agents().size(),
-		"movements_left": movements_remaining,
-		"actions_left": agent_data.get_actions_remaining() if agent_data.has_method("get_actions_remaining") else "-"
-	}
-	turn_changed.emit(turn_info)
-	if OS.is_debug_build():
-		print("[SessionController] Emitted turn_changed after movement: distance_left=%d" % movements_remaining)
+		"movements_left": moves,
+		"actions_left": data.get_actions_remaining() if data.has_method("get_actions_remaining") else "-"
+	})
+	_print_debug("%s moved (%d m left)" % [data.agent_name, moves])
 
-# ============================================================================
-# INPUT HANDLING
-# ============================================================================
-
-# ============================================================================
-# GENERIC TURN & SESSION AGENT CYCLING
-# ============================================================================
-
-## Advance to next agent's turn in a round-robin fashion. Generic for 1–MAX_AGENTS.
-# All valid turn changes are routed via advance_turn(), which invokes agent_manager.start_agent_turn.
-# This produces agent_turn_started, which triggers _on_agent_turn_started, which then emits turn_changed.
-# Thus, ALL code paths initiating a new turn always emit turn_changed.
+# ========== TURN HANDLING ==========
 func advance_turn() -> void:
 	if agents.size() == 0:
-		push_error("advance_turn: No agents available for turn cycling.")
-		return
-
+		push_error("No agents available for turn cycling."); return
 	var current_agent = agents[current_agent_index]
-	# Assign this agent as the active one for navigation control
 	navigation_controller.set_active_agent(current_agent)
-
-	# Let agent_manager know; may trigger per-agent UI or enable input
 	agent_manager.start_agent_turn(current_agent)
-
-	print("advance_turn: Agent %s's turn" % String(current_agent.name) if "name" in current_agent else String(current_agent))
-
-	# Move to next index (wraps to 0 via modulus)
+	_print_debug("advance_turn: Agent %s" % current_agent.name)
 	current_agent_index = (current_agent_index + 1) % agents.size()
 
 func _input(event: InputEvent) -> void:
-	if not debug_hotkey_enabled:
-		return
-
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F3:
+	if debug_hotkey_enabled and event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F3:
 		debug_controller.toggle_debug_requested.emit()
 		get_viewport().set_input_as_handled()
 
-# ============================================================================
-# PUBLIC API - Selectors (Read State)
-# ============================================================================
+# ========== PUBLIC ACCESSORS ==========
+func get_session_state() -> Dictionary: return _session_state.duplicate()
+func get_grid_state() -> Dictionary: return _grid_state.duplicate()
+func get_navigation_state() -> Dictionary: return _navigation_state.duplicate()
+func is_session_active() -> bool: return session_active
+func get_session_duration() -> float: return (Time.get_ticks_msec() / 1000.0) - session_start_time if session_active else 0.0
+func get_current_turn() -> int: return (current_agent_index + 1) if agents.size() > 0 else 0
+func get_total_turns() -> int: return agents.size()
+func get_current_turn_agent() -> Variant: return agents[current_agent_index] if agents.size() > 0 else null
 
-func get_session_state() -> Dictionary:
-	return _session_state.duplicate()
-
-func get_grid_state() -> Dictionary:
-	return _grid_state.duplicate()
-
-func get_navigation_state() -> Dictionary:
-	return _navigation_state.duplicate()
-
-func is_session_active() -> bool:
-	return session_active
-
-func get_session_duration() -> float:
-	if not session_active:
-		return 0.0
-	return (Time.get_ticks_msec() / 1000.0) - session_start_time
-
-# ============================================================================
-# ========================================================================
-# PUBLIC API - Turn/Session State Accessors
-# ========================================================================
-
-## Returns the current turn number within the agent cycle (1-based).
-## This does NOT count completed rounds, only the current index.
-## Returns 0 if no agents are present.
-func get_current_turn() -> int:
-	# 1-based turn number for external use; 0 if no agents loaded
-	return (current_agent_index + 1) if agents.size() > 0 else 0
-
-## Returns the total number of turns in the current session round.
-## This equals the number of active agents in play.
-func get_total_turns() -> int:
-	return agents.size()
-
-## Returns the agent object whose turn is active, or null if unavailable.
-## The agent type is determined by your agent instantiation (e.g., AgentData, Node, or custom class).
-func get_current_turn_agent() -> Variant:
-	return agents[current_agent_index] if agents.size() > 0 else null
-
-# ============================================================================
-# PUBLIC API - Navigable Cells Management
-# ============================================================================
-
-## Updates the list of cells that are navigable (within movement range) from the current agent's position
-## This should be called at the start of each turn to recalculate accessible cells
-## @param agent: Optional agent to use. If not provided, uses get_current_turn_agent()
-func update_navigable_cells(agent = null) -> void:
+# ========== NAVIGABLE CELLS ==========
+func update_navigable_cells(agent) -> void:
 	navigable_cells.clear()
+	var cur_agent = agent if agent else get_current_turn_agent()
 
-	# Get current agent and their cell position
-	var current_agent = agent if agent != null else get_current_turn_agent()
-	if not current_agent:
-		if OS.is_debug_build():
-			print("[SessionController] update_navigable_cells: No current agent found")
+	if not cur_agent:
+		_print_debug("update_navigable_cells: No current agent")
 		navigable_cells_updated.emit(navigable_cells)
 		return
 
-	if OS.is_debug_build():
-		print("[SessionController] update_navigable_cells: Current agent = %s" % current_agent)
-
-	# Get the hex grid first (needed to find agent's cell)
-	var hex_grid = hex_grid_controller.get_hex_grid()
-	if not hex_grid:
-		if OS.is_debug_build():
-			print("[SessionController] update_navigable_cells: No hex grid found")
+	if not hex_grid_controller:
+		_print_debug("update_navigable_cells: No hex_grid_controller")
 		navigable_cells_updated.emit(navigable_cells)
 		return
 
-	# Get agent's current cell - check both AgentData and controller
-	current_agent_cell = null
+	var grid = hex_grid_controller.get_hex_grid()
+	if not grid:
+		_print_debug("update_navigable_cells: No grid")
+		navigable_cells_updated.emit(navigable_cells)
+		return
 
-	# Try to get current_cell from the agent directly
-	if current_agent.get("current_cell") != null:
-		current_agent_cell = current_agent.current_cell
-	# If agent is AgentData, try the controller
-	elif current_agent.get("controller") != null:
-		var controller = current_agent.controller
-		if OS.is_debug_build():
-			print("[SessionController] update_navigable_cells: Found controller: %s" % controller)
-
-		if controller.get("current_cell") != null:
-			current_agent_cell = controller.current_cell
-		# If controller doesn't have current_cell, calculate it from position
-		elif controller.get("global_position") != null:
-			current_agent_cell = hex_grid.get_cell_at_world_position(controller.global_position)
-			if OS.is_debug_build():
-				print("[SessionController] update_navigable_cells: Calculated agent cell from position: %s" % controller.global_position)
-
+	current_agent_cell = _resolve_agent_cell(cur_agent, grid)
 	if not current_agent_cell:
-		if OS.is_debug_build():
-			print("[SessionController] update_navigable_cells: Could not determine agent's current cell")
-			print("[SessionController] update_navigable_cells: Agent type: %s" % current_agent.get_class())
-			var ctrl = current_agent.get("controller")
-			if ctrl:
-				print("[SessionController] update_navigable_cells: Controller exists: %s" % ctrl)
-				print("[SessionController] update_navigable_cells: Controller has global_position: %s" % (ctrl.get("global_position") != null))
+		_print_debug("update_navigable_cells: Could not resolve agent cell for %s at %s" % [
+			cur_agent.agent_name if cur_agent.get("agent_name") else "unknown",
+			cur_agent.current_position if cur_agent.get("current_position") else "unknown position"
+		])
 		navigable_cells_updated.emit(navigable_cells)
 		return
 
-	if OS.is_debug_build():
-		print("[SessionController] update_navigable_cells: Agent cell = (%d, %d)" % [current_agent_cell.q, current_agent_cell.r])
+	# Get agent's remaining distance for this turn
+	var remaining_distance = int(cur_agent.get_distance_remaining()) if cur_agent.has_method("get_distance_remaining") else MovementConstants.MAX_MOVEMENT_DISTANCE
 
-	# Get pathfinder from navigation controller
+	if remaining_distance <= 0:
+		_print_debug("update_navigable_cells: Agent has no remaining distance")
+		navigable_cells_updated.emit(navigable_cells)
+		return
+
+	# Three-layer system for navigable cells:
+	# Layer 1: Cell must be enabled (within navmesh) - handled by get_enabled_cells_in_range
+	# Layer 2: Cell must be within hex cell range (accounting for obstacles)
+	#         Distance is measured in hex cells (each cell = 1 meter)
+	#         Using conservative multiplier since actual paths around obstacles can be 1.5-2x longer
+	#         Movement budget: Based on agent's REMAINING distance this turn
+	#         Conservative filter: 2x remaining distance
+	# Layer 3: Cell must have a valid A* path within the agent's remaining movement budget
+	const HEX_DISTANCE_MULTIPLIER = 2.0  # Account for paths around obstacles
+	var max_hex_range = int(remaining_distance * HEX_DISTANCE_MULTIPLIER)
+	var candidates = grid.get_enabled_cells_in_range(current_agent_cell, max_hex_range)
+
+	# Get pathfinder for Layer 3 validation
 	var pathfinder = navigation_controller.get_pathfinder()
 	if not pathfinder:
-		if OS.is_debug_build():
-			print("[SessionController] update_navigable_cells: No pathfinder found")
+		_print_debug("update_navigable_cells: No pathfinder for Layer 3 validation")
 		navigable_cells_updated.emit(navigable_cells)
 		return
 
-	# Calculate all cells within movement range using pathfinding
-	# Only check enabled cells to avoid unnecessary pathfinding calculations
-	for cell in hex_grid.enabled_cells:
+	# Layer 3: Validate that A* can find a path within remaining movement budget
+	for cell in candidates:
 		if cell == current_agent_cell:
 			# Agent's current cell is always navigable
 			navigable_cells.append(cell)
-			continue
+		else:
+			# Check if pathfinding can reach this cell
+			var path = pathfinder.find_path(current_agent_cell, cell)
+			if path.size() > 0:
+				# Distance is measured in hex cells (each cell = 1 meter)
+				# Subtract 1 because the path includes the starting cell
+				var path_distance_meters = path.size() - 1
 
-		# Find path from current agent cell to target cell
-		var path = pathfinder.find_path(current_agent_cell, cell)
+				# Only mark as navigable if within REMAINING movement budget
+				if path_distance_meters <= remaining_distance:
+					navigable_cells.append(cell)
 
-		# If path exists and is within movement range, cell is navigable
-		# Path length includes the starting cell, so we need to subtract 1
-		if path.size() > 0 and (path.size() - 1) <= max_movements_per_turn:
-			navigable_cells.append(cell)
-
-	# Emit signal to notify visualizers
 	navigable_cells_updated.emit(navigable_cells)
-
-	# Update debug info
 	debug_controller.update_debug_info_requested.emit("navigable_cells_count", navigable_cells.size())
-	debug_controller.update_debug_info_requested.emit("current_agent_cell_q", current_agent_cell.q if current_agent_cell else null)
-	debug_controller.update_debug_info_requested.emit("current_agent_cell_r", current_agent_cell.r if current_agent_cell else null)
+	debug_controller.update_debug_info_requested.emit("current_agent_cell_q", current_agent_cell.q if current_agent_cell else -1)
+	debug_controller.update_debug_info_requested.emit("current_agent_cell_r", current_agent_cell.r if current_agent_cell else -1)
+	_print_debug("Navigable cells: %d candidates -> %d within %d m remaining budget" % [candidates.size(), navigable_cells.size(), remaining_distance])
 
-	if OS.is_debug_build():
-		print("[SessionController] Updated navigable cells: %d cells within %d movement range" % [
-			navigable_cells.size(),
-			max_movements_per_turn
-		])
+func _resolve_agent_cell(agent, grid) -> HexCell:
+	# First check if agent has current_cell directly
+	if agent.get("current_cell") != null:
+		return agent.current_cell
 
-## Checks if a given cell is navigable (within movement range) from the current agent
-## Returns true if the cell is in the navigable cells list
-func is_cell_navigable(cell: HexCell) -> bool:
-	return navigable_cells.has(cell)
+	# Try to get controller reference (AgentData uses 'agent_controller')
+	var ctrl = agent.get("agent_controller")
+	if ctrl:
+		# Check if controller has current_cell
+		if ctrl.get("current_cell") != null:
+			return ctrl.current_cell
+		# Fallback: get cell from controller's world position
+		if ctrl.get("global_position") != null:
+			return grid.get_cell_at_world_position(ctrl.global_position)
 
-## Returns the list of navigable cells
-func get_navigable_cells() -> Array[HexCell]:
-	return navigable_cells
+	return null
 
-# PUBLIC API - Direct Accessors (for backward compatibility)
-# ============================================================================
+func is_cell_navigable(cell: HexCell) -> bool: return navigable_cells.has(cell)
+func get_navigable_cells() -> Array[HexCell]: return navigable_cells
 
-func get_terrain(): # Returns HexGrid or null
-	return hex_grid_controller.get_hex_grid() if hex_grid_controller else null
+# ========== BACKWARD COMPAT ==========
+func get_terrain(): return hex_grid_controller.get_hex_grid() if hex_grid_controller else null
+func get_hex_grid_controller(): return hex_grid_controller
+func get_navigation_controller(): return navigation_controller
+func get_debug_controller(): return debug_controller
+func get_ui_controller(): return ui_controller
+func get_selection_controller(): return selection_controller
+func get_agent_manager(): return agent_manager
 
-func get_hex_grid_controller(): # Returns HexGridController
-	return hex_grid_controller
-
-func get_navigation_controller(): # Returns NavigationController
-	return navigation_controller
-
-func get_debug_controller(): # Returns DebugController
-	return debug_controller
-
-func get_ui_controller(): # Returns UIController
-	return ui_controller
-
-func get_selection_controller(): # Returns SelectionController
-	return selection_controller
-
-func get_agent_manager(): # Returns AgentController
-	return agent_manager
-
-# ============================================================================
-# PUBLIC API - Convenience Methods (emit signals to controllers)
-# ============================================================================
-
-func disable_terrain_at_position(world_pos: Vector2, radius: int = 1) -> void:
-	hex_grid_controller.set_cells_in_area_requested.emit(world_pos, radius, false)
-
-func enable_terrain_at_position(world_pos: Vector2, radius: int = 1) -> void:
-	hex_grid_controller.set_cells_in_area_requested.emit(world_pos, radius, true)
-
-func navigate_to_position(target_pos: Vector2) -> void:
-	navigation_controller.navigate_to_position_requested.emit(target_pos)
-
-func calculate_path(start_pos: Vector2, goal_pos: Vector2) -> void:
-	var request_id = "path_" + str(Time.get_ticks_msec())
-	navigation_controller.calculate_path_requested.emit(request_id, start_pos, goal_pos)
-
-func set_debug_mode(enabled: bool) -> void:
-	debug_controller.set_debug_visibility_requested.emit(enabled)
-
-func toggle_debug_mode() -> void:
-	debug_controller.toggle_debug_requested.emit()
-
-func refresh_navmesh_integration() -> void:
+# ========== PUBLIC SHORTCUTS ==========
+func disable_terrain_at_position(world_pos: Vector2, radius: int = 1): hex_grid_controller.set_cells_in_area_requested.emit(world_pos, radius, false)
+func enable_terrain_at_position(world_pos: Vector2, radius: int = 1): hex_grid_controller.set_cells_in_area_requested.emit(world_pos, radius, true)
+func navigate_to_position(target_pos: Vector2): navigation_controller.navigate_to_position_requested.emit(target_pos)
+func calculate_path(start_pos: Vector2, goal_pos: Vector2):
+	var req = "path_" + str(Time.get_ticks_msec())
+	navigation_controller.calculate_path_requested.emit(req, start_pos, goal_pos)
+func set_debug_mode(enabled: bool): debug_controller.set_debug_visibility_requested.emit(enabled)
+func toggle_debug_mode(): debug_controller.toggle_debug_requested.emit()
+func refresh_navmesh_integration():
 	hex_grid_controller.refresh_navmesh_integration()
-	if OS.is_debug_build():
-		print("SessionController: Navmesh integration refreshed")
+	_print_debug("Navmesh integration refreshed")
 
-# ============================================================================
-# INTERNAL HELPERS
-# ============================================================================
+# ========== HELPERS ==========
+func _calculate_navmesh_bounds(nav_poly: NavigationPolygon) -> Rect2:
+	var min_pos = Vector2(INF, INF)
+	var max_pos = Vector2(-INF, -INF)
+	for i in nav_poly.get_outline_count():
+		var outline = nav_poly.get_outline(i)
+		for v in outline:
+			min_pos = min_pos.min(v)
+			max_pos = max_pos.max(v)
+	if min_pos.x == INF: push_warning("NavigationPolygon has no vertices"); return Rect2()
+	return Rect2(min_pos, max_pos - min_pos)
 
 func _update_session_state() -> void:
 	_session_state = {
@@ -875,45 +511,21 @@ func _update_session_state() -> void:
 	}
 	debug_controller.on_session_state_changed.emit(_session_state)
 
-func _calculate_navmesh_bounds(nav_poly: NavigationPolygon) -> Rect2:
-	var min_pos := Vector2(INF, INF)
-	var max_pos := Vector2(-INF, -INF)
+func _print_debug(msg): if OS.is_debug_build(): print("[SessionController] %s" % msg)
 
-	for i in nav_poly.get_outline_count():
-		var outline := nav_poly.get_outline(i)
-		for vertex in outline:
-			min_pos = min_pos.min(vertex)
-			max_pos = max_pos.max(vertex)
-
-	if min_pos.x == INF:
-		push_warning("NavigationPolygon has no vertices")
-		return Rect2()
-
-	return Rect2(min_pos, max_pos - min_pos)
+func _print_header(msg): print("\n" + "━".repeat(60)); print(msg); print("━".repeat(60))
 
 func _print_stats() -> void:
-	if not OS.is_debug_build():
-		return
-
+	if not OS.is_debug_build(): return
 	print("\n" + "=".repeat(60))
 	print("SESSION CONTROLLER - Signal-Based Architecture")
 	print("=".repeat(60))
-	print("Controllers Initialized:")
-	print("  ✓ HexGridController")
-	print("  ✓ NavigationController")
-	print("  ✓ DebugController")
-	print("  ✓ UIController")
-	print("  ✓ SelectionController")
-	print("\nGrid Configuration:")
-	print("  Dimensions: %dx%d" % [grid_width, grid_height])
-	print("  Hex Size: %.1f" % hex_size)
-	print("  Total Cells: %d" % _grid_state.get("total_cells", 0))
-	print("  Enabled: %d | Disabled: %d" % [
-		_grid_state.get("enabled_cells", 0),
-		_grid_state.get("disabled_cells", 0)
+	print("Controllers: HexGrid ✓, Navigation ✓, Debug ✓, UI ✓, Selection ✓")
+	print("Grid: %dx%d, Hex Size: %.1f, Total: %d, Enabled: %d, Disabled: %d" % [
+		grid_width, grid_height, hex_size, _grid_state.get("total_cells", 0),
+		_grid_state.get("enabled_cells", 0), _grid_state.get("disabled_cells", 0)
 	])
-	print("\nSession Status:")
-	print("  Active: %s" % session_active)
-	print("  Debug Mode: %s" % debug_mode)
-	print("  Navmesh Integration: %s" % integrate_with_navmesh)
-	print("=".repeat(60) + "\n")
+	print("Session: Active: %s, Debug: %s, Navmesh: %s" % [
+		session_active, debug_mode, integrate_with_navmesh
+	])
+	print("=".repeat(60))

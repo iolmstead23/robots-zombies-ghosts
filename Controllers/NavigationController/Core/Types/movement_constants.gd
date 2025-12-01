@@ -14,11 +14,12 @@ Design notes:
 # Distance & Conversion
 # ----------------------
 
-## Conversion factor: feet to pixels (32 pixels = 1 foot)
-const PIXELS_PER_FOOT: int = 32
+## Conversion factor: meters to pixels (32 pixels = 1 meter)
+## NOTE: This is only used for rendering/visualization. Distance calculations use hex cells.
+const PIXELS_PER_METER: int = 32
 
-## Maximum movement distance per turn (in pixels)
-const MAX_MOVEMENT_DISTANCE: int = 20 * 32  # 20 feet = 640 pixels
+## Maximum movement distance per turn (in meters/hex cells)
+const MAX_MOVEMENT_DISTANCE: int = 10  # 10 meters = 10 hex cells
 
 # ----------------------
 # Movement Thresholds
@@ -63,10 +64,10 @@ const WAYPOINT_ADVANCEMENT_DISTANCE: int = 10
 # Helper Functions
 # ----------------------
 
-## Convert feet to pixels
-static func feet_to_pixels(feet: int) -> int:
-	return feet * PIXELS_PER_FOOT
+## Convert meters to pixels
+static func meters_to_pixels(meters: int) -> int:
+	return meters * PIXELS_PER_METER
 
-## Convert pixels to feet
-static func pixels_to_feet(pixels: int) -> int:
-	return pixels / PIXELS_PER_FOOT
+## Convert pixels to meters
+static func pixels_to_meters(pixels: int) -> int:
+	return pixels / PIXELS_PER_METER

@@ -46,13 +46,13 @@ static func distance_to_index(path: Array[Vector2], index: int) -> int:
 # Unit Conversions
 # ----------------------
 
-## Convert feet to pixels (using standard conversion factor)
-static func feet_to_pixels(feet: int) -> int:
-	return feet * 32 # PIXELS_PER_FOOT
+## Convert meters to pixels (using standard conversion factor)
+static func meters_to_pixels(meters: int) -> int:
+	return meters * 32 # PIXELS_PER_METER
 
-## Convert pixels to feet
-static func pixels_to_feet(pixels: int) -> int:
-	return pixels / 32 # PIXELS_PER_FOOT
+## Convert pixels to meters
+static func pixels_to_meters(pixels: int) -> int:
+	return pixels / 32 # PIXELS_PER_METER
 
 # ----------------------
 # Distance Checks

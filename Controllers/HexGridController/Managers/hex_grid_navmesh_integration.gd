@@ -46,7 +46,7 @@ func _retry_integration() -> void:
 	if OS.is_debug_build():
 		push_warning("HexNavmeshIntegration: Navigation map not ready, retrying...")
 	await get_tree().create_timer(0.1).timeout
-	integrate_with_navmesh()
+	await integrate_with_navmesh()
 
 func _process_all_cells() -> void:
 	var enabled_count := 0

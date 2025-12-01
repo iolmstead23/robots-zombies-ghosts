@@ -12,7 +12,19 @@ The NavigationController provides a complete navigation solution built on a laye
 - **Modular Core Components**: Reusable pathfinding, movement, and state management utilities
 - **Hexagonal Grid Support**: Native support for hexagonal grids with A* pathfinding
 
-**Current Configuration**: Turn-based mode with 20-foot (640 pixel) maximum movement per turn.
+**Current Configuration**: Turn-based mode with 10-meter (10 hex cells) maximum movement per turn.
+
+## Key Features
+
+- **Hex Cell Distance Measurement**: Distance is measured in hex cells where 1 hex cell = 1 meter
+- **Intelligent Pathfinding**: A* pathfinding accounts for obstacles and navigation mesh constraints
+- **Smart Cell Highlighting**: Green hex cells show truly reachable destinations accounting for:
+  - Remaining movement budget for current turn
+  - Actual path distance around obstacles
+  - Navigation mesh walkability
+- **Dynamic Range Updates**: Navigable cells update after each movement to reflect remaining distance
+- **Automatic Turn Advancement**: Turns automatically advance when movement is exhausted
+- **Position-Aware Navigation**: Navigable cells calculate from agent's current position after each move
 
 ## Quick Start
 
@@ -155,14 +167,15 @@ NavigationController/
 #### Utilities (Static Functions)
 
 **`Core/Utilities/direction_utils.gd`** - Direction vectors, angles, rotations, velocity calculations
-**`Core/Utilities/distance_calculator.gd`** - Distance operations, unit conversions (feet ↔ pixels)
+**`Core/Utilities/distance_calculator.gd`** - Distance operations, unit conversions (meters ↔ pixels for rendering only)
 **`Core/Utilities/interpolation_utils.gd`** - Path interpolation, position at progress (0.0-1.0)
 **`Core/Utilities/path_validator.gd`** - Path/cell validation, path trimming to max distance
 
 #### Type Definitions
 
 **`Core/Types/navigation_types.gd`** - Enums (`TurnState`, `NavigationStatus`, `PathValidation`) and data classes
-**`Core/Types/movement_constants.gd`** - Distance conversions (32px = 1ft), max movement (640px), speeds, timeouts
+**`Core/Types/movement_constants.gd`** - Distance constants (1 hex cell = 1 meter), max movement (10 meters), speeds, timeouts
+  - **Note**: `PIXELS_PER_METER` (32) is only used for rendering/visualization, not distance calculations
 
 ### Package Components
 
@@ -180,7 +193,8 @@ NavigationController/
 - Emits: `turn_started`, `turn_ended`, `movement_started`, `movement_completed`
 
 **`Packages/TurnBasedNavigation/turn_based_pathfinder.gd`** - Turn-based pathfinding
-- Calculates paths with max distance enforcement (20 feet)
+- Calculates paths with max distance enforcement (10 meters = 10 hex cells)
+- Distance measured by hex cell count, not pixel distance
 - Path preview and confirmation support
 - Delegates to HexPathfinder
 - Emits: `path_calculated`, `path_confirmed`, `path_cancelled`
@@ -248,6 +262,44 @@ HexPathfinder.find_path()
 AStarPathfinder.find_path()
          ↓
 Emit: navigation_started / navigation_completed
+```
+
+### Navigable Cell System (Hex Highlighting)
+
+The system uses a three-layer approach to determine which hex cells are shown as green (navigable):
+
+```
+Layer 1: Navigation Mesh Filter
+    ↓
+Only cells on navigable areas of the navmesh are considered
+    ↓
+Layer 2: Distance Filter (Conservative)
+    ↓
+Filter to cells within 2x remaining distance (accounts for obstacles)
+Example: 5 meters remaining → check cells up to 10 cells away
+    ↓
+Layer 3: Pathfinding Validation
+    ↓
+For each candidate cell:
+  ├─ Calculate A* path from current position
+  ├─ Count hex cells in path (path.size - 1)
+  └─ Mark as navigable if ≤ remaining distance
+    ↓
+Result: Only truly reachable cells are shown as green
+```
+
+**Dynamic Updates:**
+- Navigable cells recalculate **after each movement**
+- Uses agent's **new position** as the starting point
+- Reflects **remaining distance** for the current turn
+- Green cells **shrink** as the agent uses movement
+
+**Example Flow:**
+```
+Turn Start: Agent has 10m → Green cells show all within 10m actual path distance
+After 3m move: Agent has 7m → Green cells update from new position, showing 7m range
+After 4m move: Agent has 3m → Green cells update again, showing 3m range
+After 3m move: Agent has 0m → No green cells, turn automatically ends
 ```
 
 ## API Reference
@@ -398,13 +450,23 @@ get_distance_moved() -> int
 ### MovementConstants
 
 ```gdscript
-PIXELS_PER_FOOT: int = 32
-MAX_MOVEMENT_DISTANCE: int = 640  # 20 feet
+# Distance Measurement
+PIXELS_PER_METER: int = 32           # Only for rendering/visualization
+MAX_MOVEMENT_DISTANCE: int = 10      # 10 meters = 10 hex cells
+
+# Movement Thresholds (in pixels - for physics only)
 ARRIVAL_DISTANCE_PIXELS: int = 5
-DEFAULT_MOVEMENT_SPEED: int = 400  # pixels/second
-WAYPOINT_TIMEOUT: int = 5000  # milliseconds
-WAYPOINT_ADVANCEMENT_DISTANCE: int = 10  # pixels
+WAYPOINT_ADVANCEMENT_DISTANCE: int = 10
+
+# Speed Settings
+DEFAULT_MOVEMENT_SPEED: int = 400    # pixels/second (physics execution)
+DEFAULT_REALTIME_SPEED: int = 200    # pixels/second
+
+# Timeouts
+WAYPOINT_TIMEOUT: int = 5000         # milliseconds
 ```
+
+**Important**: Distance is measured in **hex cells** (1 cell = 1 meter). Pixels are only used for rendering positions and physics execution speed.
 
 ### TurnState Enum
 
@@ -471,6 +533,25 @@ var h_cost = Heuristics.custom_heuristic(neighbor, goal)
 - **Type Safety**: Full type hints on all variables and returns
 - **Debug Support**: All components provide `get_*_info()` methods for debugging
 - **Progressive Enhancement**: Real-time code preserved for future activation
+
+### Movement & Turn Management
+
+**Hex-Based Distance:**
+- All distance calculations use hex cell count (1 cell = 1 meter)
+- Pixels are used only for rendering positions and physics execution speed
+- Independent of camera zoom level
+
+**Smart Turn Advancement:**
+- Turns automatically advance when agent's movement is exhausted
+- Turn switch happens **after** final movement completes (not before)
+- Ensures last meter of movement executes properly
+- Manual turn ending still available (Space/Enter key)
+
+**Position-Aware Pathfinding:**
+- Navigable cells update from agent's physical position after each move
+- Prevents showing unreachable cells from old position
+- Movement action records distance, then physical movement executes
+- Position update triggers after movement completes, not before
 
 ## Dependencies
 

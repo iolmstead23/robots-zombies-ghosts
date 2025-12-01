@@ -63,9 +63,8 @@ func navigate_to_cell(target_cell: HexCell) -> bool:
 	if not PathValidator.is_cell_valid(target_cell):
 		navigation_failed.emit("Target invalid or disabled")
 		return false
-
-	if not agent:
-		navigation_failed.emit("No agent assigned")
+	if not _validate_agent(agent, "HexAgentNavigator.navigate_to_cell"):
+		navigation_failed.emit("Agent validation failed (see error log)")
 		return false
 
 	var start_cell := hex_grid.get_cell_at_world_position(agent.global_position)
@@ -157,6 +156,8 @@ func _navigate_to_next_waypoint() -> void:
 		])
 
 func _set_agent_nav_target(waypoint: HexCell) -> bool:
+	if not _validate_agent(agent, "HexAgentNavigator._set_agent_nav_target"):
+		return false
 	var nav_set := false
 
 	if agent.has_node("NavigationAgent2D"):
@@ -171,6 +172,8 @@ func _set_agent_nav_target(waypoint: HexCell) -> bool:
 	return nav_set
 
 func _cancel_agent_navigation() -> void:
+	if not _validate_agent(agent, "HexAgentNavigator._cancel_agent_navigation"):
+		return
 	if not agent or not agent.has_node("NavigationAgent2D"):
 		return
 
@@ -224,6 +227,8 @@ func _update_navigation() -> void:
 			_complete_navigation()
 
 func _is_nav_agent_finished() -> bool:
+	if not _validate_agent(agent, "HexAgentNavigator._is_nav_agent_finished"):
+		return false
 	if not agent.has_node("NavigationAgent2D"):
 		return false
 
@@ -246,3 +251,36 @@ func _on_waypoint_reached(waypoint: Vector2, index: int, remaining: int) -> void
 
 func _on_all_waypoints_reached() -> void:
 	_complete_navigation()
+
+# =============================================================================
+# INTERNAL - AGENT VALIDATION
+# =============================================================================
+func _validate_agent(agent_ref: Variant, context: String) -> bool:
+	var is_valid := true
+	var messages := []
+	var conditions := {
+		"null_or_freed": (agent_ref == null or (typeof(agent_ref) == TYPE_OBJECT and agent_ref.is_queued_for_deletion())),
+		"not_character_body": (not (agent_ref is CharacterBody2D)),
+		"lacks_position": (typeof(agent_ref) == TYPE_OBJECT and not agent_ref.has_method("global_position")),
+	}
+	if conditions["null_or_freed"]:
+		is_valid = false
+		messages.append("Agent is null or freed.")
+	if conditions["not_character_body"]:
+		is_valid = false
+		messages.append("Agent is not a CharacterBody2D (got type: %s)." % [typeof(agent_ref)])
+	if conditions["lacks_position"]:
+		is_valid = false
+		messages.append("Agent lacks 'global_position' property/method.")
+
+	if not is_valid:
+		push_error("[Agent Validation Error] in %s: Failing agent reference. Details: type=%s value=%s; Checks=[%s]\nCallstack:\n%s"
+			% [
+				context,
+				typeof(agent_ref),
+				str(agent_ref),
+				", ".join(messages),
+				OS.get_stack()
+			]
+		)
+	return is_valid

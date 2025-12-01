@@ -361,36 +361,59 @@ func _handle_cell_click(cell: HexCell) -> void:
 		print("[main.gd] After request_movement_to, is_awaiting_confirmation: %s" % str(is_awaiting))
 
 		if is_awaiting:
-			# Get the number of hex cells in the path (each cell = 1 meter)
+			# Use hex cell count as distance (each hex cell = 1 meter)
 			var pathfinder = agent_controller.turn_based_controller.pathfinder
-			if pathfinder and pathfinder.current_path and not pathfinder.current_path.is_empty():
-				var full_path_length = pathfinder.current_path.size()  # Number of hex cells in full path
-				var distance_available = active_agent_data.get_distance_remaining()
+			if pathfinder and pathfinder.current_hex_path and not pathfinder.current_hex_path.is_empty():
+				# Distance is measured in hex cells (each cell = 1 meter)
+				var full_path_length = pathfinder.current_hex_path.size() - 1  # Subtract 1 because first cell is current position
+				var distance_available = int(active_agent_data.get_distance_remaining())
 
-				# Limit movement to available distance (max 10 meters per turn)
-				var distance_to_move = min(full_path_length, distance_available)
+				# Check if path is within available distance
+				if full_path_length <= distance_available:
+					# Full path fits within budget - use it all
+					if agent_manager.record_movement_action(full_path_length):
+						# Connect to movement_completed signal to update position after movement finishes
+						var tb_controller = agent_controller.turn_based_controller
+						tb_controller.movement_completed.connect(
+							func(_dist):
+								agent_manager.update_agent_position_after_movement(active_agent_data),
+							CONNECT_ONE_SHOT
+						)
 
-				if distance_to_move <= 0:
-					agent_controller.turn_based_controller.cancel_movement()
-					print("\n❌ No distance remaining this turn")
-					print("=".repeat(60) + "\n")
-					return
-
-				# Truncate path if it exceeds available distance
-				if full_path_length > distance_to_move:
-					print("\n⚠️ Path truncated: %d meters requested, %d meters available" % [full_path_length, distance_to_move])
-					# Truncate the pathfinder's path to only the first distance_to_move cells
-					pathfinder.current_path = pathfinder.current_path.slice(0, distance_to_move)
-					print("   Path shortened from %d to %d cells" % [full_path_length, pathfinder.current_path.size()])
-
-				# Record movement action with actual distance to move
-				if agent_manager.record_movement_action(distance_to_move):
-					agent_controller.turn_based_controller.confirm_movement()
-					print("\n✅ Movement confirmed: %d meters (%d hex cells)" % [distance_to_move, distance_to_move])
-					print("   Distance remaining: %d meters" % int(active_agent_data.get_distance_remaining()))
+						agent_controller.turn_based_controller.confirm_movement()
+						print("\n✅ Movement confirmed: %d meters (%d hex cells)" % [full_path_length, full_path_length])
+						print("   Distance remaining: %d meters" % int(active_agent_data.get_distance_remaining()))
+					else:
+						agent_controller.turn_based_controller.cancel_movement()
+						print("\n❌ Failed to record movement")
 				else:
-					agent_controller.turn_based_controller.cancel_movement()
-					print("\n❌ Failed to record movement")
+					# Path exceeds budget - need to truncate to available distance
+					var distance_to_move = distance_available
+
+					if distance_to_move <= 0:
+						agent_controller.turn_based_controller.cancel_movement()
+						print("\n❌ No distance remaining this turn")
+						print("=".repeat(60) + "\n")
+						return
+
+					print("\n⚠️ Path truncated: %d meters requested, %d meters available" % [full_path_length, distance_to_move])
+
+					# Record movement with available distance
+					if agent_manager.record_movement_action(distance_to_move):
+						# Connect to movement_completed signal to update position after movement finishes
+						var tb_controller = agent_controller.turn_based_controller
+						tb_controller.movement_completed.connect(
+							func(_dist):
+								agent_manager.update_agent_position_after_movement(active_agent_data),
+							CONNECT_ONE_SHOT
+						)
+
+						agent_controller.turn_based_controller.confirm_movement()
+						print("✅ Movement confirmed: %d meters (truncated from %d meters)" % [distance_to_move, full_path_length])
+						print("   Distance remaining: %d meters" % int(active_agent_data.get_distance_remaining()))
+					else:
+						agent_controller.turn_based_controller.cancel_movement()
+						print("\n❌ Failed to record movement")
 			else:
 				print("\n❌ Pathfinding failed - no valid path")
 	else:

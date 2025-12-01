@@ -310,14 +310,14 @@ func request_movement_to(destination: Vector2) -> void:
 
 	_turn_state.change_state(NavigationTypes.TurnState.PLANNING)
 
-	# Calculate remaining movement allowed this turn
-	var remaining_movement: int = MovementConstants.MAX_MOVEMENT_DISTANCE - movement_used_this_turn
-	if remaining_movement <= 0:
+	# Calculate remaining movement allowed this turn (in meters/hex cells)
+	var remaining_movement_meters: int = MovementConstants.MAX_MOVEMENT_DISTANCE - movement_used_this_turn
+	if remaining_movement_meters <= 0:
 		print("[TurnBasedMovementController] No movement remaining this turn")
 		_turn_state.change_state(NavigationTypes.TurnState.IDLE)
 		return
 
-	print("[TurnBasedMovementController] Calculating path to %s" % str(destination))
+	print("[TurnBasedMovementController] Calculating path to %s (remaining: %d m)" % [str(destination), remaining_movement_meters])
 	print("[TurnBasedMovementController] Pathfinder is null: %s" % str(pathfinder == null))
 
 	# Ask pathfinder to calculate
@@ -370,13 +370,14 @@ func _complete_movement() -> void:
 	if not is_active:
 		return
 
-	# Accumulate movement used in pixels
+	# Accumulate movement used in meters (hex cells)
 	if pathfinder != null:
-		movement_used_this_turn += pathfinder.total_path_distance
+		# Distance is measured in hex cells (each cell = 1 meter)
+		var path_distance_meters = pathfinder.current_hex_path.size() - 1  # Subtract 1 for starting cell
+		movement_used_this_turn += path_distance_meters
 
-	if DEBUG:
-		print("Movement complete - moved %.1f feet" %
-			MovementConstants.pixels_to_feet(pathfinder.total_path_distance))
+		if DEBUG:
+			print("Movement complete - moved %d m (%d hex cells)" % [path_distance_meters, path_distance_meters])
 
 	# Update state manager
 	if state_manager != null:
@@ -384,7 +385,8 @@ func _complete_movement() -> void:
 		state_manager.set_state_value("has_input", false)
 
 	_turn_state.change_state(NavigationTypes.TurnState.COMPLETED)
-	movement_completed.emit(pathfinder.total_path_distance)
+	var path_distance_meters = pathfinder.current_hex_path.size() - 1 if pathfinder else 0
+	movement_completed.emit(path_distance_meters)
 
 	# Clear pathfinder internal state
 	if pathfinder != null:
@@ -397,8 +399,7 @@ func _complete_movement() -> void:
 		_turn_state.change_state(NavigationTypes.TurnState.IDLE)
 		if DEBUG:
 			var remaining := MovementConstants.MAX_MOVEMENT_DISTANCE - movement_used_this_turn
-			print("%.1f feet of movement remaining this turn" %
-				MovementConstants.pixels_to_feet(remaining))
+			print("%d m of movement remaining this turn" % remaining)
 
 func _show_path_preview() -> void:
 	"""Display the calculated path using Line2D and update distance label if present."""
@@ -416,8 +417,9 @@ func _show_path_preview() -> void:
 
 	# Update distance label if present
 	if distance_label != null:
-		var dist_feet: int = MovementConstants.pixels_to_feet(pathfinder.total_path_distance)
-		distance_label.text = "Distance: %d ft" % dist_feet
+		# Distance is measured in hex cells (each cell = 1 meter)
+		var dist_meters: int = pathfinder.current_hex_path.size() - 1  # Subtract 1 for starting cell
+		distance_label.text = "Distance: %d m (%d hex cells)" % [dist_meters, dist_meters]
 
 func _update_animation_and_state(direction: Vector2) -> void:
 	"""Update movement component and state manager based on movement direction."""
@@ -447,7 +449,7 @@ func _setup_ui() -> void:
 func _on_path_calculated(_segments: Array, total_distance: int) -> void:
 	"""Called when pathfinder successfully calculates a path."""
 	if DEBUG:
-		print("Path calculated: %d feet" % MovementConstants.pixels_to_feet(total_distance))
+		print("Path calculated: %d m" % MovementConstants.pixels_to_meters(total_distance))
 	_turn_state.change_state(NavigationTypes.TurnState.PREVIEW)
 
 func _on_path_confirmed() -> void:

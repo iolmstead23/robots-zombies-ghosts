@@ -1,437 +1,275 @@
 class_name AgentController
 extends Node
 
-## AgentController
-##
-## Manages multiple agents in a turn-based system.
-## Handles agent spawning, turn order, and movement tracking.
-## Atomized controller for multi-agent session management.
-
-signal agents_spawned(agent_count: int)
+## Signals for session/agent events
+signal agents_spawned(count: int)
 signal agent_turn_started(agent_data: AgentData)
 signal agent_turn_ended(agent_data: AgentData)
 signal all_agents_completed_round()
 signal movement_action_completed(agent_data: AgentData, movements_remaining: int)
 
-## Agent prefab to instantiate
-@export var agent_scene: PackedScene = null
-
-## Number of agents to spawn (1-4)
+## Exported/Configurable vars
+@export var agent_scene: PackedScene
 @export_range(1, 4) var agent_count: int = 1
-
-## Maximum movements per agent per turn
 @export var max_movements_per_turn: int = 10
 
-## References
-var hex_grid: HexGrid = null
-var navigation_controller: Node = null
+## Context references
+var hex_grid: HexGrid
+var navigation_controller: Node
 
 ## Agent tracking
 var agents: Array[AgentData] = []
-var active_agent_index: int = 0
-var current_round: int = 0
+var active_agent_index := 0
+var current_round := 0
 
 ## State
-var is_initialized: bool = false
-var session_active: bool = false
+var is_initialized := false
+var session_active := false
 
+func _ready():
+	_load_agent_scene()
 
-func _ready() -> void:
-	_ensure_agent_scene_loaded()
-
-
-## Ensure agent scene is loaded
-func _ensure_agent_scene_loaded() -> void:
-	if agent_scene == null:
-		# Try to load default agent scene
+func _load_agent_scene() -> void:
+	if not agent_scene:
 		agent_scene = load("res://Agents/agent.tscn")
-		if agent_scene == null:
-			push_error("[AgentController] Failed to load default agent scene from res://Agents/agent.tscn")
+		if not agent_scene:
+			push_error("[AgentController] Failed to load agent scene.")
 
-
-## Initialize the agent manager with required references
 func initialize(grid: HexGrid, nav_controller: Node) -> void:
 	hex_grid = grid
 	navigation_controller = nav_controller
-	_ensure_agent_scene_loaded()
+	_load_agent_scene()
 	is_initialized = true
-	print("[AgentController] Initialized with grid and navigation controller")
+	_debug("Initialized with references.")
 
-
-## Spawn agents at random positions within the navigation map
+# ------------------------------------
+# SPAWN LOGIC
+# ------------------------------------
 func spawn_agents(count: int = -1) -> void:
-	print("[AgentController] ===== SPAWN_AGENTS CALLED =====")
-	print("[AgentController] Requested count: %d" % count)
-	print("[AgentController] Initialized: %s" % is_initialized)
-	print("[AgentController] In scene tree: %s" % is_inside_tree())
-	print("[AgentController] Agent scene: %s" % ("Loaded" if agent_scene != null else "NULL"))
-
 	if not is_initialized:
-		push_error("[AgentController] Cannot spawn agents - not initialized")
+		push_error("[AgentController] Not initialized.")
 		return
-
-	if count > 0:
-		agent_count = clamp(count, 1, 4)
-
-	print("[AgentController] Will spawn %d agents" % agent_count)
-
-	# Clear existing agents
+	agent_count = clamp(count if count > 0 else agent_count, 1, 4)
 	_clear_agents()
-
-	# Get valid spawn positions
-	var spawn_positions = _get_random_spawn_positions(agent_count)
-	print("[AgentController] Found %d valid spawn positions (need %d)" % [spawn_positions.size(), agent_count])
-
-	if spawn_positions.size() < agent_count:
-		push_error("[AgentController] Not enough valid spawn positions found")
+	var spawn_cells = _random_spawn_cells(agent_count)
+	if spawn_cells.size() < agent_count:
+		push_error("[AgentController] Not enough spawn cells.")
 		return
-
-	# Spawn each agent
-	for i in range(agent_count):
-		print("[AgentController] Spawning agent %d/%d..." % [i + 1, agent_count])
-		var agent = _spawn_agent(i, spawn_positions[i])
-		if agent:
-			agents.append(agent)
-			print("[AgentController] ✓ Agent %d spawned successfully" % (i + 1))
-		else:
-			push_error("[AgentController] ✗ Failed to spawn agent %d" % (i + 1))
-
-	print("[AgentController] ===== SPAWN COMPLETE: %d/%d agents spawned =====" % [agents.size(), agent_count])
-	
-	# Strict validation: Agents array must be exactly agent_count in length, and must not contain nulls
-	var valid_agent_count := (agents.size() == agent_count)
-	var has_null_agent := false
-	for a in agents:
-		if a == null:
-			has_null_agent = true
-			break
-
-	if not valid_agent_count or has_null_agent:
-		push_error("[AgentController] ERROR - Agent array invalid after spawn: Expected %d, Got %d, Null: %s" % [
-			agent_count, agents.size(), str(has_null_agent)
-		])
+	for i in agent_count:
+		agents.append(_spawn_agent(i, spawn_cells[i]))
+	if agents.any(func(a): return a == null):
+		push_error("[AgentController] Invalid agent in agents array.")
 		_clear_agents()
 		return
-
 	agents_spawned.emit(agents.size())
-
-	# Start the first turn
 	if agents.size() > 0:
 		session_active = true
-		_start_next_agent_turn()
-	else:
-		push_error("[AgentController] No agents were successfully spawned!")
+		_next_agent_turn()
 
+func _random_spawn_cells(count: int) -> Array[HexCell]:
+	var out: Array[HexCell] = []
+	var min_dist := 100.0
+	for _i in count * 5: # Try ample times to fill `count`, but stop after a while
+		if out.size() >= count: break
+		var cell = _random_enabled_hex_cell()
+		if not cell: continue
+		var pos = cell.world_position
+		if out.any(func(existing): return existing.world_position.distance_to(pos) < min_dist): continue
+		out.append(cell)
+	return out
 
-## Get random spawn positions within the navigation map
-func _get_random_spawn_positions(count: int) -> Array[Vector2]:
-	var positions: Array[Vector2] = []
-	var max_attempts = 100
-	var attempts = 0
-	var min_distance_between_agents = 100.0 # Minimum pixels between agents
+func _random_enabled_hex_cell():
+	if not hex_grid: return null
 
-	while positions.size() < count and attempts < max_attempts:
-		attempts += 1
+	# Try up to 50 times to find an enabled cell
+	for attempt in 50:
+		var q = randi_range(0, hex_grid.grid_width-1)
+		var r = randi_range(0, hex_grid.grid_height-1)
+		var cell = hex_grid.get_cell_at_coords(Vector2i(q, r))
+		if cell and cell.enabled:
+			return cell
 
-		# Get random position within grid bounds
-		var random_q = randi_range(0, hex_grid.grid_width - 1)
-		var random_r = randi_range(0, hex_grid.grid_height - 1)
+	# If random selection fails, try to find any enabled cell
+	for cell in hex_grid.enabled_cells:
+		if cell.enabled:
+			return cell
 
-		var cell = hex_grid.get_cell_at_coords(Vector2i(random_q, random_r))
-		if cell == null or not cell.enabled:
-			continue
+	return null
 
-		var world_pos = cell.world_position
-
-		# Check if position is too close to existing spawn points
-		var too_close = false
-		for existing_pos in positions:
-			if world_pos.distance_to(existing_pos) < min_distance_between_agents:
-				too_close = true
-				break
-
-		if not too_close:
-			positions.append(world_pos)
-
-	return positions
-
-
-## Spawn a single agent at the specified position
-func _spawn_agent(index: int, position: Vector2) -> AgentData:
-	print("  [_spawn_agent] Creating agent %d at %s" % [index, position])
-
-	if agent_scene == null:
-		push_error("  [_spawn_agent] Agent scene is NULL!")
+func _spawn_agent(index: int, cell: HexCell) -> AgentData:
+	if not agent_scene:
+		push_error("[AgentController] Agent scene not loaded!")
 		return null
-
-	print("  [_spawn_agent] Agent scene is valid, attempting instantiate...")
-
-	# Instantiate agent controller
-	var agent_controller = agent_scene.instantiate()
-
-	print("  [_spawn_agent] Instantiate returned: %s" % ("Valid node" if agent_controller != null else "NULL"))
-
-	if agent_controller == null:
-		push_error("  [_spawn_agent] Failed to instantiate agent scene")
-		return null
-
-	print("  [_spawn_agent] Agent controller type: %s" % agent_controller.get_class())
-	print("  [_spawn_agent] Adding to scene tree (parent: %s, in_tree: %s)" % [name, is_inside_tree()])
-
-	# Add to scene tree
-	add_child(agent_controller)
-
-	print("  [_spawn_agent] Agent added to scene tree successfully")
-
-	agent_controller.global_position = position
-
-	print("  [_spawn_agent] Position set to %s" % position)
-
-	# Create agent data
+	var ac = agent_scene.instantiate()
+	add_child(ac)
+	var pos = cell.world_position
+	ac.global_position = pos
 	var agent_id = "agent_%d" % index
-	var agent_data = AgentData.new(agent_id, agent_controller)
-	agent_data.max_movements_per_turn = max_movements_per_turn
-	agent_data.set_spawn_position(position)
-	agent_data.agent_name = "Agent %d" % (index + 1)
+	var ad = AgentData.new(agent_id, ac)
+	ad.agent_name = "Agent %d" % (index + 1)
+	ad.max_movements_per_turn = max_movements_per_turn
+	ad.set_spawn_position(pos)
+	ad.set_current_cell(cell)  # Set the current hex cell
+	ad.turn_started.connect(_on_agent_turn_started)
+	ad.turn_ended.connect(_on_agent_turn_ended)
+	_configure_agent_controller(ad, ac)
+	return ad
 
-	# Connect signals
-	# ERROR FIX: AgentData does NOT define signal movement_action_used. Line removed for correct property access.
-	# To track movement usage, define and emit a new 'movement_used_this_turn' signal in AgentData if needed.
-	# agent_data.movement_action_used.connect(_on_agent_movement_action_used.bind(agent_data))
-	agent_data.turn_started.connect(_on_agent_turn_started)
-	agent_data.turn_ended.connect(_on_agent_turn_ended)
+func _configure_agent_controller(ad, ac):
+	if OS.is_debug_build():
+		print("[AgentController] Configuring agent - hex_grid: %s, nav_controller: %s, has_method: %s" % [
+			hex_grid != null,
+			navigation_controller != null,
+			ac.has_method("set_hex_navigation")
+		])
 
-	# Setup agent controller with hex navigation if available
-	if hex_grid and navigation_controller and agent_controller.has_method("set_hex_navigation"):
-		var pathfinder = navigation_controller.get("hex_pathfinder")
+	if hex_grid and navigation_controller and ac.has_method("set_hex_navigation"):
+		var pathfinder = navigation_controller.get_pathfinder()
+		if OS.is_debug_build():
+			print("[AgentController] Pathfinder: %s" % (pathfinder != null))
+
 		if pathfinder:
-			agent_controller.set_hex_navigation(hex_grid, pathfinder)
+			ac.set_hex_navigation(hex_grid, pathfinder)
+			if OS.is_debug_build():
+				print("[AgentController] Hex navigation configured for agent")
+		else:
+			push_warning("[AgentController] Pathfinder is null - cannot configure hex navigation")
 
-	print("[AgentController] Spawned %s at %s" % [agent_data.agent_name, position])
-	print("[AgentController] AgentData constructed: id=%s, creation_time=%s, controller=%s" % [str(agent_data.agent_id), str(agent_data.creation_time), str(agent_controller.get_path())])
-	return agent_data
+# ------------------------------------
+# AGENT TURN LOGIC
+# ------------------------------------
+func start_agent_turn(agent_data: AgentData) -> void:
+	if agents.is_empty(): return
+	var idx = agents.find(agent_data)
+	if idx == -1:
+		push_error("[AgentController] Agent not found.")
+		return
+	_end_current_agent_turn_obj()
+	active_agent_index = idx
+	_set_agents_controllable(active_agent_index)
+	agents[active_agent_index].start_turn()
+	_activate_agent_turn_mode(agents[active_agent_index])
+	agent_turn_started.emit(agents[active_agent_index])
+	_debug("Turn Start: %s" % agents[active_agent_index].agent_name)
 
+func _next_agent_turn():
+	if agents.is_empty(): return
+	var had_active = agents[active_agent_index].is_active_agent if active_agent_index < agents.size() else false
+	if had_active: _end_current_agent_turn_obj()
+	if had_active: active_agent_index += 1
+	if active_agent_index >= agents.size():
+		active_agent_index = 0
+		current_round += 1
+		all_agents_completed_round.emit()
+	_set_agents_controllable(active_agent_index)
+	agents[active_agent_index].start_turn()
+	_activate_agent_turn_mode(agents[active_agent_index])
+	agent_turn_started.emit(agents[active_agent_index])
+	_debug("Next Turn: %s" % agents[active_agent_index].agent_name)
 
-## Clear all existing agents
-func _clear_agents() -> void:
-	for agent_data in agents:
-		if agent_data.agent_controller:
-			agent_data.agent_controller.queue_free()
+func _end_current_agent_turn_obj():
+	if active_agent_index < agents.size():
+		var curr = agents[active_agent_index]
+		if curr.is_active_agent:
+			if curr.agent_controller and curr.agent_controller.has_method("set_controllable"):
+				curr.agent_controller.set_controllable(false)
+			if curr.agent_controller and curr.agent_controller.turn_based_controller:
+				curr.agent_controller.turn_based_controller.deactivate()
+			curr.end_turn()
 
+func _set_agents_controllable(active_idx: int):
+	for i in agents.size():
+		var ctrl = agents[i].agent_controller
+		if ctrl and ctrl.has_method("set_controllable"):
+			ctrl.set_controllable(i == active_idx)
+
+func _activate_agent_turn_mode(agent):
+	if agent.agent_controller and agent.agent_controller.has_method("activate_turn_based_mode"):
+		agent.agent_controller.activate_turn_based_mode()
+		if agent.agent_controller.turn_based_controller:
+			agent.agent_controller.turn_based_controller.start_new_turn()
+
+func end_current_agent_turn() -> void:
+	if get_active_agent():
+		_debug("Manual turn end")
+		_next_agent_turn()
+
+# ------------------------------------
+# AGENT MANAGEMENT
+# ------------------------------------
+func _clear_agents():
+	for data in agents:
+		if data.agent_controller:
+			data.agent_controller.queue_free()
 	agents.clear()
 	active_agent_index = 0
 	current_round = 0
 	session_active = false
 
-
-## Start a specific agent's turn (called by SessionController)
-func start_agent_turn(agent_data: AgentData) -> void:
-	if agents.is_empty():
-		push_error("[AgentController] start_agent_turn: No agents available")
-		return
-
-	# Find the agent in the array
-	var agent_index = -1
-	for i in range(agents.size()):
-		if agents[i] == agent_data:
-			agent_index = i
-			break
-
-	if agent_index == -1:
-		push_error("[AgentController] start_agent_turn: Agent not found in agents array")
-		return
-
-	# End current agent's turn if there is one active
-	if active_agent_index < agents.size():
-		var current_agent = agents[active_agent_index]
-		if current_agent.is_active_agent and current_agent != agent_data:
-			# Disable controllability for ending agent
-			if current_agent.agent_controller and current_agent.agent_controller.has_method("set_controllable"):
-				current_agent.agent_controller.set_controllable(false)
-			# Deactivate turn-based controller for ending agent
-			if current_agent.agent_controller and current_agent.agent_controller.turn_based_controller:
-				current_agent.agent_controller.turn_based_controller.deactivate()
-			current_agent.end_turn()
-
-	# Set new active agent
-	active_agent_index = agent_index
-
-	# Set controllability: enable only for this agent
-	for i in range(agents.size()):
-		var agent = agents[i]
-		if agent.agent_controller and agent.agent_controller.has_method("set_controllable"):
-			agent.agent_controller.set_controllable(i == active_agent_index)
-
-	# Start agent's turn
-	agent_data.start_turn()
-
-	# Activate turn-based controller for this agent
-	if agent_data.agent_controller and agent_data.agent_controller.has_method("activate_turn_based_mode"):
-		agent_data.agent_controller.activate_turn_based_mode()
-		if agent_data.agent_controller.turn_based_controller:
-			agent_data.agent_controller.turn_based_controller.start_new_turn()
-
-	agent_turn_started.emit(agent_data)
-
-	print("[AgentController] ===== AGENT TURN (Manual Start) =====")
-	print("[AgentController] Active agent: %s (Index: %d, Round: %d)" % [
-		agent_data.agent_name,
-		active_agent_index,
-		current_round
-	])
-	print("[AgentController] ======================================")
-
-
-## Start the next agent's turn (internal cycling)
-func _start_next_agent_turn() -> void:
-	if agents.is_empty():
-		return
-
-	# End current agent's turn if there is one active
-	var had_active_agent = false
-	if active_agent_index < agents.size():
-		var current_agent = agents[active_agent_index]
-		if current_agent.is_active_agent:
-			had_active_agent = true
-			# Disable controllability for ending agent
-			if current_agent.agent_controller and current_agent.agent_controller.has_method("set_controllable"):
-				current_agent.agent_controller.set_controllable(false)
-			# Deactivate turn-based controller for ending agent
-			if current_agent.agent_controller and current_agent.agent_controller.turn_based_controller:
-				current_agent.agent_controller.turn_based_controller.deactivate()
-			current_agent.end_turn()
-
-	# Move to next agent only if we had an active agent
-	# (on first call, we want to start at index 0, not 1)
-	if had_active_agent:
-		active_agent_index += 1
-
-	# Check if we completed a full round
-	if active_agent_index >= agents.size():
-		active_agent_index = 0
-		current_round += 1
-		all_agents_completed_round.emit()
-		print("[AgentController] Round %d completed" % current_round)
-
-	# Set controllability: enable only for next_agent
-	for i in range(agents.size()):
-		var agent_data = agents[i]
-		if agent_data.agent_controller and agent_data.agent_controller.has_method("set_controllable"):
-			agent_data.agent_controller.set_controllable(i == active_agent_index)
-
-	# Start next agent's turn
-	var next_agent = agents[active_agent_index]
-	next_agent.start_turn()
-
-	# Activate turn-based controller for this agent (redundant now, but preserved for compatibility)
-	if next_agent.agent_controller and next_agent.agent_controller.has_method("activate_turn_based_mode"):
-		next_agent.agent_controller.activate_turn_based_mode()
-		if next_agent.agent_controller.turn_based_controller:
-			next_agent.agent_controller.turn_based_controller.start_new_turn()
-
-	agent_turn_started.emit(next_agent)
-
-	# Turn debug print
-	print("[AgentController] ===== AGENT TURN =====")
-	print("[AgentController] Active agent: %s (Index: %d, Round: %d)" % [
-		next_agent.agent_name,
-		active_agent_index,
-		current_round
-	])
-	print("[AgentController] =======================")
-
-
-## Get the currently active agent
 func get_active_agent() -> AgentData:
-	if active_agent_index < agents.size():
-		return agents[active_agent_index]
-	return null
+	return agents[active_agent_index] if active_agent_index < agents.size() else null
 
-
-## Get all agents
 func get_all_agents() -> Array[AgentData]:
-	# Enforce agent array validity
-	if agents.size() != agent_count:
-		push_error("[AgentController] get_all_agents(): agents.size (%d) != expected agent_count (%d)" % [agents.size(), agent_count])
+	if agents.size() != agent_count or agents.any(func(a): return a == null):
+		push_error("[AgentController] Agent array invalid.")
 		return []
-	for a in agents:
-		if a == null:
-			push_error("[AgentController] get_all_agents(): Null agent detected in agents array.")
-			return []
 	return agents
 
+func update_agent_position(agent_data: AgentData, new_pos: Vector2) -> void:
+	if agent_data:
+		agent_data.update_position(new_pos)
 
-## Record a movement action for the active agent
-## distance_meters: number of hex cells traveled (each cell = 1 meter)
+# ------------------------------------
+# MOVEMENT LOGIC
+# ------------------------------------
 func record_movement_action(distance_meters: int = 0) -> bool:
-	var active_agent = get_active_agent()
-	if active_agent == null:
+	var aa = get_active_agent()
+	if not aa: return false
+	if not aa.use_movement_action(distance_meters):
+		_debug("%s exhausted movement" % aa.agent_name)
 		return false
 
-	if not active_agent.use_movement_action(distance_meters):
-		print("[AgentController] %s has no distance remaining (%d / %d meters used)" % [
-			active_agent.agent_name,
-			active_agent.distance_traveled_this_turn,
-			active_agent.max_distance_per_turn
-		])
-		return false
-
-	print("[AgentController] %s moved %d meters (%d / %d meters used)" % [
-		active_agent.agent_name,
-		distance_meters,
-		active_agent.distance_traveled_this_turn,
-		active_agent.max_distance_per_turn
-	])
-
-	movement_action_completed.emit(active_agent, active_agent.get_distance_remaining())
-
-	# Auto-advance turn if distance exhausted
-	if not active_agent.can_move():
-		print("[AgentController] %s exhausted distance budget (%d / %d meters), ending turn" % [
-			active_agent.agent_name,
-			active_agent.distance_traveled_this_turn,
-			active_agent.max_distance_per_turn
-		])
-		_start_next_agent_turn()
+	# Don't update cell position here - it will be updated after movement completes
+	# Don't auto-advance turn here - wait until movement physically finishes
 
 	return true
 
+## Called after movement physically completes to update state
+func update_agent_position_after_movement(agent_data: AgentData) -> void:
+	_update_agent_current_cell(agent_data)
+	movement_action_completed.emit(agent_data, agent_data.get_distance_remaining())
 
-## Manually end the current agent's turn
-func end_current_agent_turn() -> void:
-	var active_agent = get_active_agent()
-	if active_agent:
-		print("[AgentController] Manually ending %s turn" % active_agent.agent_name)
-		_start_next_agent_turn()
+	# Auto-advance turn when movements are exhausted (AFTER movement completes)
+	if not agent_data.can_move():
+		_debug("%s has no movements remaining - ending turn automatically" % agent_data.agent_name)
+		# Use call_deferred to allow signals to propagate before switching turns
+		call_deferred("_next_agent_turn")
 
+## Update agent's current_cell based on their world position
+func _update_agent_current_cell(agent_data: AgentData) -> void:
+	if not hex_grid or not agent_data or not agent_data.agent_controller:
+		return
 
-## Update agent position after movement
-func update_agent_position(agent_data: AgentData, new_position: Vector2) -> void:
-	if agent_data:
-		agent_data.update_position(new_position)
+	var controller_pos = agent_data.agent_controller.global_position
+	var cell = hex_grid.get_cell_at_world_position(controller_pos)
+	if cell:
+		agent_data.set_current_cell(cell)
 
-
-## Signal handlers
-func _on_agent_movement_action_used(_movements_remaining: int, _agent_data: AgentData) -> void:
-	# This is called from AgentData signal
-	pass
-
-
+# ------------------------------------
+# SIGNAL HANDLERS
+# ------------------------------------
 func _on_agent_turn_started(agent_id: String) -> void:
-	print("[AgentController] Agent turn started: %s" % agent_id)
+	_debug("Agent turn started: %s" % agent_id)
 
-
-func _on_agent_turn_ended(agent_id: String, total_movements: int) -> void:
-	print("[AgentController] Agent turn ended: %s (used %d movements)" % [agent_id, total_movements])
-
-	# Find the agent and re-emit the signal for external listeners
-	for agent_data in agents:
-		if agent_data.agent_id == agent_id:
-			agent_turn_ended.emit(agent_data)
+func _on_agent_turn_ended(agent_id: String, _movements: int = 0) -> void:
+	for ad in agents:
+		if ad.agent_id == agent_id:
+			agent_turn_ended.emit(ad)
 			break
 
-
-## Get session state for debugging
+# ------------------------------------
+# DEBUGGING HELPERS
+# ------------------------------------
 func get_state() -> Dictionary:
 	return {
 		"is_initialized": is_initialized,
@@ -442,22 +280,18 @@ func get_state() -> Dictionary:
 		"active_agent": get_active_agent().agent_name if get_active_agent() else "None"
 	}
 
-
-## Print debug information
 func print_state() -> void:
-	print("=== AgentController State ===")
 	var state = get_state()
-	for key in state:
-		print("  %s: %s" % [key, state[key]])
-
+	print("=== AgentController State ===")
+	for k in state: print("  %s: %s" % [k, state[k]])
 	print("\n=== All Agents ===")
-	for i in range(agents.size()):
-		var agent = agents[i]
-		var active_marker = " [ACTIVE]" if i == active_agent_index else ""
-		print("  %d. %s%s - Movements: %d/%d" % [
-			i,
-			agent.agent_name,
-			active_marker,
-			agent.movements_used_this_turn,
-			agent.max_movements_per_turn
+	for i in agents.size():
+		var ag = agents[i]
+		var mark = " [ACTIVE]" if i == active_agent_index else ""
+		print("  %d. %s%s - Moves: %d/%d" % [
+			i, ag.agent_name, mark, ag.movements_used_this_turn, ag.max_movements_per_turn
 		])
+
+func _debug(msg: String) -> void:
+	# All debugging and print calls route through here
+	print("[AgentController] %s" % msg)

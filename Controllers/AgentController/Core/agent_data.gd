@@ -13,6 +13,9 @@ var agent_id: String = ""
 ## Reference to the AgentController node
 var agent_controller: Node = null
 
+## Current hex cell the agent is occupying
+var current_cell: HexCell = null
+
 ## Current position in world coordinates
 var current_position: Vector2 = Vector2.ZERO
 
@@ -100,6 +103,11 @@ func get_movements_remaining() -> int:
 ## Check if agent can still move this turn
 func can_move() -> bool:
 	return distance_traveled_this_turn < max_distance_per_turn
+
+
+## Set the current hex cell the agent is occupying
+func set_current_cell(cell: HexCell) -> void:
+	current_cell = cell
 
 
 ## Start a new turn for this agent
