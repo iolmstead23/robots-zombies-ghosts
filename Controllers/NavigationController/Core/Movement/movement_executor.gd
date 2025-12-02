@@ -16,7 +16,7 @@ Design notes:
 
 signal movement_started()
 signal movement_progress_updated(progress: float, position: Vector2)
-signal movement_completed(distance_moved: float)
+signal movement_completed(distance_moved: int)
 signal movement_failed(reason: String)
 
 # ----------------------
@@ -33,7 +33,7 @@ var arrival_distance: int = 5 # pixels
 var is_executing: bool = false
 var current_progress: float = 0.0
 var total_distance: int = 0
-var distance_moved: int = 0
+var distance_moved: float = 0.0
 
 # ----------------------
 # Movement Execution
@@ -58,7 +58,7 @@ func update_progress(delta: float) -> float:
 	if not is_executing or total_distance <= 0:
 		return current_progress
 
-	var distance_increment := int(movement_speed * delta)
+	var distance_increment := movement_speed * delta
 	distance_moved += distance_increment
 
 	current_progress = InterpolationUtils.update_progress(
@@ -78,7 +78,7 @@ func complete_execution() -> void:
 	is_executing = false
 	current_progress = 1.0
 
-	movement_completed.emit(distance_moved)
+	movement_completed.emit(int(distance_moved))
 
 ## Cancel movement execution
 func cancel_execution() -> void:
@@ -117,7 +117,7 @@ func get_progress() -> float:
 
 ## Get distance moved so far
 func get_distance_moved() -> int:
-	return distance_moved
+	return int(distance_moved)
 
 ## Get total distance
 func get_total_distance() -> int:
@@ -125,7 +125,7 @@ func get_total_distance() -> int:
 
 ## Get remaining distance
 func get_remaining_distance() -> int:
-	return max(0, total_distance - distance_moved)
+	return max(0, int(total_distance - distance_moved))
 
 # ----------------------
 # Debug

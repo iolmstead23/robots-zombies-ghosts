@@ -31,7 +31,7 @@ var waypoint_timeout_duration: int = MovementConstants.WAYPOINT_TIMEOUT
 
 var current_waypoint_index: int = 0
 var waypoint_start_time: int = 0
-var last_distance_to_waypoint: int = INF
+var last_distance_to_waypoint: int = 999999999  # Large sentinel value for "not yet measured"
 var is_tracking: bool = false
 
 # ----------------------
@@ -42,7 +42,7 @@ var is_tracking: bool = false
 func start_tracking() -> void:
 	current_waypoint_index = 0
 	waypoint_start_time = Time.get_ticks_msec()
-	last_distance_to_waypoint = INF
+	last_distance_to_waypoint = 999999999
 	is_tracking = true
 
 ## Stop tracking waypoints
@@ -109,7 +109,7 @@ func check_if_stuck(current_distance: int) -> bool:
 ## Reset waypoint tracking for next waypoint
 func reset_waypoint_tracking() -> void:
 	waypoint_start_time = Time.get_ticks_msec()
-	last_distance_to_waypoint = INF
+	last_distance_to_waypoint = 999999999
 
 # ----------------------
 # State Queries

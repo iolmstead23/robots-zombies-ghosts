@@ -59,7 +59,7 @@ enum PathValidation {
 ## Signals emitted by TurnBasedMovementController:
 ## - turn_started(turn_number: int)
 ## - movement_started()
-## - movement_completed(distance_moved: float)
+## - movement_completed(distance_moved: int)
 ## - turn_ended(turn_number: int)
 
 ## Signals emitted by TurnBasedPathfinder:

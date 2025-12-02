@@ -97,7 +97,7 @@ func _on_turn_movement_started() -> void:
 	state_manager.set_state_value("is_moving", true)
 	state_manager.set_state_value("turn_based_moving", true)
 
-func _on_turn_movement_completed(distance: float) -> void:
+func _on_turn_movement_completed(distance: int) -> void:
 	state_manager.set_state_value("is_moving", false)
 	state_manager.set_state_value("turn_based_moving", false)
 	animation_controller.update_animation()
