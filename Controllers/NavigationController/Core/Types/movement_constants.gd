@@ -68,6 +68,6 @@ const WAYPOINT_ADVANCEMENT_DISTANCE: int = 10
 static func meters_to_pixels(meters: int) -> int:
 	return meters * PIXELS_PER_METER
 
-## Convert pixels to meters
-static func pixels_to_meters(pixels: int) -> int:
-	return pixels / PIXELS_PER_METER
+## Convert pixels to meters (with decimal precision)
+static func pixels_to_meters(pixels: float) -> float:
+	return pixels / float(PIXELS_PER_METER)

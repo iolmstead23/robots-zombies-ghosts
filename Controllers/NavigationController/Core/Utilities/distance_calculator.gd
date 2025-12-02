@@ -50,9 +50,9 @@ static func distance_to_index(path: Array[Vector2], index: int) -> int:
 static func meters_to_pixels(meters: int) -> int:
 	return meters * 32 # PIXELS_PER_METER
 
-## Convert pixels to meters
-static func pixels_to_meters(pixels: int) -> int:
-	return pixels / 32 # PIXELS_PER_METER
+## Convert pixels to meters (with decimal precision)
+static func pixels_to_meters(pixels: float) -> float:
+	return pixels / 32.0 # PIXELS_PER_METER
 
 # ----------------------
 # Distance Checks

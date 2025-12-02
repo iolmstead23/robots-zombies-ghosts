@@ -62,16 +62,16 @@ func update_tracking(current_pos: Vector2, path: Array[Vector2]) -> bool:
 	var waypoint := path[current_waypoint_index]
 	var distance := int(current_pos.distance_to(waypoint))
 
-	if should_advance_waypoint(distance):
+	if should_advance_waypoint(distance, waypoint):
 		advance_waypoint(waypoint, path.size())
 		return true
 
 	return false
 
 ## Check if should advance to next waypoint
-func should_advance_waypoint(distance: int) -> bool:
+func should_advance_waypoint(distance: int, waypoint: Vector2) -> bool:
 	var within_reach := distance < waypoint_reach_distance
-	var is_stuck := check_if_stuck(distance)
+	var is_stuck := check_if_stuck(distance, waypoint)
 
 	return within_reach or is_stuck
 
@@ -90,7 +90,7 @@ func advance_waypoint(waypoint: Vector2, total_waypoints: int) -> void:
 # ----------------------
 
 ## Check if stuck at waypoint (timeout with no progress)
-func check_if_stuck(current_distance: int) -> bool:
+func check_if_stuck(current_distance: int, waypoint: Vector2) -> bool:
 	var time_elapsed := Time.get_ticks_msec() - waypoint_start_time
 	var distance_improved := last_distance_to_waypoint - current_distance
 
@@ -100,7 +100,7 @@ func check_if_stuck(current_distance: int) -> bool:
 
 	if is_stuck:
 		waypoint_timeout.emit(
-			Vector2.ZERO, # Would need to pass waypoint here
+			waypoint,
 			current_waypoint_index
 		)
 
