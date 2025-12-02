@@ -51,9 +51,13 @@ var debug_visible: bool = false  # Default to hidden to match SessionController
 var debug_data: Dictionary = {}
 var hovered_cell: HexCell = null
 
+# Reference to SessionController (for checking navigability)
+var session_controller = null
+
 # Visualization components (will be set by SessionController)
 var hex_grid_debug: HexGridDebug = null
 var hex_path_visualizer: HexPathVisualizer = null
+var hex_cell_hover_visualizer: HexCellHoverVisualizer = null
 
 # ============================================================================
 # LIFECYCLE
@@ -143,6 +147,10 @@ func set_debug_visibility(visible: bool):
 	if hex_path_visualizer:
 		hex_path_visualizer.set_debug_enabled(visible)
 
+	# Hover visualizer is inverse - enabled when debug is OFF, disabled when debug is ON
+	if hex_cell_hover_visualizer:
+		hex_cell_hover_visualizer.set_hover_enabled(not visible)
+
 	debug_visibility_changed.emit(debug_visible)
 
 func update_debug_info(key: String, value: Variant):
@@ -169,6 +177,12 @@ func set_hex_path_visualizer(visualizer: HexPathVisualizer):
 	if hex_path_visualizer:
 		hex_path_visualizer.set_debug_enabled(debug_visible)
 
+func set_hex_cell_hover_visualizer(visualizer: HexCellHoverVisualizer):
+	hex_cell_hover_visualizer = visualizer
+	if hex_cell_hover_visualizer:
+		# Hover visualizer is enabled when debug mode is OFF
+		hex_cell_hover_visualizer.set_hover_enabled(not debug_visible)
+
 # ============================================================================
 # HOVERED CELL MANAGEMENT
 # ============================================================================
@@ -179,6 +193,13 @@ func set_hovered_cell(cell: HexCell) -> void:
 		hovered_cell = cell
 		hovered_cell_changed.emit(cell)
 
+		# Update hover visualizer
+		if hex_cell_hover_visualizer:
+			if cell:
+				hex_cell_hover_visualizer.set_hovered_cell(cell)
+			else:
+				hex_cell_hover_visualizer.clear_hovered_cell()
+
 		# Update debug data with cell information
 		if cell:
 			update_debug_info("hovered_cell_q", cell.q)
@@ -186,6 +207,12 @@ func set_hovered_cell(cell: HexCell) -> void:
 			update_debug_info("hovered_cell_index", cell.index)
 			update_debug_info("hovered_cell_enabled", cell.enabled)
 			update_debug_info("hovered_cell_world_pos", cell.world_position)
+
+			# Check if cell is navigable
+			var is_navigable = false
+			if session_controller:
+				is_navigable = session_controller.is_cell_navigable(cell)
+			update_debug_info("hovered_cell_navigable", is_navigable)
 
 			# Add metadata if available
 			if cell.metadata.size() > 0:
@@ -196,6 +223,7 @@ func set_hovered_cell(cell: HexCell) -> void:
 			update_debug_info("hovered_cell_r", null)
 			update_debug_info("hovered_cell_index", null)
 			update_debug_info("hovered_cell_enabled", null)
+			update_debug_info("hovered_cell_navigable", null)
 			update_debug_info("hovered_cell_world_pos", null)
 			update_debug_info("hovered_cell_metadata", null)
 

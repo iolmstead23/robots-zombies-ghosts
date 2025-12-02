@@ -20,6 +20,9 @@ signal cells_in_area_changed(center: Vector2, radius: int)
 ## Emitted when grid statistics are updated
 signal grid_stats_changed(stats: Dictionary)
 
+## Emitted when navmesh integration completes
+signal navmesh_integration_complete(stats: Dictionary)
+
 # ============================================================================
 # SIGNALS - Query Responses (Emitted)
 # ============================================================================
@@ -229,6 +232,10 @@ func _init_navmesh(nav_region: NavigationRegion2D, sample_points: int) -> void:
 
 	# Emit stats after integration
 	_emit_grid_stats()
+
+	# Emit dedicated navmesh completion signal
+	var stats = hex_grid.get_grid_stats() if hex_grid else {}
+	navmesh_integration_complete.emit(stats)
 
 	if OS.is_debug_build():
 		print("HexGridController: Navmesh integration complete")
