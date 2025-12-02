@@ -1,0 +1,11 @@
+knowledge_base:
+  jira:
+    usage: auto
+    project_keys:
+      - "RGZ"
+
+chat:
+  auto_reply: true
+  integrations:
+    jira:
+      usage: auto
