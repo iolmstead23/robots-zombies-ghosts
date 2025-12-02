@@ -8,6 +8,9 @@ extends Node2D
 @onready var camera: Camera2D = $Camera2D
 @onready var agent: CharacterBody2D = get_node_or_null("CharacterBody2D")
 
+# IOController - will be created programmatically if not in scene
+var io_controller: IOController
+
 # Track selected cell for visualization
 var selected_cell: HexCell = null
 
