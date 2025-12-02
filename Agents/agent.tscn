@@ -1,0 +1,26 @@
+[gd_scene load_steps=4 format=3 uid="uid://bqpelo1nik7jm"]
+
+[ext_resource type="Script" uid="uid://bqjdm1n6c5eij" path="res://Agents/agent.gd" id="1_wg50i"]
+[ext_resource type="SpriteFrames" uid="uid://ckswuaheqfom0" path="res://Agents/RobotAgent.tres" id="2_kne1u"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_cxr5p"]
+radius = 22.022715
+
+[node name="CharacterBody2D" type="CharacterBody2D"]
+y_sort_enabled = true
+script = ExtResource("1_wg50i")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+y_sort_enabled = true
+position = Vector2(-2, -12)
+sprite_frames = ExtResource("2_kne1u")
+animation = &"Run_DownLeft"
+offset = Vector2(0, 15)
+
+[node name="GroundCollisions" type="CollisionShape2D" parent="."]
+y_sort_enabled = true
+position = Vector2(0, -4)
+shape = SubResource("CircleShape2D_cxr5p")
+
+[node name="NavigationAgent2D" type="NavigationAgent2D" parent="."]
+avoidance_enabled = true

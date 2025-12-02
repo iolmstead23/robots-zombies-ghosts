@@ -1,0 +1,15 @@
+[gd_scene load_steps=2 format=4 uid="uid://c2vx8tnb1yqvw"]
+
+[ext_resource type="PackedScene" uid="uid://bv8k3m7p9qh2x" path="res://Controllers/UIController/Core/BaseOverlay.tscn" id="1_base"]
+[ext_resource type="Script" path="res://Controllers/DebugController/UI/debug_ui.gd" id="2_script"]
+
+[node name="DebugUI" instance=ExtResource("1_base")]
+script = ExtResource("2_script")
+
+[node name="Label" type="Label" parent="Control/Panel/MarginContainer/VBoxContainer" index="0"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.8, 0.9, 1)
+theme_override_font_sizes/font_size = 11
+text = "Debug Info"
+vertical_alignment = 0
+autowrap_mode = 2

@@ -210,15 +210,15 @@ func get_distance_world(from: Vector2, to: Vector2) -> int:
 	var b := get_cell_at_world_position(to)
 	return a.distance_to(b) if (a and b) else -1
 
-func get_cells_in_range(center: HexCell, radius: int) -> Array:
-	var result: Array = []
+func get_cells_in_range(center: HexCell, radius: int) -> Array[HexCell]:
+	var result: Array[HexCell] = []
 	for cell in cells:
 		if cell.distance_to(center) <= radius:
 			result.append(cell)
 	return result
 
-func get_enabled_cells_in_range(center: HexCell, radius: int) -> Array:
-	var result: Array = []
+func get_enabled_cells_in_range(center: HexCell, radius: int) -> Array[HexCell]:
+	var result: Array[HexCell] = []
 	for cell in get_cells_in_range(center, radius):
 		if cell.enabled:
 			result.append(cell)
