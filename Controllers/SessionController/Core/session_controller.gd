@@ -93,33 +93,31 @@ func _try_new(script: Resource, item_name: String, props := {}) -> Node:
 
 func connect_signals_all() -> void:
 		# --- HexGridController
-		print("TYPE of hex_grid_controller.grid_initialized:", typeof(hex_grid_controller.grid_initialized), " VALUE:", hex_grid_controller.grid_initialized) # DEBUG LOG
-		connect("grid_initialized", _on_grid_initialized)
-		connect("cell_state_changed", _on_cell_state_changed)
-		connect("grid_stats_changed", _on_grid_stats_changed)
-		connect("cell_at_position_response", _route_to_navigation_controller)
-		connect("distance_calculated", _route_distance_to_navigation)
-		connect("cells_in_range_response", _route_cells_to_navigation)
+		hex_grid_controller.grid_initialized.connect(_on_grid_initialized)
+		hex_grid_controller.cell_state_changed.connect(_on_cell_state_changed)
+		hex_grid_controller.grid_stats_changed.connect(_on_grid_stats_changed)
+		hex_grid_controller.cell_at_position_response.connect(_route_to_navigation_controller)
+		hex_grid_controller.distance_calculated.connect(_route_distance_to_navigation)
+		hex_grid_controller.cells_in_range_response.connect(_route_cells_to_navigation)
 		# --- NavigationController
-		connect("path_found", _on_path_found)
-		connect("path_not_found", _on_path_not_found)
-		connect("navigation_started", _on_navigation_started)
-		connect("navigation_completed", _on_navigation_completed)
-		connect("navigation_failed", _on_navigation_failed)
-		connect("waypoint_reached", _on_waypoint_reached)
-		connect("navigation_state_changed", _on_navigation_state_changed)
-		connect("query_cell_at_position", _route_to_hex_grid_controller)
+		navigation_controller.path_found.connect(_on_path_found)
+		navigation_controller.path_not_found.connect(_on_path_not_found)
+		navigation_controller.navigation_started.connect(_on_navigation_started)
+		navigation_controller.navigation_completed.connect(_on_navigation_completed)
+		navigation_controller.navigation_failed.connect(_on_navigation_failed)
+		navigation_controller.waypoint_reached.connect(_on_waypoint_reached)
+		navigation_controller.navigation_state_changed.connect(_on_navigation_state_changed)
+		navigation_controller.query_cell_at_position.connect(_route_to_hex_grid_controller)
 		# --- DebugController
-		connect("debug_visibility_changed", _on_debug_visibility_changed)
-		connect("debug_info_updated", _on_debug_info_updated)
+		debug_controller.debug_visibility_changed.connect(_on_debug_visibility_changed)
+		debug_controller.debug_info_updated.connect(_on_debug_info_updated)
 		# --- UIController
-		connect("ui_visibility_changed", _on_ui_visibility_changed)
-		connect("selected_item_changed", _on_selected_item_changed)
-		print("TYPE of turn_changed:", typeof(turn_changed), " VALUE:", turn_changed) # DEBUG LOG
-		connect("turn_changed", ui_controller._on_turn_changed)
+		ui_controller.ui_visibility_changed.connect(_on_ui_visibility_changed)
+		ui_controller.selected_item_changed.connect(_on_selected_item_changed)
+		turn_changed.connect(ui_controller._on_turn_changed)
 		# --- SelectionController
-		connect("object_selected", _on_object_selected)
-		connect("selection_cleared", _on_selection_cleared)
+		selection_controller.object_selected.connect(_on_object_selected)
+		selection_controller.selection_cleared.connect(_on_selection_cleared)
 		# --- AgentController signals are connected in _init_and_spawn_agents()
 
 
@@ -165,9 +163,22 @@ func abort_session(msg: String) -> void:
 
 func _wait_for_grid_init(grid_offset: Vector2) -> void:
 	var state = {"done": false}
-	hex_grid_controller.grid_initialized.connect(func(_data): state.done = true, CONNECT_ONE_SHOT)
+	var signal_handler = func(_data): state.done = true
+	hex_grid_controller.grid_initialized.connect(signal_handler, CONNECT_ONE_SHOT)
+
+	var start_time = Time.get_ticks_msec()
+	const TIMEOUT_MS = 5000  # 5 second timeout
+
 	hex_grid_controller.initialize_grid_requested.emit(grid_width, grid_height, hex_size, grid_offset)
+
 	while not state.done:
+		var elapsed = Time.get_ticks_msec() - start_time
+		if elapsed > TIMEOUT_MS:
+			# Timeout occurred - disconnect signal handler and abort
+			if hex_grid_controller.grid_initialized.is_connected(signal_handler):
+				hex_grid_controller.grid_initialized.disconnect(signal_handler)
+			abort_session("[ERROR] Grid initialization timeout after %.1f seconds" % (TIMEOUT_MS / 1000.0))
+			return
 		await get_tree().process_frame
 
 func _align_grid_with_navmesh() -> Vector2:
@@ -183,14 +194,23 @@ func _integrate_navmesh_if_needed() -> void:
 	# Use signal-based blocking to wait for integration to complete
 	# navmesh_integration_complete is emitted ONLY after navmesh integration finishes
 	var state = {"done": false}
-	hex_grid_controller.navmesh_integration_complete.connect(
-		func(_stats): state.done = true,
-		CONNECT_ONE_SHOT
-	)
+	var signal_handler = func(_stats): state.done = true
+	hex_grid_controller.navmesh_integration_complete.connect(signal_handler, CONNECT_ONE_SHOT)
+
+	var start_time = Time.get_ticks_msec()
+	const TIMEOUT_MS = 10000  # 10 second timeout (navmesh integration can be slower)
+
 	hex_grid_controller.integrate_navmesh_requested.emit(navigation_region, navmesh_sample_points)
 
-	# Block until navmesh integration actually completes
+	# Block until navmesh integration actually completes or timeout
 	while not state.done:
+		var elapsed = Time.get_ticks_msec() - start_time
+		if elapsed > TIMEOUT_MS:
+			# Timeout occurred - disconnect signal handler and abort
+			if hex_grid_controller.navmesh_integration_complete.is_connected(signal_handler):
+				hex_grid_controller.navmesh_integration_complete.disconnect(signal_handler)
+			abort_session("[ERROR] Navmesh integration timeout after %.1f seconds" % (TIMEOUT_MS / 1000.0))
+			return
 		await get_tree().process_frame
 
 func _init_and_spawn_agents() -> void:
@@ -512,7 +532,11 @@ func _update_session_state() -> void:
 
 func _print_debug(msg): if OS.is_debug_build(): print("[SessionController] %s" % msg)
 
-func _print_header(msg): print("\n" + "━".repeat(60)); print(msg); print("━".repeat(60))
+func _print_header(msg):
+	if OS.is_debug_build():
+		print("\n" + "━".repeat(60))
+		print(msg)
+		print("━".repeat(60))
 
 func _print_stats() -> void:
 	if not OS.is_debug_build(): return

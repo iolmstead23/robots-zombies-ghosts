@@ -38,6 +38,10 @@ static func get_position_at_progress(path: Array[Vector2], progress: float) -> V
 	for i in range(path.size() - 1):
 		var segment_distance: int = int(path[i].distance_to(path[i + 1]))
 
+		# Skip zero-length segments (identical consecutive points)
+		if segment_distance == 0:
+			continue
+
 		if accumulated_distance + segment_distance >= target_distance:
 			# Found the segment containing our target
 			var segment_progress: float = float(target_distance - accumulated_distance) / float(segment_distance)
@@ -62,6 +66,10 @@ static func get_position_at_distance(path: Array[Vector2], distance: int) -> Vec
 	var accumulated_distance: int = 0
 	for i in range(path.size() - 1):
 		var segment_distance: int = int(path[i].distance_to(path[i + 1]))
+
+		# Skip zero-length segments (identical consecutive points)
+		if segment_distance == 0:
+			continue
 
 		if accumulated_distance + segment_distance >= distance:
 			var segment_progress: float = float(distance - accumulated_distance) / float(segment_distance)

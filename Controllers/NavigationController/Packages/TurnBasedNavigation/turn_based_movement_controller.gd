@@ -296,12 +296,16 @@ func set_hex_components(hex_grid: HexGrid, hex_pathfinder: HexPathfinder) -> voi
 		pathfinder.set_hex_components(hex_grid, hex_pathfinder)
 		print("TurnBasedMovementController: Hex components set")
 
-func request_movement_to(destination: Vector2) -> void:
+func request_movement_to(destination: Vector2, remaining_distance: int = -1) -> void:
 	"""
 	Request movement to a destination.
 	- Validates remaining movement distance.
 	- Asks pathfinder to calculate a path.
 	- Shows preview and waits for confirmation if path successful.
+
+	Args:
+		destination: Target world position
+		remaining_distance: Remaining movement distance in meters (if -1, uses local tracking - NOT RECOMMENDED)
 	"""
 	print("[TurnBasedMovementController] request_movement_to called - state: %s, is_active: %s" % [_turn_state.get_current_state_string(), is_active])
 	if not _turn_state.is_in_state(NavigationTypes.TurnState.IDLE) or not is_active:
@@ -310,8 +314,15 @@ func request_movement_to(destination: Vector2) -> void:
 
 	_turn_state.change_state(NavigationTypes.TurnState.PLANNING)
 
-	# Calculate remaining movement allowed this turn (in meters/hex cells)
-	var remaining_movement_meters: int = MovementConstants.MAX_MOVEMENT_DISTANCE - movement_used_this_turn
+	# Use provided remaining distance, or fall back to local tracking (for backwards compatibility)
+	var remaining_movement_meters: int
+	if remaining_distance >= 0:
+		remaining_movement_meters = remaining_distance
+	else:
+		# Fallback to local tracking (NOT RECOMMENDED - should pass remaining_distance parameter)
+		remaining_movement_meters = MovementConstants.MAX_MOVEMENT_DISTANCE - movement_used_this_turn
+		push_warning("[TurnBasedMovementController] Using local movement tracking - should pass remaining_distance parameter")
+
 	if remaining_movement_meters <= 0:
 		print("[TurnBasedMovementController] No movement remaining this turn")
 		_turn_state.change_state(NavigationTypes.TurnState.IDLE)
@@ -323,7 +334,7 @@ func request_movement_to(destination: Vector2) -> void:
 	# Ask pathfinder to calculate
 	var found_path: bool = false
 	if pathfinder != null:
-		found_path = pathfinder.calculate_path_to(destination)
+		found_path = pathfinder.calculate_path_to(destination, remaining_movement_meters)
 		print("[TurnBasedMovementController] Pathfinder returned: %s" % str(found_path))
 
 	if found_path:
@@ -449,7 +460,7 @@ func _setup_ui() -> void:
 func _on_path_calculated(_segments: Array, total_distance: int) -> void:
 	"""Called when pathfinder successfully calculates a path."""
 	if DEBUG:
-		print("Path calculated: %d m" % MovementConstants.pixels_to_meters(total_distance))
+		print("Path calculated: %d m" % total_distance)
 	_turn_state.change_state(NavigationTypes.TurnState.PREVIEW)
 
 func _on_path_confirmed() -> void:

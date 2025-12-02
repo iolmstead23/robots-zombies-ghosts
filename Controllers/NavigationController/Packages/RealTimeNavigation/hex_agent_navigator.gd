@@ -256,28 +256,37 @@ func _on_all_waypoints_reached() -> void:
 # INTERNAL - AGENT VALIDATION
 # =============================================================================
 func _validate_agent(agent_ref: Variant, context: String) -> bool:
+	# Check null first before any method calls
+	if agent_ref == null:
+		push_error("[Agent Validation Error] in %s: Agent is null.\nCallstack:\n%s"
+			% [context, OS.get_stack()])
+		return false
+
 	var is_valid := true
 	var messages := []
 	var conditions := {
-		"null_or_freed": (agent_ref == null or (typeof(agent_ref) == TYPE_OBJECT and agent_ref.is_queued_for_deletion())),
+		"is_freed": (typeof(agent_ref) == TYPE_OBJECT and agent_ref.is_queued_for_deletion()),
 		"not_character_body": (not (agent_ref is CharacterBody2D)),
-		"lacks_position": (typeof(agent_ref) == TYPE_OBJECT and not agent_ref.has_method("global_position")),
+		"lacks_position": (typeof(agent_ref) == TYPE_OBJECT and not ("global_position" in agent_ref)),
 	}
-	if conditions["null_or_freed"]:
+
+	if conditions["is_freed"]:
 		is_valid = false
-		messages.append("Agent is null or freed.")
+		messages.append("Agent is queued for deletion.")
 	if conditions["not_character_body"]:
 		is_valid = false
-		messages.append("Agent is not a CharacterBody2D (got type: %s)." % [typeof(agent_ref)])
+		var type_name = agent_ref.get_class() if typeof(agent_ref) == TYPE_OBJECT else str(typeof(agent_ref))
+		messages.append("Agent is not a CharacterBody2D (got type: %s)." % [type_name])
 	if conditions["lacks_position"]:
 		is_valid = false
-		messages.append("Agent lacks 'global_position' property/method.")
+		messages.append("Agent lacks 'global_position' property.")
 
 	if not is_valid:
+		var type_name = agent_ref.get_class() if typeof(agent_ref) == TYPE_OBJECT else str(typeof(agent_ref))
 		push_error("[Agent Validation Error] in %s: Failing agent reference. Details: type=%s value=%s; Checks=[%s]\nCallstack:\n%s"
 			% [
 				context,
-				typeof(agent_ref),
+				type_name,
 				str(agent_ref),
 				", ".join(messages),
 				OS.get_stack()

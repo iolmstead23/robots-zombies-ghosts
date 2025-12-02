@@ -54,7 +54,14 @@ func set_hex_components(grid: HexGrid, hex_pathfinder_ref: HexPathfinder) -> voi
 # PATH CALCULATION
 # ============================================================================
 
-func calculate_path_to(destination: Vector2) -> bool:
+func calculate_path_to(destination: Vector2, max_distance: int = -1) -> bool:
+	"""
+	Calculate a path to the destination.
+
+	Args:
+		destination: Target world position
+		max_distance: Maximum distance in meters (if -1, uses MovementConstants.MAX_MOVEMENT_DISTANCE)
+	"""
 	if not _validate_components():
 		return false
 
@@ -74,7 +81,9 @@ func calculate_path_to(destination: Vector2) -> bool:
 		_log_path_failure()
 		return false
 
-	_process_hex_path()
+	# Use provided max_distance, or fall back to constant
+	var distance_limit := max_distance if max_distance >= 0 else MovementConstants.MAX_MOVEMENT_DISTANCE
+	_process_hex_path(distance_limit)
 	_log_path_success()
 
 	path_calculated.emit(path_segments, total_path_distance)
@@ -133,15 +142,15 @@ func _reset_path_data() -> void:
 	total_path_distance = 0
 	is_path_valid = false
 
-func _process_hex_path() -> void:
+func _process_hex_path(distance_limit: int) -> void:
 	_convert_hex_to_world()
 	_calculate_distance()
 
 	# Distance is measured in hex cells (each cell = 1 meter)
 	var path_length_meters = current_hex_path.size() - 1 # Subtract 1 because first cell is current position
 
-	if path_length_meters > MovementConstants.MAX_MOVEMENT_DISTANCE:
-		_trim_to_max_distance(MovementConstants.MAX_MOVEMENT_DISTANCE)
+	if path_length_meters > distance_limit:
+		_trim_to_max_distance(distance_limit)
 
 	_generate_segments()
 	is_path_valid = not current_path.is_empty()

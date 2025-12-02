@@ -31,6 +31,9 @@ var pending_nav_requests: Dictionary = {}
 # Request timeout (milliseconds)
 var request_timeout_duration: int = 5000
 
+# Request ID counter for ensuring uniqueness
+var _request_counter: int = 0
+
 # ----------------------
 # Path Request Management
 # ----------------------
@@ -187,7 +190,8 @@ func clear_all_requests() -> void:
 
 ## Generate unique request ID
 func _generate_request_id(prefix: String) -> String:
-	return "%s_%d" % [prefix, Time.get_ticks_msec()]
+	_request_counter += 1
+	return "%s_%d_%d" % [prefix, Time.get_ticks_msec(), _request_counter]
 
 # ----------------------
 # Debug

@@ -352,8 +352,10 @@ func _handle_cell_click(cell: HexCell) -> void:
 
 	# Navigate the active agent directly - pathfinding will calculate path
 	if agent_controller.turn_based_controller:
-		print("[main.gd] Calling request_movement_to() with position: %s" % str(cell.world_position))
-		agent_controller.turn_based_controller.request_movement_to(cell.world_position)
+		# Pass the agent's actual remaining distance to the movement controller
+		var remaining_distance = int(active_agent_data.get_distance_remaining())
+		print("[main.gd] Calling request_movement_to() with position: %s, remaining distance: %d m" % [str(cell.world_position), remaining_distance])
+		agent_controller.turn_based_controller.request_movement_to(cell.world_position, remaining_distance)
 		# Small delay for pathfinding to complete
 		await get_tree().create_timer(0.1).timeout
 

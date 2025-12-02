@@ -68,8 +68,8 @@ script = ExtResource("7_272bh")
 grid_width = 80
 grid_height = 35
 hex_size = 16.0
-debug_mode = true
 navigation_region = NodePath("../NavigationRegion2D")
+debug_mode = true
 
 [node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
 y_sort_enabled = true

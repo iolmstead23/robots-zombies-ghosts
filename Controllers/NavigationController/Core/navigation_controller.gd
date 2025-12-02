@@ -397,7 +397,6 @@ func _validate_agent(agent_ref: Variant, context: String) -> bool:
 	var conditions := {
 		"null_or_freed": (agent_ref == null or (typeof(agent_ref) == TYPE_OBJECT and agent_ref.is_queued_for_deletion())),
 		"not_character_body": (not (agent_ref is CharacterBody2D)),
-		"lacks_position": (typeof(agent_ref) == TYPE_OBJECT and not agent_ref.has_method("global_position")),
 	}
 	if conditions["null_or_freed"]:
 		is_valid = false
@@ -405,9 +404,6 @@ func _validate_agent(agent_ref: Variant, context: String) -> bool:
 	if conditions["not_character_body"]:
 		is_valid = false
 		messages.append("Agent is not a CharacterBody2D (got type: %s)." % [typeof(agent_ref)])
-	if conditions["lacks_position"]:
-		is_valid = false
-		messages.append("Agent lacks 'global_position' property/method.")
 
 	if not is_valid:
 		push_error("[Agent Validation Error] in %s: Failing agent reference. Details: type=%s value=%s; Checks=[%s]\nCallstack:\n%s"

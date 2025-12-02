@@ -87,6 +87,9 @@ func get_progress() -> float:
 	if current_hex_path.is_empty():
 		return 0.0
 
+	if current_hex_path.size() <= 1:
+		return 1.0
+
 	return float(current_waypoint_index) / float(current_hex_path.size() - 1)
 
 ## Get elapsed navigation time (in milliseconds)
