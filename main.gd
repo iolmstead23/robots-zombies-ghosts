@@ -8,6 +8,9 @@ extends Node2D
 @onready var camera: Camera2D = $Camera2D
 @onready var agent: CharacterBody2D = get_node_or_null("CharacterBody2D")
 
+# IOController - will be created programmatically if not in scene
+var io_controller: IOController
+
 # Track selected cell for visualization
 var selected_cell: HexCell = null
 
@@ -26,11 +29,6 @@ func _ready() -> void:
 		return
 
 	print("SessionController found: ", session_controller.name)
-
-	# Configure camera and viewport for IOController
-	session_controller.camera = camera
-	session_controller.viewport = get_viewport()
-	print("Camera and viewport configured for SessionController")
 
 	# Configure navmesh integration before initialization
 	var nav_region: NavigationRegion2D = $NavigationRegion2D
@@ -83,6 +81,9 @@ func _ready() -> void:
 		print("NavAgent2DFollower added and activated on agent")
 	else:
 		print("No single agent found - using multi-agent system")
+
+	# Configure IOController with dependencies
+	_setup_io_controller()
 
 	# Setup DebugUI overlay
 	_setup_debug_ui()
@@ -557,3 +558,18 @@ func _on_all_agents_completed_round() -> void:
 	print("\n" + "🔄".repeat(30))
 	print("🔄 ALL AGENTS COMPLETED ROUND")
 	print("🔄".repeat(30) + "\n")
+
+# ============================================================================
+# HELPER METHODS
+# ============================================================================
+
+func _toggle_cell(cell: HexCell) -> void:
+	"""Toggle a cell between enabled and disabled via SessionController"""
+	var hex_grid_controller = session_controller.get_hex_grid_controller()
+	if not hex_grid_controller:
+		return
+
+	var coords = Vector2i(cell.q, cell.r)
+	hex_grid_controller.set_cell_enabled_requested.emit(coords, not cell.enabled)
+
+	print("Cell (%d,%d) %s" % [cell.q, cell.r, "enabled" if not cell.enabled else "disabled"])

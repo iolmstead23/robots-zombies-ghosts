@@ -15,10 +15,6 @@ var metadata_formatter: MetadataFormatter
 var visibility_controller: OverlayVisibilityController
 var state_manager: UIStateManager
 
-# UI Overlay configurations (centralized)
-var debug_overlay_config: UIOverlayConfig
-var selection_overlay_config: UIOverlayConfig
-
 # ============================================================================
 # SIGNALS - Public API
 # ============================================================================
@@ -98,10 +94,6 @@ func _initialize_features():
 
 	# State management
 	state_manager = UIStateManager.new("idle", ["idle", "selecting", "selected", "editing"])
-
-	# Initialize overlay configurations (centralized styling)
-	debug_overlay_config = UIOverlayConfig.create_debug_config()
-	selection_overlay_config = UIOverlayConfig.create_selection_config()
 
 func _initialize_state():
 	"""Initialize legacy state for compatibility"""
@@ -262,25 +254,3 @@ func format_metadata(metadata: Dictionary) -> String:
 func get_current_ui_state() -> String:
 	"""Get the current UI state"""
 	return state_manager.get_current_state()
-
-# ============================================================================
-# OVERLAY CONFIGURATION - Centralized styling
-# ============================================================================
-
-func get_debug_overlay_config() -> UIOverlayConfig:
-	"""Get the debug overlay configuration"""
-	return debug_overlay_config
-
-func get_selection_overlay_config() -> UIOverlayConfig:
-	"""Get the selection overlay configuration"""
-	return selection_overlay_config
-
-func apply_debug_config_to_overlay(overlay: Node) -> void:
-	"""Apply debug overlay config to an overlay instance"""
-	if debug_overlay_config:
-		debug_overlay_config.apply_to_overlay(overlay)
-
-func apply_selection_config_to_overlay(overlay: Node) -> void:
-	"""Apply selection overlay config to an overlay instance"""
-	if selection_overlay_config:
-		selection_overlay_config.apply_to_overlay(overlay)

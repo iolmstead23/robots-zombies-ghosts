@@ -31,10 +31,6 @@ signal navigable_cells_updated(cells: Array[HexCell])
 @export var integrate_with_navmesh: bool = true
 @export var navmesh_sample_points: int = 5
 
-@export_group("Input Dependencies")
-@export var camera: Camera2D
-@export var viewport: Viewport
-
 @export_group("Debug")
 @export var debug_mode: bool = false
 @export var debug_hotkey_enabled: bool = true
@@ -147,10 +143,10 @@ func initialize_session() -> void:
 	await _integrate_navmesh_if_needed()
 	_init_and_spawn_agents()
 	_setup_debug_visuals()
-
+	
 	debug_controller.set_debug_visibility_requested.emit(debug_mode)
 	selection_controller.set_ui_controller(ui_controller)
-
+	
 	session_active = true
 	session_start_time = Time.get_ticks_msec() / 1000.0
 	_update_session_state()
