@@ -1,17 +1,17 @@
 class_name SelectionController
 extends Node
 
-## Manages object selection via signal-based architecture
+## Manages object selection and communicates with UIController
 ##
 ## This controller:
 ##   - Automatically discovers and connects to all selectable objects (any object in "selectable" group)
 ##   - Tracks the currently selected object
 ##   - Emits signals when selection changes
-##   - SessionController routes these signals to UIController for display
+##   - Updates the UI overlay with selected object metadata
 ##
 ## Integration:
 ##   - Created by SessionController
-##   - Signals routed through SessionController to UIController
+##   - Connected to UIController for metadata display
 ##   - Works with any object that has get_selection_data() method
 
 # ============================================================================
@@ -26,6 +26,7 @@ signal selection_cleared()
 # ============================================================================
 
 var currently_selected = null  # Any object with get_selection_data() method
+var ui_controller: UIController = null
 
 # ============================================================================
 # LIFECYCLE
@@ -45,7 +46,13 @@ func _ready():
 # PUBLIC API
 # ============================================================================
 
-## Select an object - emits signal that SessionController routes to UIController
+## Set the UIController reference for metadata display updates
+func set_ui_controller(controller: UIController):
+	ui_controller = controller
+	if OS.is_debug_build():
+		print("SelectionController: UIController reference set")
+
+## Select an object and update the UI overlay
 ## Works with any object that has a get_selection_data() method
 func select_object(selectable):
 	if currently_selected == selectable:
@@ -59,8 +66,11 @@ func select_object(selectable):
 	currently_selected = selectable
 	var selection_data = selectable.get_selection_data()
 
-	# Emit signal - SessionController will route to UIController
 	object_selected.emit(selection_data)
+
+	# Update UI overlay
+	if ui_controller:
+		ui_controller.update_selected_item_requested.emit(selection_data)
 
 	if OS.is_debug_build():
 		print("SelectionController: Selected '%s' (%s)" % [
@@ -68,12 +78,13 @@ func select_object(selectable):
 			selection_data.get("item_type")
 		])
 
-## Clear the current selection - emits signal that SessionController routes to UIController
+## Clear the current selection
 func clear_selection():
 	currently_selected = null
-
-	# Emit signal - SessionController will route to UIController
 	selection_cleared.emit()
+
+	if ui_controller:
+		ui_controller.clear_selected_item_requested.emit()
 
 	if OS.is_debug_build():
 		print("SelectionController: Selection cleared")

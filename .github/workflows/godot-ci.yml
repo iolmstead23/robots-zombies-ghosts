@@ -32,7 +32,7 @@ env:
   GODOT_VERSION: 4.3
   # Update these versions as you release
   STABLE_VERSION: "0.0.1"
-  CANARY_VERSION: "0.0.1-canary.${{ github.run_number }}"
+  CANARY_VERSION: "0.0.${{ github.run_number }}"
   PROJECT_NAME: "robots-zombies-ghosts"
 
 jobs:
