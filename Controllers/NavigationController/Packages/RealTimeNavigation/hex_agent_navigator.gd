@@ -259,7 +259,7 @@ func _validate_agent(agent_ref: Variant, context: String) -> bool:
 	# Check null first before any method calls
 	if agent_ref == null:
 		push_error("[Agent Validation Error] in %s: Agent is null.\nCallstack:\n%s"
-			% [context, OS.get_stack()])
+			% [context, get_stack()])
 		return false
 
 	var is_valid := true
@@ -289,7 +289,7 @@ func _validate_agent(agent_ref: Variant, context: String) -> bool:
 				type_name,
 				str(agent_ref),
 				", ".join(messages),
-				OS.get_stack()
+				get_stack()
 			]
 		)
 	return is_valid
