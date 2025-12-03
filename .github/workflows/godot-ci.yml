@@ -186,7 +186,7 @@ jobs:
           else
             echo "version=v${{ env.CANARY_VERSION }}" >> $GITHUB_OUTPUT
             echo "prerelease=true" >> $GITHUB_OUTPUT
-            echo "release_name=${{ env.CANARY_VERSION }}" >> $GITHUB_OUTPUT
+            echo "release_name=Canary v${{ env.CANARY_VERSION }}" >> $GITHUB_OUTPUT
           fi
 
       # Download all build artifacts
