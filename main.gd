@@ -543,7 +543,6 @@ func _on_agent_turn_ended(agent_data: AgentData) -> void:
 		agent_data.movements_used_this_turn,
 		agent_data.max_movements_per_turn
 	])
-	print("Total Lifetime Movements: %d" % agent_data.total_movements_lifetime)
 	print("⏸".repeat(30) + "\n")
 
 func _on_movement_action_completed(agent_data: AgentData, movements_remaining: int) -> void:

@@ -90,13 +90,16 @@ func _determine_animation_type() -> String:
 	return "idle"
 
 func save_state() -> void:
+	# Check if state changed before updating prev_state
+	var state_has_changed := has_state_changed()
+
 	prev_state = state.duplicate()
 
 	state_history.push_front(state.duplicate())
 	if state_history.size() > MAX_HISTORY_SIZE:
 		state_history.pop_back()
 
-	if has_state_changed():
+	if state_has_changed:
 		state_changed.emit(state)
 
 func reset_state() -> void:
