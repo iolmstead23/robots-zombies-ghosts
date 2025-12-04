@@ -1,5 +1,14 @@
 extends Node
 
+func _ready() -> void:
+	# Initialize RNG with system entropy for non-deterministic behavior
+	randomize()
+
+	# Debug logging to confirm seeding occurred
+	if OS.is_debug_build():
+		print("[SessionData] RNG initialized with randomize()")
+		print("[SessionData] First random value: %d" % randi())
+
 # Session configuration data
 var session_parties = []
 
