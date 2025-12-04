@@ -220,7 +220,7 @@ func _init_and_spawn_agents() -> void:
 		abort_session("No grid for agent initialization")
 		return
 
-	agent_manager.initialize(agent_grid, navigation_controller)
+	agent_manager.initialize(self)
 
 	# Connect agent_manager signals to SessionController handlers
 	agent_manager.agents_spawned.connect(_on_agents_spawned)
@@ -260,6 +260,53 @@ func _setup_debug_visuals() -> void:
 	var path_visualizer = navigation_controller.get_path_visualizer()
 	if path_visualizer:
 		debug_controller.set_hex_path_visualizer(path_visualizer)
+
+# ========== GRID SERVICE METHODS (for AgentController) ==========
+## Get random enabled hex cell
+func get_random_enabled_cell() -> HexCell:
+	var agent_grid = hex_grid_controller.get_hex_grid()
+	if not agent_grid:
+		return null
+
+	var enabled_cells: Array = agent_grid.enabled_cells
+	if enabled_cells.is_empty():
+		return null
+
+	var random_index: int = randi() % enabled_cells.size()
+	return enabled_cells[random_index]
+
+## Get distance between two hex cells
+func get_hex_distance(cell_a: HexCell, cell_b: HexCell) -> int:
+	var agent_grid = hex_grid_controller.get_hex_grid()
+	if agent_grid:
+		return agent_grid.get_distance(cell_a, cell_b)
+	return 0
+
+## Get hex cell at world position
+func get_cell_at_world_position(world_pos: Vector2) -> HexCell:
+	var agent_grid = hex_grid_controller.get_hex_grid()
+	if agent_grid:
+		return agent_grid.get_cell_at_world_position(world_pos)
+	return null
+
+## Configure agent's hex navigation
+func configure_agent_navigation(agent_node: Node) -> void:
+	var agent_grid = hex_grid_controller.get_hex_grid()
+	if not agent_grid or not navigation_controller:
+		push_warning("[SessionController] Cannot configure agent navigation - missing grid or nav controller")
+		return
+
+	var pathfinder = navigation_controller.get_pathfinder()
+	if not pathfinder:
+		push_warning("[SessionController] Cannot configure agent navigation - missing pathfinder")
+		return
+
+	if agent_node.has_method("set_hex_navigation"):
+		agent_node.set_hex_navigation(agent_grid, pathfinder)
+		if OS.is_debug_build():
+			print("[SessionController] Configured hex navigation for agent")
+	else:
+		push_warning("[SessionController] Agent does not have set_hex_navigation method")
 
 func _reset_agents():
 	agents = []

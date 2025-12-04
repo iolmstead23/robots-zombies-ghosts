@@ -92,6 +92,9 @@ func update_animation() -> void:
 	elif not animated_sprite.is_playing() and not _is_one_shot_animation(anim_type):
 		_play_animation(anim_name, anim_speed)
 
+	# Update previous state so next call can detect changes
+	state_manager.save_state()
+
 func _get_animation_type() -> String:
 	var state := state_manager.get_state()
 

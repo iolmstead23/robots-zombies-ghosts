@@ -31,5 +31,7 @@ func is_moving() -> bool:
 
 func update_direction(direction: Vector2) -> void:
 	"""Update movement direction (for animation/facing direction)"""
-	if state_manager != null:
-		state_manager.set_state_value("direction", direction)
+	if state_manager != null and direction.length() > 0.1:
+		var direction_name := DirectionHelper.vector_to_direction_name(direction)
+		if direction_name != "":
+			state_manager.set_state_value("facing_direction", direction_name)

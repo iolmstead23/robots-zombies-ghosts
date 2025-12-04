@@ -14,8 +14,7 @@ signal movement_action_completed(agent_data: AgentData, movements_remaining: int
 @export var max_movements_per_turn: int = 10
 
 ## Context references
-var hex_grid: HexGrid
-var navigation_controller: Node
+var session_controller: Node
 
 ## Agent tracking
 var agents: Array[AgentData] = []
@@ -35,12 +34,11 @@ func _load_agent_scene() -> void:
 		if not agent_scene:
 			push_error("[AgentController] Failed to load agent scene.")
 
-func initialize(grid: HexGrid, nav_controller: Node) -> void:
-	hex_grid = grid
-	navigation_controller = nav_controller
+func initialize(session_ctrl: Node) -> void:
+	session_controller = session_ctrl
 	_load_agent_scene()
 	is_initialized = true
-	_debug("Initialized with references.")
+	_debug("Initialized with SessionController reference.")
 
 # ------------------------------------
 # SPAWN LOGIC
@@ -67,34 +65,40 @@ func spawn_agents(count: int = -1) -> void:
 		_next_agent_turn()
 
 func _random_spawn_cells(count: int) -> Array[HexCell]:
-	var out: Array[HexCell] = []
-	var min_dist := 100.0
-	for _i in count * 5: # Try ample times to fill `count`, but stop after a while
-		if out.size() >= count: break
-		var cell = _random_enabled_hex_cell()
-		if not cell: continue
-		var pos = cell.world_position
-		if out.any(func(existing): return existing.world_position.distance_to(pos) < min_dist): continue
-		out.append(cell)
-	return out
+	"""Get random spawn cells with minimum distance separation"""
+	var spawn_cells: Array[HexCell] = []
+	const MIN_SPAWN_DISTANCE := 3
+	const MAX_ATTEMPTS := 100
 
-func _random_enabled_hex_cell():
-	if not hex_grid: return null
+	var attempts := 0
+	while spawn_cells.size() < count and attempts < MAX_ATTEMPTS:
+		var cell := _get_random_enabled_cell()
+		if cell == null:
+			break
 
-	# Try up to 50 times to find an enabled cell
-	for attempt in 50:
-		var q = randi_range(0, hex_grid.grid_width-1)
-		var r = randi_range(0, hex_grid.grid_height-1)
-		var cell = hex_grid.get_cell_at_coords(Vector2i(q, r))
-		if cell and cell.enabled:
-			return cell
+		if _is_valid_spawn_location(cell, spawn_cells, MIN_SPAWN_DISTANCE):
+			spawn_cells.append(cell)
 
-	# If random selection fails, try to find any enabled cell
-	for cell in hex_grid.enabled_cells:
-		if cell.enabled:
-			return cell
+		attempts += 1
 
-	return null
+	return spawn_cells
+
+func _get_random_enabled_cell() -> HexCell:
+	"""Get single random enabled hex cell"""
+	if not session_controller:
+		return null
+
+	return session_controller.get_random_enabled_cell()
+
+func _is_valid_spawn_location(cell: HexCell, existing_cells: Array[HexCell], min_distance: int) -> bool:
+	"""Check if cell is far enough from existing spawn points"""
+	if not session_controller:
+		return true
+
+	for existing in existing_cells:
+		if session_controller.get_hex_distance(cell, existing) < min_distance:
+			return false
+	return true
 
 func _spawn_agent(index: int, cell: HexCell) -> AgentData:
 	if not agent_scene:
@@ -108,32 +112,21 @@ func _spawn_agent(index: int, cell: HexCell) -> AgentData:
 	var ad = AgentData.new(agent_id, ac)
 	ad.agent_name = "Agent %d" % (index + 1)
 	ad.max_movements_per_turn = max_movements_per_turn
-	ad.set_spawn_position(pos)
+	ad.current_position = pos
 	ad.set_current_cell(cell)  # Set the current hex cell
 	ad.turn_started.connect(_on_agent_turn_started)
 	ad.turn_ended.connect(_on_agent_turn_ended)
-	_configure_agent_controller(ad, ac)
+	_configure_agent_controller(ac)
 	return ad
 
-func _configure_agent_controller(ad, ac):
+func _configure_agent_controller(ac):
 	if OS.is_debug_build():
-		print("[AgentController] Configuring agent - hex_grid: %s, nav_controller: %s, has_method: %s" % [
-			hex_grid != null,
-			navigation_controller != null,
-			ac.has_method("set_hex_navigation")
-		])
+		print("[AgentController] Configuring agent via SessionController")
 
-	if hex_grid and navigation_controller and ac.has_method("set_hex_navigation"):
-		var pathfinder = navigation_controller.get_pathfinder()
-		if OS.is_debug_build():
-			print("[AgentController] Pathfinder: %s" % (pathfinder != null))
-
-		if pathfinder:
-			ac.set_hex_navigation(hex_grid, pathfinder)
-			if OS.is_debug_build():
-				print("[AgentController] Hex navigation configured for agent")
-		else:
-			push_warning("[AgentController] Pathfinder is null - cannot configure hex navigation")
+	if session_controller:
+		session_controller.configure_agent_navigation(ac)
+	else:
+		push_warning("[AgentController] SessionController is null - cannot configure agent navigation")
 
 # ------------------------------------
 # AGENT TURN LOGIC
@@ -144,7 +137,7 @@ func start_agent_turn(agent_data: AgentData) -> void:
 	if idx == -1:
 		push_error("[AgentController] Agent not found.")
 		return
-	_end_current_agent_turn_obj()
+	_cleanup_agent_turn()
 	active_agent_index = idx
 	_set_agents_controllable(active_agent_index)
 	agents[active_agent_index].start_turn()
@@ -155,7 +148,7 @@ func start_agent_turn(agent_data: AgentData) -> void:
 func _next_agent_turn():
 	if agents.is_empty(): return
 	var had_active = agents[active_agent_index].is_active_agent if active_agent_index < agents.size() else false
-	if had_active: _end_current_agent_turn_obj()
+	if had_active: _cleanup_agent_turn()
 	if had_active: active_agent_index += 1
 	if active_agent_index >= agents.size():
 		active_agent_index = 0
@@ -167,7 +160,7 @@ func _next_agent_turn():
 	agent_turn_started.emit(agents[active_agent_index])
 	_debug("Next Turn: %s" % agents[active_agent_index].agent_name)
 
-func _end_current_agent_turn_obj():
+func _cleanup_agent_turn():
 	if active_agent_index < agents.size():
 		var curr = agents[active_agent_index]
 		if curr.is_active_agent:
@@ -215,10 +208,6 @@ func get_all_agents() -> Array[AgentData]:
 		return []
 	return agents
 
-func update_agent_position(agent_data: AgentData, new_pos: Vector2) -> void:
-	if agent_data:
-		agent_data.update_position(new_pos)
-
 # ------------------------------------
 # MOVEMENT LOGIC
 # ------------------------------------
@@ -247,11 +236,11 @@ func update_agent_position_after_movement(agent_data: AgentData) -> void:
 
 ## Update agent's current_cell based on their world position
 func _update_agent_current_cell(agent_data: AgentData) -> void:
-	if not hex_grid or not agent_data or not agent_data.agent_controller:
+	if not session_controller or not agent_data or not agent_data.agent_controller:
 		return
 
 	var controller_pos = agent_data.agent_controller.global_position
-	var cell = hex_grid.get_cell_at_world_position(controller_pos)
+	var cell = session_controller.get_cell_at_world_position(controller_pos)
 	if cell:
 		agent_data.set_current_cell(cell)
 
@@ -261,7 +250,7 @@ func _update_agent_current_cell(agent_data: AgentData) -> void:
 func _on_agent_turn_started(agent_id: String) -> void:
 	_debug("Agent turn started: %s" % agent_id)
 
-func _on_agent_turn_ended(agent_id: String, _movements: int = 0) -> void:
+func _on_agent_turn_ended(agent_id: String) -> void:
 	for ad in agents:
 		if ad.agent_id == agent_id:
 			agent_turn_ended.emit(ad)
@@ -270,28 +259,6 @@ func _on_agent_turn_ended(agent_id: String, _movements: int = 0) -> void:
 # ------------------------------------
 # DEBUGGING HELPERS
 # ------------------------------------
-func get_state() -> Dictionary:
-	return {
-		"is_initialized": is_initialized,
-		"session_active": session_active,
-		"agent_count": agents.size(),
-		"active_agent_index": active_agent_index,
-		"current_round": current_round,
-		"active_agent": get_active_agent().agent_name if get_active_agent() else "None"
-	}
-
-func print_state() -> void:
-	var state = get_state()
-	print("=== AgentController State ===")
-	for k in state: print("  %s: %s" % [k, state[k]])
-	print("\n=== All Agents ===")
-	for i in agents.size():
-		var ag = agents[i]
-		var mark = " [ACTIVE]" if i == active_agent_index else ""
-		print("  %d. %s%s - Moves: %d/%d" % [
-			i, ag.agent_name, mark, ag.movements_used_this_turn, ag.max_movements_per_turn
-		])
-
 func _debug(msg: String) -> void:
 	# All debugging and print calls route through here
 	print("[AgentController] %s" % msg)

@@ -184,7 +184,7 @@ jobs:
             echo "prerelease=false" >> $GITHUB_OUTPUT
             echo "release_name=Stable v${{ env.STABLE_VERSION }}" >> $GITHUB_OUTPUT
           else
-            echo "version=v${{ env.CANARY_VERSION }}" >> $GITHUB_OUTPUT
+            echo "version=canary-v${{ env.CANARY_VERSION }}" >> $GITHUB_OUTPUT
             echo "prerelease=true" >> $GITHUB_OUTPUT
             echo "release_name=Canary v${{ env.CANARY_VERSION }}" >> $GITHUB_OUTPUT
           fi

@@ -183,5 +183,5 @@ func update_style(new_gradient_color: Color = gradient_color, new_border_color: 
 ##
 ## Stub provided for audit and robustness—child classes should override to implement turn-specific behavior.
 ## Ensures overlays can safely and explicitly react to turn changes.
-func _on_turn_changed(turn_info):
+func _on_turn_changed():
 	pass
