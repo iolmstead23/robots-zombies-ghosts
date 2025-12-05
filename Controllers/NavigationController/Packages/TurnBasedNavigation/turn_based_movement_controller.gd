@@ -150,7 +150,8 @@ func _physics_process(delta: float) -> void:
 	player.move_and_slide()
 
 	# Update animation based on current movement direction
-	if player.animation_controller and player.animation_controller.has_method("update_animation"):
+	if is_instance_valid(player.animation_controller) \
+			and player.animation_controller.has_method("update_animation"):
 		player.animation_controller.update_animation()
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -381,7 +382,7 @@ func _complete_movement() -> void:
 	if not is_active:
 		return
 
-	var path_distance_meters: int;
+	var path_distance_meters: int = 0
 
 	# Accumulate movement used in meters (hex cells)
 	if pathfinder != null:
@@ -398,7 +399,6 @@ func _complete_movement() -> void:
 		state_manager.set_state_value("has_input", false)
 
 	_turn_state.change_state(NavigationTypes.TurnState.COMPLETED)
-	path_distance_meters = pathfinder.current_hex_path.size() - 1 if pathfinder else 0
 	movement_completed.emit(path_distance_meters)
 
 	# Clear pathfinder internal state

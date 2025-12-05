@@ -7,7 +7,7 @@ extends Node
 const HexGridControllerScript = preload("res://Controllers/HexGridController/Core/hex_grid_controller.gd")
 const NavigationControllerScript = preload("res://Controllers/NavigationController/Core/navigation_controller.gd")
 const DebugControllerScript = preload("res://Controllers/DebugController/Core/debug_controller.gd")
-const UIControllerScript = preload("res://Controllers/UIController/Core/ui_controller.gd")
+const UIControllerScript = preload("res://Controllers/UIController/Controller/UIController.gd")
 const SelectionControllerScript = preload("res://Controllers/SelectionController/Core/selection_controller.gd")
 const AgentControllerScript = preload("res://Controllers/AgentController/Core/agent_controller.gd")
 
@@ -18,6 +18,16 @@ signal session_ended()
 signal terrain_initialized()
 signal turn_changed(agent_data)
 signal navigable_cells_updated(cells: Array[HexCell])
+
+# Selection signals (mediated from SelectionController)
+signal selection_changed(selection_data: Dictionary)
+signal selection_cleared()
+
+# IO signals (mediated from IOController)
+signal cell_clicked(cell: HexCell)
+signal cell_right_clicked(cell: HexCell)
+signal cell_hovered(cell: HexCell)
+signal cell_hover_ended()
 
 # ========== CONFIGURATION / EXPORTS ==========
 @export_group("Grid")
@@ -53,6 +63,11 @@ var _navigation_state := {}
 var navigable_cells: Array[HexCell] = []
 var current_agent_cell: HexCell = null
 
+# Planned movement state (for path preview before execution)
+var planned_target_cell: HexCell = null
+var planned_path: Array = []
+var planned_agent = null
+
 # ========== CONTROLLER INSTANCES ==========
 var hex_grid_controller
 var navigation_controller
@@ -60,6 +75,7 @@ var debug_controller
 var ui_controller
 var selection_controller
 var agent_manager
+var io_controller
 
 # ========== LIFECYCLE ==========
 func _ready() -> void:
@@ -69,6 +85,9 @@ func _ready() -> void:
 	if auto_initialize:
 		await get_tree().process_frame
 		initialize_session()
+
+# Note: Input handling moved to _input() method to intercept SPACE before KeyboardInputHandler
+# This ensures SessionController sees key presses first and can consume them if needed
 
 func _init_all_controllers() -> void:
 	hex_grid_controller = _try_new(HexGridControllerScript, "HexGridController")
@@ -81,6 +100,9 @@ func _init_all_controllers() -> void:
 		"max_movements_per_turn": max_movements_per_turn
 	})
 
+	# Note: IOController is managed by main.gd and will be connected later
+	# via connect_io_controller() after it's created
+
 func _try_new(script: Resource, item_name: String, props := {}) -> Node:
 	if typeof(script) == TYPE_OBJECT:
 		var node = script.new()
@@ -90,6 +112,16 @@ func _try_new(script: Resource, item_name: String, props := {}) -> Node:
 		return node
 	push_error("Failed to create %s!" % name)
 	return null
+
+func connect_io_controller(io_ctrl) -> void:
+	"""Connect IOController signals (called by main.gd after IOController is created)"""
+	io_controller = io_ctrl
+	if io_controller:
+		io_controller.hex_cell_left_clicked.connect(_on_cell_left_clicked)
+		io_controller.hex_cell_right_clicked.connect(_on_cell_right_clicked)
+		io_controller.hex_cell_hovered.connect(_on_cell_hovered)
+		io_controller.hex_cell_hover_ended.connect(_on_cell_hover_ended)
+		_print_debug("IOController connected to SessionController")
 
 func connect_signals_all() -> void:
 		# --- HexGridController
@@ -118,6 +150,7 @@ func connect_signals_all() -> void:
 		# --- SelectionController
 		selection_controller.object_selected.connect(_on_object_selected)
 		selection_controller.selection_cleared.connect(_on_selection_cleared)
+		# --- IOController: Connected later via connect_io_controller() called by main.gd
 		# --- AgentController signals are connected in _init_and_spawn_agents()
 
 
@@ -145,8 +178,9 @@ func initialize_session() -> void:
 	_setup_debug_visuals()
 	
 	debug_controller.set_debug_visibility_requested.emit(debug_mode)
-	selection_controller.set_ui_controller(ui_controller)
-	
+	# Note: SelectionController no longer needs direct UIController reference
+	# All communication now routed through SessionController signals
+
 	session_active = true
 	session_start_time = Time.get_ticks_msec() / 1000.0
 	_update_session_state()
@@ -375,12 +409,239 @@ func _on_debug_visibility_changed(vis: bool): debug_mode = vis; _print_debug("De
 func _on_debug_info_updated(_k: String, _v: Variant): pass
 func _on_ui_visibility_changed(vis: bool): _print_debug("UI overlay %s" % ("shown" if vis else "hidden"))
 func _on_selected_item_changed(d: Dictionary): if d.get("has_selection", false): _print_debug("Selected: %s [%s]" % [d.get("item_name", "Unknown"), d.get("item_type", "Unknown")])
-func _on_object_selected(sel: Dictionary): _print_debug("Object selected: %s" % sel.get("item_name"))
-func _on_selection_cleared(): _print_debug("Selection cleared")
+func _on_object_selected(sel: Dictionary):
+	_print_debug("Object selected: %s" % sel.get("item_name"))
+	# Relay to UIController through signal
+	if ui_controller:
+		ui_controller.update_selected_item_requested.emit(sel)
+	# Emit for other features to listen
+	selection_changed.emit(sel)
+
+func _on_selection_cleared():
+	_print_debug("Selection cleared")
+	# Relay to UIController through signal
+	if ui_controller:
+		ui_controller.clear_selected_item_requested.emit()
+	# Emit for other features to listen
+	selection_cleared.emit()
+
+# IOController signal handlers
+func _on_cell_left_clicked(cell: HexCell):
+	_print_debug("Cell clicked: %s" % cell.get_coords())
+
+	# Select the hex cell (shows in UI)
+	if selection_controller and cell:
+		selection_controller.select_object(cell)
+
+	# Plan movement and preview path (DON'T execute yet)
+	if navigation_controller and cell and agent_manager:
+		var agent = agent_manager.get_active_agent()
+		if agent:
+			_plan_movement_to_cell(agent, cell)
+
+	# Emit for other features to listen
+	cell_clicked.emit(cell)
+
+func _on_cell_right_clicked(cell: HexCell):
+	_print_debug("Cell right-clicked: %s" % cell.get_coords())
+	# Emit for features to listen
+	cell_right_clicked.emit(cell)
+
+func _on_cell_hovered(cell: HexCell):
+	# Route to debug for hover display (existing behavior from main.gd)
+	if debug_controller and cell:
+		debug_controller.set_hovered_cell(cell)
+	# Emit for other features to listen
+	cell_hovered.emit(cell)
+
+func _on_cell_hover_ended():
+	# Route to debug controller
+	if debug_controller:
+		debug_controller.set_hovered_cell(null)
+	# Emit for features to listen
+	cell_hover_ended.emit()
+
+# Method for selectable objects to call
+func report_object_selected(selected_object):
+	"""Called by selectable objects to report selection through SessionController"""
+	if selection_controller:
+		selection_controller.select_object(selected_object)
+
+# ============================================================================
+# MOVEMENT PLANNING & EXECUTION
+# ============================================================================
+
+func _plan_movement_to_cell(agent: AgentData, target_cell: HexCell):
+	"""Plan movement and show path preview (doesn't execute movement)"""
+	if not agent or not target_cell:
+		return
+
+	_print_debug("Planning movement to cell (%d, %d)" % [target_cell.q, target_cell.r])
+
+	# Check if cell is enabled/navigable
+	if not target_cell.enabled:
+		_print_debug("Cannot plan movement: target cell is disabled")
+		planned_target_cell = null
+		planned_path = []
+		planned_agent = null
+		return
+
+	# Check if agent can move
+	if not agent.can_move():
+		_print_debug("Cannot plan movement: agent has no movements remaining")
+		planned_target_cell = null
+		planned_path = []
+		planned_agent = null
+		return
+
+	# Store planned movement
+	planned_target_cell = target_cell
+	planned_agent = agent
+
+	# Calculate and visualize path preview
+	if navigation_controller and hex_grid_controller:
+		# Get agent's current cell using agent_controller's position
+		var agent_controller = agent.agent_controller
+		if not agent_controller:
+			_print_debug("Cannot plan movement: agent controller not found")
+			return
+
+		# Use SessionController's helper method to get cell from world position
+		var agent_cell = get_cell_at_world_position(agent_controller.global_position)
+		if agent_cell:
+			var distance = agent_cell.distance_to(target_cell)
+			var max_distance = agent.get_distance_remaining() if agent.has_method("get_distance_remaining") else agent.max_movements_per_turn
+
+			_print_debug("Path preview: %d cells, agent can move %d cells" % [distance, max_distance])
+
+			# Calculate path using pathfinder
+			var pathfinder = navigation_controller.get_pathfinder()
+			if pathfinder:
+				planned_path = pathfinder.find_path(agent_cell, target_cell)
+
+				if planned_path.size() > 0:
+					# Check if path exceeds agent's movement budget
+					# Path includes starting cell, so distance is size - 1
+					var path_distance = planned_path.size() - 1
+
+					if path_distance > max_distance:
+						_print_debug("Path too long (%d cells), truncating to %d cells" % [path_distance, max_distance])
+						# Truncate path to fit within budget (keep starting cell + max_distance cells)
+						planned_path = planned_path.slice(0, max_distance + 1)
+						# Update target cell to the truncated end point
+						planned_target_cell = planned_path[planned_path.size() - 1]
+						_print_debug("Truncated path to cell (%d, %d)" % [planned_target_cell.q, planned_target_cell.r])
+
+					# Visualize the (possibly truncated) path
+					var path_visualizer = navigation_controller.get_path_visualizer()
+					if path_visualizer:
+						path_visualizer.set_path(planned_path)
+
+					_print_debug("Movement planned! Press SPACE to execute or click another cell to re-plan")
+				else:
+					_print_debug("No path found to target cell")
+					planned_target_cell = null
+					planned_path = []
+					planned_agent = null
+
+func execute_planned_movement():
+	"""Execute the planned movement (call this from hotkey)"""
+	if not planned_target_cell or not planned_agent or planned_path.is_empty():
+		_print_debug("No planned movement to execute")
+		return
+
+	_print_debug("Executing planned movement to (%d, %d)" % [planned_target_cell.q, planned_target_cell.r])
+
+	# Calculate the distance of the planned path (in meters/hex cells)
+	# Path includes starting cell, so distance is size - 1
+	var path_distance = planned_path.size() - 1
+	_print_debug("Planned path distance: %d meters" % path_distance)
+
+	# Record the movement action with AgentController BEFORE executing
+	# This deducts the distance from the agent's remaining movement
+	if agent_manager:
+		if not agent_manager.record_movement_action(path_distance):
+			_print_debug("Cannot execute movement: insufficient movement remaining or record failed")
+			cancel_planned_movement()
+			return
+	else:
+		_print_debug("Cannot execute movement: agent_manager not found")
+		cancel_planned_movement()
+		return
+
+	# Get the actual agent controller (CharacterBody2D) from AgentData
+	var agent_controller = planned_agent.agent_controller
+	if not agent_controller:
+		_print_debug("Cannot execute movement: agent controller not found")
+		cancel_planned_movement()
+		return
+
+	# Get the agent's turn-based controller
+	var turn_based_controller = agent_controller.turn_based_controller
+	if not turn_based_controller:
+		_print_debug("Cannot execute movement: turn_based_controller not found on agent")
+		cancel_planned_movement()
+		return
+
+	# Ensure turn-based controller is fully activated before requesting movement
+	# This prevents race condition where request_movement_to() is called before
+	# activate() has settled and set is_active = true
+	if not turn_based_controller.is_active:
+		_print_debug("Waiting for turn_based_controller activation...")
+		await get_tree().process_frame
+
+	# Connect to movement_completed signal to notify AgentController when done
+	# Use a one-shot connection that captures the agent data
+	var agent_data = planned_agent
+	var completion_handler = func(distance_moved: int):
+		_print_debug("Movement completed: %d meters" % distance_moved)
+		if agent_manager:
+			agent_manager.update_agent_position_after_movement(agent_data)
+
+	if not turn_based_controller.movement_completed.is_connected(completion_handler):
+		turn_based_controller.movement_completed.connect(completion_handler, CONNECT_ONE_SHOT)
+
+	# Request movement to the target cell's world position
+	# Use path_distance (how far we want to move) not remaining_distance (what's left after recording)
+	turn_based_controller.request_movement_to(planned_target_cell.world_position, path_distance)
+
+	# Wait one frame to allow state transition, then confirm
+	await get_tree().process_frame
+
+	# Confirm the movement (starts execution)
+	turn_based_controller.confirm_movement()
+
+	_print_debug("Movement execution started!")
+
+	# Clear planned movement
+	planned_target_cell = null
+	planned_path = []
+	planned_agent = null
+
+func cancel_planned_movement():
+	"""Cancel the planned movement"""
+	if planned_target_cell:
+		_print_debug("Planned movement cancelled")
+
+	planned_target_cell = null
+	planned_path = []
+	planned_agent = null
+
+	# Clear path visualization
+	if navigation_controller:
+		var path_visualizer = navigation_controller.get_path_visualizer()
+		if path_visualizer:
+			path_visualizer.clear_path()
 
 func _on_agents_spawned(count: int): _print_debug("%d agents spawned" % count)
 func _on_agent_turn_started(data: AgentData):
 	_print_debug("%s turn started" % data.agent_name)
+
+	# Clear any planned movement from previous agent's turn
+	if planned_target_cell or planned_agent or not planned_path.is_empty():
+		_print_debug("Clearing planned movement from previous turn")
+		cancel_planned_movement()
+
 	update_navigable_cells(data)
 	var turn_info = {
 		"turn_number": agent_manager.current_round + 1,
@@ -394,8 +655,20 @@ func _on_agent_turn_started(data: AgentData):
 	if OS.is_debug_build():
 		print("[SessionController] Emitting turn_changed: %s" % str(turn_info))
 
-func _on_agent_turn_ended(data: AgentData): _print_debug("%s turn ended (used %d)" % [data.agent_name, data.movements_used_this_turn])
-func _on_all_agents_completed_round(): _print_debug("All agents completed round")
+func _on_agent_turn_ended(data: AgentData):
+	_print_debug("%s turn ended (used %d)" % [data.agent_name, data.movements_used_this_turn])
+
+	# Clear planned movement when turn ends
+	if planned_target_cell or planned_agent or not planned_path.is_empty():
+		_print_debug("Clearing planned movement at turn end")
+		cancel_planned_movement()
+func _on_all_agents_completed_round():
+	_print_debug("All agents completed round")
+
+	# Clear any lingering planned movement at round end
+	if planned_target_cell or planned_agent or not planned_path.is_empty():
+		_print_debug("Clearing planned movement at round end")
+		cancel_planned_movement()
 func _on_movement_action_completed(data: AgentData, moves: int):
 	# Update navigable cells to reflect remaining distance
 	update_navigable_cells(data)
@@ -421,7 +694,25 @@ func advance_turn() -> void:
 	current_agent_index = (current_agent_index + 1) % agents.size()
 
 func _input(event: InputEvent) -> void:
-	if debug_hotkey_enabled and event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F3:
+	if not event is InputEventKey or not event.pressed or event.echo:
+		return
+
+	# Handle SPACE key in _input() to intercept BEFORE KeyboardInputHandler's _unhandled_input()
+	if event.keycode == KEY_SPACE:
+		# Only consume input if we have planned movement to execute
+		if planned_target_cell and planned_agent and not planned_path.is_empty():
+			execute_planned_movement()
+			get_viewport().set_input_as_handled()
+			return  # Input consumed - won't reach KeyboardInputHandler
+		# else: let input propagate to KeyboardInputHandler for end turn
+
+	# ESC key - Cancel planned movement
+	elif event.keycode == KEY_ESCAPE:
+		cancel_planned_movement()
+		get_viewport().set_input_as_handled()
+
+	# F3 debug toggle
+	elif debug_hotkey_enabled and event.keycode == KEY_F3:
 		debug_controller.toggle_debug_requested.emit()
 		get_viewport().set_input_as_handled()
 

@@ -179,8 +179,9 @@ func _set_agents_controllable(active_idx: int):
 func _activate_agent_turn_mode(agent):
 	if agent.agent_controller and agent.agent_controller.has_method("activate_turn_based_mode"):
 		agent.agent_controller.activate_turn_based_mode()
-		if agent.agent_controller.turn_based_controller:
-			agent.agent_controller.turn_based_controller.start_new_turn()
+		# Note: start_new_turn() is already called inside activate()
+		# (turn_based_movement_controller.gd line 182)
+		# Calling it twice can cause state confusion, so we don't call it here
 
 func end_current_agent_turn() -> void:
 	if get_active_agent():

@@ -10,9 +10,6 @@ extends StaticBody2D
 # Custom metadata
 var custom_metadata: Dictionary = {}
 
-# Signals
-signal selection_requested(selection_data: Dictionary)
-
 func _ready():
 	# Add to "selectable" group for SelectionController discovery
 	add_to_group("selectable")
@@ -44,11 +41,11 @@ func _build_metadata() -> Dictionary:
 func _on_input_event(_viewport: Viewport, event: InputEvent, _shape_idx: int):
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_LEFT:
-			# Get SelectionController and select this object
-			var selection_controller = get_tree().root.find_child("SelectionController", true, false)
-			if selection_controller:
-				selection_controller.select_object(self)
+			# Get SessionController and report selection (routes through SessionController)
+			var session_controller = get_tree().root.find_child("SessionController", true, false)
+			if session_controller:
+				session_controller.report_object_selected(self)
 			else:
-				push_error("Barrel: SelectionController not found!")
+				push_error("Barrel: SessionController not found!")
 
 			get_viewport().set_input_as_handled()
