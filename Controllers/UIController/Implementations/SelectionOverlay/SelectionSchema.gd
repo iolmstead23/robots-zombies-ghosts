@@ -4,6 +4,20 @@ extends ContentSchema
 ## Selection Overlay Schema
 ## Manages content structure for turn info, agent status, and selected object details
 
+# Technical metadata keys to filter out from display
+const FILTERED_METADATA_KEYS = [
+	"coordinates",
+	"index",
+	"world_position",
+	"enabled",
+	"navigable",
+	"q", "r",  # hex coordinate components
+	"position",
+	"in_scene",
+	"test_status",
+	"is_selectable",
+]
+
 # ============================================================================
 # INITIALIZATION
 # ============================================================================
@@ -78,14 +92,23 @@ func update_from_selection_data(item_data: Dictionary) -> void:
 
 	# Update Metadata
 	meta_section.clear()
-	meta_section.add_line("--- Properties ---")
 
 	var metadata = item_data.get("metadata", {})
-	if metadata.is_empty():
-		meta_section.add_line("(No properties)")
+	var display_metadata = {}
+
+	# Filter out technical/debug properties
+	for key in metadata:
+		if key not in FILTERED_METADATA_KEYS:
+			display_metadata[key] = metadata[key]
+
+	# Only show section if there's displayable metadata
+	if display_metadata.is_empty():
+		# Don't add Properties section if no properties to show
+		pass
 	else:
-		for key in metadata:
-			var formatted_line = format_key_value(key, metadata[key])
+		meta_section.add_line("--- Properties ---")
+		for key in display_metadata:
+			var formatted_line = format_key_value(key, display_metadata[key])
 			meta_section.add_line(formatted_line)
 
 func clear_selection() -> void:

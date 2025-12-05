@@ -15,7 +15,6 @@ Design notes:
 # ----------------------
 
 signal movement_started()
-signal movement_progress_updated(progress: float, position: Vector2)
 signal movement_completed(distance_moved: int)
 signal movement_failed(reason: String)
 

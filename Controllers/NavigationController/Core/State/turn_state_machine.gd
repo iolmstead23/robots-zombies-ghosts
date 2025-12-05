@@ -54,7 +54,12 @@ func start_turn() -> void:
 
 ## End current turn
 func end_turn() -> void:
-	change_state(NavigationTypes.TurnState.COMPLETED)
+	# Only transition to COMPLETED if we're in EXECUTING state
+	# Otherwise, just reset to IDLE
+	if current_state == NavigationTypes.TurnState.EXECUTING:
+		change_state(NavigationTypes.TurnState.COMPLETED)
+	else:
+		change_state(NavigationTypes.TurnState.IDLE)
 	turn_ended.emit(current_turn)
 
 ## Reset to idle state
