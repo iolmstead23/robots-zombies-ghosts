@@ -19,3 +19,8 @@ mono_crash.*.json
 
 # End of https://www.toptal.com/developers/gitignore/api/godot
 /android/
+
+# I dont know why these files keeping getting generated
+null
+NULL
+NUL

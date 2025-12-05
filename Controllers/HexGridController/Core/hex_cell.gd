@@ -51,3 +51,22 @@ func get_metadata(key: String, default_value: Variant = null) -> Variant:
 
 func to_type_string() -> String:
 	return "HexCell(q=%d, r=%d, index=%d, enabled=%s)" % [q, r, index, enabled]
+
+func get_coords() -> Vector2i:
+	"""Helper method for consistent coordinate access"""
+	return Vector2i(q, r)
+
+func get_selection_data() -> Dictionary:
+	"""Return selection data for UI display when hex cell is selected"""
+	return {
+		"has_selection": true,
+		"item_type": "Hex Cell",
+		"item_name": "Cell (%d, %d)" % [q, r],
+		"metadata": {
+			"coordinates": "(q=%d, r=%d)" % [q, r],
+			"index": index,
+			"world_position": world_position,
+			"enabled": enabled,
+			"navigable": enabled
+		}
+	}

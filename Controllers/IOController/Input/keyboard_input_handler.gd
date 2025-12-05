@@ -56,7 +56,7 @@ func _input(event: InputEvent) -> void:
 	if event.echo:
 		return
 
-	# Handle keyboard shortcuts
+	# Handle keyboard shortcuts (global, always processed)
 	match event.keycode:
 		KEY_R:
 			report_key_pressed.emit()
@@ -67,9 +67,26 @@ func _input(event: InputEvent) -> void:
 		KEY_E:
 			export_key_pressed.emit()
 
+func _unhandled_input(event: InputEvent) -> void:
+	if not enabled:
+		return
+
+	if not event is InputEventKey:
+		return
+
+	if not event.pressed:
+		return
+
+	# Ignore key echoes (held keys)
+	if event.echo:
+		return
+
+	# Handle context-sensitive shortcuts (only if not handled by SessionController)
+	match event.keycode:
 		KEY_SPACE, KEY_ENTER:
 			print("[KeyboardInputHandler] Space/Enter pressed - requesting end turn")
 			end_turn_requested.emit()
+			get_viewport().set_input_as_handled()
 
 # ============================================================================
 # PUBLIC API

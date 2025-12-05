@@ -2,21 +2,42 @@ class_name BaseOverlay
 extends CanvasLayer
 
 ## Base UI Overlay Component - Shared parent for all UI overlays
-## Provides customizable gradient background, border, and positioning
+## Provides customizable gradient background, border, positioning with package-based architecture
 
 # ============================================================================
-# CONFIGURATION - Override these in child classes or set in _ready()
+# PACKAGE IMPORTS
+# Note: These classes are globally available via class_name declarations
 # ============================================================================
+
+# GradientRenderer, TitleValidator, and ContentValidator are available globally
+
+# ============================================================================
+# CONFIGURATION - Override these in child classes or set via OverlayConfig
+# ============================================================================
+
+@export_group("Title")
+## Title for this overlay (required)
+@export var overlay_title: String = ""
+## Extra margin below title
+@export var title_margin_bottom: int = 8
 
 @export_group("Style")
-## Gradient color (RGB), alpha is set separately
+## Gradient color (RGB), opacity controlled separately
 @export var gradient_color: Color = Color(0, 0.2, 0.4)
-## Opacity for the main gradient area (0.0 - 1.0)
-@export var gradient_alpha: float = 0.9
+## Text color for content labels
+@export var text_color: Color = Color(1, 1, 1)
 ## Border color
 @export var border_color: Color = Color(0, 0.6, 1)
 ## Border width in pixels
 @export var border_width: float = 2.0
+
+@export_group("Gradient")
+## Opacity at the top of the gradient (0.0 to 1.0)
+@export_range(0.0, 1.0) var gradient_start_opacity: float = 0.9
+## Opacity at the bottom of the gradient (0.0 to 1.0)
+@export_range(0.0, 1.0) var gradient_end_opacity: float = 0.0
+## Gradient distribution points (0.0 = top, 1.0 = bottom)
+@export var gradient_offsets: PackedFloat32Array = PackedFloat32Array([0, 0.5, 1])
 
 @export_group("Position")
 ## Anchor position: 0=top-left, 1=top-right, 2=bottom-left, 3=bottom-right
@@ -24,11 +45,21 @@ extends CanvasLayer
 ## Offset from screen edge
 @export var offset_from_edge: Vector2 = Vector2(10, 10)
 ## Overlay size
-@export var overlay_size: Vector2 = Vector2(350, 200)
+@export var overlay_size: Vector2 = Vector2(350, 250)
 
-@export_group("Spacing")
+@export_group("Content")
+## Maximum number of content lines (excluding title)
+@export var max_content_lines: int = 10
 ## Internal margin for content
 @export var content_margin: int = 15
+
+@export_group("Validation")
+## Enable strict validation (errors on overflow)
+@export var strict_validation: bool = true
+## Automatically truncate content that exceeds limits
+@export var auto_truncate: bool = true
+## Show "..." indicator when content is truncated
+@export var show_overflow_indicator: bool = true
 
 # ============================================================================
 # NODES - Set up in scene, accessed by children
@@ -38,11 +69,13 @@ extends CanvasLayer
 @onready var panel: Panel = $Control/Panel
 @onready var gradient_bg: TextureRect = $Control/Panel/GradientBackground
 @onready var border: ReferenceRect = $Control/Panel/Border
+@onready var title_container: MarginContainer = $Control/Panel/TitleContainer
+@onready var title_label: Label = $Control/Panel/TitleContainer/TitleLabel
+@onready var title_separator: HSeparator = $Control/Panel/TitleSeparator
 @onready var margin_container: MarginContainer = $Control/Panel/MarginContainer
 @onready var content_container: VBoxContainer = $Control/Panel/MarginContainer/VBoxContainer
 
 # Gradient resources (created dynamically)
-var gradient: Gradient
 var gradient_texture: GradientTexture2D
 
 # ============================================================================
@@ -50,8 +83,12 @@ var gradient_texture: GradientTexture2D
 # ============================================================================
 
 func _ready():
+	# Validate title requirement
+	_validate_title()
+
+	# Apply configuration
 	_apply_configuration()
-	
+
 	## Audit requirement: Explicitly connect to SessionController's "turn_changed" signal.
 	## This ensures overlays can robustly respond to turn changes if needed, and is auditable for session-awareness.
 	var session_controller = get_tree().get_root().find_child("SessionController", true, false)
@@ -64,28 +101,43 @@ func _ready():
 
 func _apply_configuration():
 	"""Apply the exported configuration to the overlay"""
+	_setup_title()
 	_setup_gradient()
 	_setup_border()
 	_setup_position()
 	_setup_margins()
 
+func _validate_title():
+	"""Validate title requirement using TitleValidator"""
+	var validation = TitleValidator.validate_title(overlay_title)
+	if not validation.valid:
+		for error in validation.errors:
+			push_error("BaseOverlay: %s" % error)
+		# Sanitize title if invalid
+		overlay_title = TitleValidator.sanitize_title(overlay_title)
+		push_warning("BaseOverlay: Title sanitized to '%s'" % overlay_title)
+
+func _setup_title():
+	"""Setup title label and separator"""
+	if title_label:
+		title_label.text = overlay_title
+		title_label.add_theme_color_override("font_color", text_color)
+
+	# Configure title container margins
+	if title_container:
+		title_container.add_theme_constant_override("margin_left", content_margin)
+		title_container.add_theme_constant_override("margin_top", content_margin)
+		title_container.add_theme_constant_override("margin_right", content_margin)
+		title_container.add_theme_constant_override("margin_bottom", title_margin_bottom)
+
 func _setup_gradient():
-	"""Create and apply gradient with configured colors"""
-	# Create gradient
-	gradient = Gradient.new()
-	gradient.offsets = PackedFloat32Array([0, 0.5, 1])
-
-	# Set colors with alpha fade at bottom
-	var color_top = Color(gradient_color.r, gradient_color.g, gradient_color.b, gradient_alpha)
-	var color_bottom = Color(gradient_color.r, gradient_color.g, gradient_color.b, 0)
-	gradient.colors = PackedColorArray([color_top, color_top, color_bottom])
-
-	# Create gradient texture
-	gradient_texture = GradientTexture2D.new()
-	gradient_texture.gradient = gradient
-	gradient_texture.fill = GradientTexture2D.FILL_LINEAR
-	gradient_texture.fill_from = Vector2(0.5, 0)
-	gradient_texture.fill_to = Vector2(0.5, 1)
+	"""Create and apply gradient using GradientRenderer package"""
+	gradient_texture = GradientRenderer.create_gradient(
+		gradient_color,
+		gradient_start_opacity,
+		gradient_end_opacity,
+		gradient_offsets
+	)
 
 	# Apply to background
 	if gradient_bg:
@@ -167,11 +219,36 @@ func get_content_container() -> VBoxContainer:
 	"""Get the container where child classes should add their content"""
 	return content_container
 
-func update_style(new_gradient_color: Color = gradient_color, new_border_color: Color = border_color, new_alpha: float = gradient_alpha):
+func load_config(config: Resource) -> void:
+	"""Load configuration from OverlayConfig resource"""
+	if not config:
+		push_error("BaseOverlay: Cannot load null config")
+		return
+
+	# Apply config using its apply_to_overlay method
+	if config.has_method("apply_to_overlay"):
+		config.apply_to_overlay(self)
+		# Reapply configuration after loading
+		if is_inside_tree():
+			_apply_configuration()
+	else:
+		push_error("BaseOverlay: Config does not have apply_to_overlay method")
+
+func get_available_content_lines() -> int:
+	"""Get number of lines available for content (excluding title)"""
+	return max_content_lines
+
+func update_style(
+	new_gradient_color: Color = gradient_color,
+	new_border_color: Color = border_color,
+	new_start_opacity: float = gradient_start_opacity,
+	new_end_opacity: float = gradient_end_opacity
+):
 	"""Update the overlay style at runtime"""
 	gradient_color = new_gradient_color
 	border_color = new_border_color
-	gradient_alpha = new_alpha
+	gradient_start_opacity = new_start_opacity
+	gradient_end_opacity = new_end_opacity
 	_setup_gradient()
 	_setup_border()
 
@@ -183,5 +260,5 @@ func update_style(new_gradient_color: Color = gradient_color, new_border_color: 
 ##
 ## Stub provided for audit and robustness—child classes should override to implement turn-specific behavior.
 ## Ensures overlays can safely and explicitly react to turn changes.
-func _on_turn_changed():
+func _on_turn_changed(agent_data):
 	pass

@@ -85,8 +85,8 @@ func _ready() -> void:
 	# Configure IOController with dependencies
 	_setup_io_controller()
 
-	# Setup DebugUI overlay
-	_setup_debug_ui()
+	# Setup DebugOverlay
+	_setup_debug_overlay()
 
 	# Setup SelectionOverlay
 	_setup_selection_overlay()
@@ -160,10 +160,17 @@ func _setup_io_controller() -> void:
 		io_controller.set_hex_grid(grid)
 
 	# Connect to IOController signals
-	io_controller.hex_cell_left_clicked.connect(_on_io_cell_left_clicked)
-	io_controller.hex_cell_right_clicked.connect(_on_io_cell_right_clicked)
-	io_controller.hex_cell_hovered.connect(_on_io_cell_hovered)
-	io_controller.hex_cell_hover_ended.connect(_on_io_cell_hover_ended)
+	# NOTE: Hex cell signals now routed through SessionController for three-way communication
+	# SessionController handles cell click/hover routing to NavigationController and DebugController
+	# If main.gd needs these events, connect to SessionController signals instead:
+	#   session_controller.cell_clicked.connect(_on_session_cell_clicked)
+	#   session_controller.cell_hovered.connect(_on_session_cell_hovered)
+	# io_controller.hex_cell_left_clicked.connect(_on_io_cell_left_clicked)
+	# io_controller.hex_cell_right_clicked.connect(_on_io_cell_right_clicked)
+	# io_controller.hex_cell_hovered.connect(_on_io_cell_hovered)
+	# io_controller.hex_cell_hover_ended.connect(_on_io_cell_hover_ended)
+
+	# Keep other IO signals for main.gd-specific functionality
 	io_controller.camera_zoom_in_requested.connect(_on_io_zoom_in)
 	io_controller.camera_zoom_out_requested.connect(_on_io_zoom_out)
 	io_controller.debug_report_requested.connect(_on_io_debug_report)
@@ -173,26 +180,32 @@ func _setup_io_controller() -> void:
 
 	print("IOController configured and signals connected")
 
-func _setup_debug_ui() -> void:
-	"""Create and configure DebugUI overlay"""
-	# Check if DebugUI already exists in scene
-	var debug_ui = get_node_or_null("DebugUI")
+	# Notify SessionController about IOController and connect hex cell signals
+	if session_controller and session_controller.has_method("connect_io_controller"):
+		session_controller.connect_io_controller(io_controller)
+
+func _setup_debug_overlay() -> void:
+	"""Create and configure DebugOverlay"""
+	# Check if DebugOverlay already exists in scene (check both new and old names)
+	var debug_overlay = get_node_or_null("DebugOverlay")
+	if not debug_overlay:
+		debug_overlay = get_node_or_null("DebugUI")  # Backward compatibility
 
 	# If not in scene, load and instance it
-	if not debug_ui:
-		print("DebugUI not found in scene - loading from scene file")
-		var debug_ui_scene = load("res://Controllers/DebugController/UI/debug_ui.tscn")
-		if debug_ui_scene:
-			debug_ui = debug_ui_scene.instantiate()
-			add_child(debug_ui)
-			print("DebugUI created and added to scene")
+	if not debug_overlay:
+		print("DebugOverlay not found in scene - loading from scene file")
+		var debug_overlay_scene = load("res://Controllers/DebugController/UI/debug_ui.tscn")
+		if debug_overlay_scene:
+			debug_overlay = debug_overlay_scene.instantiate()
+			add_child(debug_overlay)
+			print("DebugOverlay created and added to scene")
 		else:
-			push_error("Failed to load DebugUI.tscn")
+			push_error("Failed to load debug_ui.tscn")
 			return
 	else:
-		print("DebugUI found in scene tree")
+		print("DebugOverlay found in scene tree")
 
-	print("DebugUI configured")
+	print("DebugOverlay configured")
 
 func _setup_selection_overlay() -> void:
 	"""Create and configure SelectionOverlay UI"""
@@ -202,7 +215,7 @@ func _setup_selection_overlay() -> void:
 	# If not in scene, load and instance it
 	if not selection_overlay:
 		print("SelectionOverlay not found in scene - loading from scene file")
-		var selection_overlay_scene = load("res://Controllers/UIController/UI/selection_overlay.tscn")
+		var selection_overlay_scene = load("res://Controllers/UIController/Implementations/SelectionOverlay/SelectionOverlay.tscn")
 		if selection_overlay_scene:
 			selection_overlay = selection_overlay_scene.instantiate()
 			add_child(selection_overlay)
