@@ -62,13 +62,10 @@ tile_map_data = PackedByteArray("AAAAAPz/AAABAAEAAAABAP3/AAABAAEAAAACAPz/AAABAAE
 [node name="Camera2D" type="Camera2D" parent="."]
 y_sort_enabled = true
 position = Vector2(144, -180)
-drag_horizontal_enabled = true
 
 [node name="SessionController" type="Node2D" parent="." node_paths=PackedStringArray("navigation_region")]
 y_sort_enabled = true
 script = ExtResource("7_272bh")
-grid_width = 20
-grid_height = 15
 hex_size = 12.0
 navigation_region = NodePath("../NavigationRegion2D")
 debug_mode = true

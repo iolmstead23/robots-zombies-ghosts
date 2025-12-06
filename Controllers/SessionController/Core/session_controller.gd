@@ -20,6 +20,7 @@ const DebugControllerScript = preload("res://Controllers/DebugController/Core/de
 const UIControllerScript = preload("res://Controllers/UIController/Controller/UIController.gd")
 const SelectionControllerScript = preload("res://Controllers/SelectionController/Core/selection_controller.gd")
 const AgentControllerScript = preload("res://Controllers/AgentController/Core/agent_controller.gd")
+const CameraControllerScript = preload("res://Controllers/CameraController/Core/camera_controller.gd")
 
 # --- Signals for session and UI events ---
 signal session_initialized()
@@ -70,6 +71,7 @@ var ui_controller = null
 var selection_controller = null
 var agent_manager = null
 var io_controller = null
+var camera_controller = null
 
 # --- Core helper instances ---
 var _initializer: SessionInitializer = SessionInitializer.new()
@@ -100,6 +102,7 @@ func _init_all_controllers() -> void:
 		"max_movements_per_turn": max_movements_per_turn,
 		"y_sort_enabled": true
 	})
+	camera_controller = _try_new(CameraControllerScript, "CameraController")
 
 ## Configure helper instances with appropriate controllers.
 func _init_packages() -> void:
@@ -158,6 +161,11 @@ func _connect_signals() -> void:
 
 	_initializer.agents_ready.connect(_on_agents_ready)
 
+	# Camera controller integration
+	if camera_controller:
+		agent_manager.agent_turn_started.connect(_on_agent_turn_started_camera)
+		debug_controller.debug_visibility_changed.connect(_on_debug_visibility_changed_camera)
+
 ## Set the IO controller and connect UI gestures to logic.
 func connect_io_controller(io_ctrl) -> void:
 	io_controller = io_ctrl
@@ -167,6 +175,11 @@ func connect_io_controller(io_ctrl) -> void:
 	io_controller.hex_cell_right_clicked.connect(_on_cell_right_clicked)
 	io_controller.hex_cell_hovered.connect(_on_cell_hovered)
 	io_controller.hex_cell_hover_ended.connect(_on_cell_hover_ended)
+
+	# Camera zoom integration
+	if camera_controller:
+		io_controller.camera_zoom_in_requested.connect(_on_camera_zoom_in_requested)
+		io_controller.camera_zoom_out_requested.connect(_on_camera_zoom_out_requested)
 
 ## Begins the session and sets up agents.
 func initialize_session() -> void:
@@ -189,6 +202,22 @@ func initialize_session() -> void:
 	debug_controller.set_debug_visibility_requested.emit(debug_mode)
 	session_active = true
 	session_start_time = Time.get_ticks_msec() / 1000.0
+
+	# Initialize camera controller with camera reference
+	if camera_controller:
+		# Camera2D is a sibling of SessionController in the scene tree
+		var camera = get_parent().get_node_or_null("Camera2D")
+		if camera:
+			camera_controller.initialize(self, camera)
+			camera_controller.set_hex_grid_controller(hex_grid_controller)
+			print("[SessionController] CameraController initialized")
+
+			# Initial smooth transition to first agent
+			if agents.size() > 0:
+				await get_tree().process_frame
+				camera_controller.move_camera_to_agent(agents[0])
+		else:
+			push_warning("[SessionController] Camera2D not found - camera controller not initialized")
 
 	session_initialized.emit()
 
@@ -250,6 +279,11 @@ func _on_cell_right_clicked(cell: HexCell) -> void: cell_right_clicked.emit(cell
 
 ## Start a new agent turn.
 func _on_agent_turn_started(data: AgentData) -> void:
+	# Update current agent index to match the active agent
+	var agent_index = agents.find(data)
+	if agent_index != -1:
+		current_agent_index = agent_index
+
 	_movement_planner.cancel_movement()
 	update_navigable_cells(data)
 	_emit_turn_changed(data)
@@ -281,9 +315,9 @@ func _emit_turn_changed(data: AgentData, moves_override: int = -1) -> void:
 	})
 
 ## Callback for when debug visibility changes.
-func _on_debug_visibility_changed(visible: bool) -> void:
-	debug_mode = visible
-	_event_router.on_debug_visibility_changed(visible)
+func _on_debug_visibility_changed(debug_visible: bool) -> void:
+	debug_mode = debug_visible
+	_event_router.on_debug_visibility_changed(debug_visible)
 
 ## Called when a selection is made.
 func _on_object_selected(selection: Dictionary) -> void:
@@ -398,3 +432,27 @@ func toggle_debug_mode() -> void: debug_controller.toggle_debug_requested.emit()
 
 ## Refresh navmesh integration with the current grid setup.
 func refresh_navmesh_integration() -> void: hex_grid_controller.refresh_navmesh_integration()
+
+## Camera controller signal handlers
+func _on_agent_turn_started_camera(agent_data: AgentData) -> void:
+	"""Route agent turn start to camera for smooth transition"""
+	if camera_controller:
+		camera_controller.move_camera_to_agent(agent_data)
+
+func _on_debug_visibility_changed_camera(visible: bool) -> void:
+	"""Route debug visibility to camera for free roam toggle"""
+	if camera_controller:
+		if visible:
+			camera_controller.enable_free_roam()
+		else:
+			camera_controller.disable_free_roam()
+
+func _on_camera_zoom_in_requested() -> void:
+	"""Route zoom in request from IOController to CameraController"""
+	if camera_controller:
+		camera_controller.zoom_in()
+
+func _on_camera_zoom_out_requested() -> void:
+	"""Route zoom out request from IOController to CameraController"""
+	if camera_controller:
+		camera_controller.zoom_out()

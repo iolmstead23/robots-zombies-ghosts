@@ -244,6 +244,7 @@ func _update_agent_current_cell(agent_data: AgentData) -> void:
 	var cell = session_controller.get_cell_at_world_position(controller_pos)
 	if cell:
 		agent_data.set_current_cell(cell)
+		agent_data.update_position(controller_pos)  # Update position for camera tracking
 
 # ------------------------------------
 # SIGNAL HANDLERS
