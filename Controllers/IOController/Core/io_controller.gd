@@ -91,10 +91,8 @@ func _ready() -> void:
 	# Components will be added as children and auto-initialize
 	_connect_component_signals()
 
-	print("IOController initialized")
-
 func _connect_component_signals() -> void:
-	"""Connect to child component signals"""
+	# Connect to child component signals
 	# Wait for children to be ready
 	await get_tree().process_frame
 
@@ -102,75 +100,67 @@ func _connect_component_signals() -> void:
 	mouse_handler = get_node_or_null("MouseInputHandler")
 	if mouse_handler:
 		mouse_handler.left_click_at_position.connect(_on_mouse_left_click)
-		print("IOController: MouseInputHandler connected")
+		# Propagate any already-set dependencies
+		if camera and mouse_handler.has_method("set_camera"):
+			mouse_handler.set_camera(camera)
+		if viewport and mouse_handler.has_method("set_viewport"):
+			mouse_handler.set_viewport(viewport)
 
 	# Find and connect keyboard handler
 	keyboard_handler = get_node_or_null("KeyboardInputHandler")
 	if keyboard_handler:
 		keyboard_handler.end_turn_requested.connect(func(): end_turn_requested.emit())
-		print("IOController: KeyboardInputHandler connected")
 
 	# Find and connect camera handler
 	camera_handler = get_node_or_null("CameraInputHandler")
 	if camera_handler:
 		camera_handler.zoom_in_requested.connect(func(): camera_zoom_in_requested.emit())
 		camera_handler.zoom_out_requested.connect(func(): camera_zoom_out_requested.emit())
-		print("IOController: CameraInputHandler connected")
 
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
 
 func set_camera(new_camera: Camera2D) -> void:
-	"""Set the camera reference for mouse position calculations"""
+	# Set the camera reference for mouse position calculations
 	camera = new_camera
 	if mouse_handler and mouse_handler.has_method("set_camera"):
 		mouse_handler.set_camera(new_camera)
 
 func set_viewport(new_viewport: Viewport) -> void:
-	"""Set the viewport reference for mouse position calculations"""
+	# Set the viewport reference for mouse position calculations
 	viewport = new_viewport
 	if mouse_handler and mouse_handler.has_method("set_viewport"):
 		mouse_handler.set_viewport(new_viewport)
 
 func set_hex_grid(grid: HexGrid) -> void:
-	"""Set the hex grid reference for cell lookups"""
+	# Set the hex grid reference for cell lookups
 	hex_grid = grid
 	if mouse_handler and mouse_handler.has_method("set_hex_grid"):
 		mouse_handler.set_hex_grid(grid)
 
 func verify_dependencies() -> bool:
-	"""Verify all dependencies are properly set"""
+	# Verify all dependencies are properly set
 	var all_ok = true
 
 	if not camera:
 		push_error("[IOController] CRITICAL: Camera not set!")
 		all_ok = false
-	else:
-		print("[IOController] ✓ Camera set")
 
 	if not viewport:
 		push_error("[IOController] CRITICAL: Viewport not set!")
 		all_ok = false
-	else:
-		print("[IOController] ✓ Viewport set")
 
 	if not hex_grid:
 		push_warning("[IOController] HexGrid not set - hover will not work")
-	else:
-		print("[IOController] ✓ HexGrid set")
 
 	if not mouse_handler:
 		push_error("[IOController] CRITICAL: MouseInputHandler not found!")
 		all_ok = false
-	else:
-		print("[IOController] ✓ MouseInputHandler found")
 
 	if not keyboard_handler:
 		push_error("[IOController] CRITICAL: KeyboardInputHandler not found!")
 		all_ok = false
-	else:
-		print("[IOController] ✓ KeyboardInputHandler found")
 
 	if all_ok:
 		is_initialized = true
@@ -183,7 +173,7 @@ func verify_dependencies() -> bool:
 # ============================================================================
 
 func _on_mouse_left_click(world_pos: Vector2) -> void:
-	"""Handle left click from mouse handler"""
+	# Handle left click from mouse handler
 	world_position_left_clicked.emit(world_pos)
 
 	# Check if position intersects with a hex cell
@@ -197,7 +187,7 @@ func _on_mouse_left_click(world_pos: Vector2) -> void:
 # ============================================================================
 
 func _process(_delta: float) -> void:
-	"""Track mouse hover over hex cells"""
+	# Track mouse hover over hex cells
 	if not hex_grid or not camera or not viewport:
 		return
 

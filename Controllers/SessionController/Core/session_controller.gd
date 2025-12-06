@@ -73,6 +73,7 @@ var agent_manager = null
 var io_controller = null
 var camera_controller = null
 var loading_modal = null
+var traversable_area_visualizer = null
 
 # --- Core helper instances ---
 var _initializer: SessionInitializer = SessionInitializer.new()
@@ -247,6 +248,11 @@ func initialize_session() -> void:
 				camera_controller.move_camera_to_agent(agents[0])
 		else:
 			push_warning("[SessionController] Camera2D not found - camera controller not initialized")
+
+	# Initialize navigable cells for the first agent before session starts
+	# This ensures the traversable area visualizer displays during loading
+	if agents.size() > 0:
+		update_navigable_cells(agents[0])
 
 	# Hide loading modal
 	if loading_modal:
@@ -465,6 +471,61 @@ func calculate_path(start: Vector2, goal: Vector2) -> void: navigation_controlle
 ## Debug mode controls.
 func set_debug_mode(enabled: bool) -> void: debug_controller.set_debug_visibility_requested.emit(enabled)
 func toggle_debug_mode() -> void: debug_controller.toggle_debug_requested.emit()
+
+## Traversable area visualizer controls.
+func set_traversable_area_visible(enabled: bool) -> void:
+	if traversable_area_visualizer:
+		traversable_area_visualizer.set_visualizer_enabled(enabled)
+
+func is_traversable_area_visible() -> bool:
+	if traversable_area_visualizer:
+		return traversable_area_visualizer.is_visualizer_enabled()
+	return false
+
+func toggle_traversable_area_visible() -> void:
+	set_traversable_area_visible(not is_traversable_area_visible())
+
+func get_traversable_area_visualizer():
+	return traversable_area_visualizer
+
+## String pulling controls.
+func set_string_pulling_enabled(enabled: bool) -> void:
+	if traversable_area_visualizer:
+		traversable_area_visualizer.set_use_string_pulling(enabled)
+
+func is_string_pulling_enabled() -> bool:
+	if traversable_area_visualizer:
+		return traversable_area_visualizer.use_string_pulling
+	return false
+
+func get_boundary_curve() -> PackedVector2Array:
+	if traversable_area_visualizer:
+		return traversable_area_visualizer.get_boundary_curve()
+	return PackedVector2Array()
+
+func get_string_puller() -> HexStringPuller:
+	if traversable_area_visualizer:
+		return traversable_area_visualizer.get_string_puller()
+	return null
+
+## Curve method controls (Chaikin vs Catmull-Rom).
+func set_curve_method(method: HexStringPuller.CurveMethod) -> void:
+	if traversable_area_visualizer:
+		traversable_area_visualizer.set_curve_method(method)
+
+func get_curve_method() -> HexStringPuller.CurveMethod:
+	if traversable_area_visualizer:
+		return traversable_area_visualizer.get_curve_method()
+	return HexStringPuller.CurveMethod.CHAIKIN
+
+func set_smoothing_iterations(iterations: int) -> void:
+	if traversable_area_visualizer:
+		traversable_area_visualizer.set_smoothing_iterations(iterations)
+
+func get_smoothing_iterations() -> int:
+	if traversable_area_visualizer:
+		return traversable_area_visualizer.get_smoothing_iterations()
+	return 2
 
 ## Refresh navmesh integration with the current grid setup.
 func refresh_navmesh_integration() -> void: hex_grid_controller.refresh_navmesh_integration()

@@ -172,7 +172,16 @@ func _record_movement(distance: int) -> bool:
 
 func _ensure_controller_active(turn_based, scene_tree: SceneTree) -> void:
 	if not turn_based.is_active:
+		turn_based.activate()
 		await scene_tree.process_frame
+
+	# Ensure state is IDLE before proceeding
+	if not turn_based.is_in_state(NavigationTypes.TurnState.IDLE):
+		var max_wait_frames := 60  # ~1 second at 60fps
+		var frames_waited := 0
+		while not turn_based.is_in_state(NavigationTypes.TurnState.IDLE) and frames_waited < max_wait_frames:
+			await scene_tree.process_frame
+			frames_waited += 1
 
 
 func _connect_completion_handler(turn_based) -> void:
