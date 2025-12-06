@@ -172,8 +172,7 @@ func _setup_io_controller() -> void:
 	# io_controller.hex_cell_hover_ended.connect(_on_io_cell_hover_ended)
 
 	# Keep other IO signals for main.gd-specific functionality
-	io_controller.camera_zoom_in_requested.connect(_on_io_zoom_in)
-	io_controller.camera_zoom_out_requested.connect(_on_io_zoom_out)
+	# NOTE: Zoom signals now handled by CameraController, not main.gd
 	io_controller.debug_report_requested.connect(_on_io_debug_report)
 	io_controller.clear_history_requested.connect(_on_io_clear_history)
 	io_controller.export_data_requested.connect(_on_io_export_data)
@@ -252,14 +251,6 @@ func _on_io_cell_hover_ended() -> void:
 	var debug_controller = session_controller.get_debug_controller()
 	if debug_controller:
 		debug_controller.set_hovered_cell(null)
-
-func _on_io_zoom_in() -> void:
-	"""Handle zoom in request from IOController"""
-	camera.zoom *= 1.1
-
-func _on_io_zoom_out() -> void:
-	"""Handle zoom out request from IOController"""
-	camera.zoom *= 0.9
 
 func _on_io_debug_report() -> void:
 	"""Handle debug report request from IOController"""
