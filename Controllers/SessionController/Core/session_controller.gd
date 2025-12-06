@@ -9,9 +9,7 @@ const SelectionControllerScript = preload("res://Controllers/SelectionController
 const AgentControllerScript = preload("res://Controllers/AgentController/Core/agent_controller.gd")
 
 signal session_initialized()
-signal session_started()
 signal session_ended()
-signal terrain_initialized()
 signal turn_changed(agent_data)
 signal navigable_cells_updated(cells: Array[HexCell])
 signal selection_changed(selection_data: Dictionary)
@@ -88,6 +86,9 @@ func _try_new(script: Resource, item_name: String, props := {}) -> Node:
 		push_error("Failed to create %s!" % item_name)
 		return null
 	var node = script.new()
+	if node == null:
+		push_error("Failed to instantiate %s: script.new() returned null" % item_name)
+		return null
 	node.name = item_name
 	for k in props:
 		node.set(k, props[k])
@@ -160,8 +161,6 @@ func initialize_session() -> void:
 	session_active = true
 	session_start_time = Time.get_ticks_msec() / 1000.0
 
-	terrain_initialized.emit()
-	session_started.emit()
 	session_initialized.emit()
 func _build_init_config() -> Dictionary:
 	return {"grid_width": grid_width, "grid_height": grid_height, "hex_size": hex_size, "navigation_region": navigation_region, "integrate_with_navmesh": integrate_with_navmesh, "navmesh_sample_points": navmesh_sample_points, "debug_mode": debug_mode, "spawn_agents_on_init": spawn_agents_on_init, "number_of_agents": number_of_agents, "max_agents": MAX_AGENTS, "session_controller": self}
@@ -225,8 +224,10 @@ func _on_selection_cleared() -> void:
 	selection_cleared.emit()
 
 func _on_cell_left_clicked(cell: HexCell) -> void:
-	if selection_controller and cell: selection_controller.select_object(cell)
-	var agent = agent_manager.get_active_agent() if agent_manager and cell else null
+	if not cell:
+		return
+	if selection_controller: selection_controller.select_object(cell)
+	var agent = agent_manager.get_active_agent() if agent_manager else null
 	if agent: _movement_planner.plan_movement(agent, cell)
 	cell_clicked.emit(cell)
 
