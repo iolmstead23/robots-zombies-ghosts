@@ -43,21 +43,51 @@ text = "Remove"
 
 [node name="ConfigRow" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
-theme_override_constants/separation = 20
+theme_override_constants/separation = 15
 
-[node name="RobotCountLabel" type="Label" parent="MarginContainer/VBoxContainer/ConfigRow"]
+[node name="TypeButtonsContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/ConfigRow"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="RobotButton" type="Button" parent="MarginContainer/VBoxContainer/ConfigRow/TypeButtonsContainer"]
+custom_minimum_size = Vector2(80, 35)
+layout_mode = 2
+toggle_mode = true
+button_pressed = true
+text = "Robot"
+
+[node name="GhostButton" type="Button" parent="MarginContainer/VBoxContainer/ConfigRow/TypeButtonsContainer"]
+custom_minimum_size = Vector2(80, 35)
+layout_mode = 2
+toggle_mode = true
+text = "Ghost"
+
+[node name="ZombieButton" type="Button" parent="MarginContainer/VBoxContainer/ConfigRow/TypeButtonsContainer"]
+custom_minimum_size = Vector2(80, 35)
+layout_mode = 2
+toggle_mode = true
+text = "Zombie"
+
+[node name="Spacer" type="Control" parent="MarginContainer/VBoxContainer/ConfigRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PartySizeLabel" type="Label" parent="MarginContainer/VBoxContainer/ConfigRow"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.9, 0.9, 0.95, 1)
 theme_override_font_sizes/font_size = 16
-text = "Agent Count:"
+text = "Party Size:"
 vertical_alignment = 1
 
-[node name="RobotCountSpinBox" type="SpinBox" parent="MarginContainer/VBoxContainer/ConfigRow"]
-custom_minimum_size = Vector2(120, 35)
+[node name="PartySizeSpinBox" type="SpinBox" parent="MarginContainer/VBoxContainer/ConfigRow"]
+custom_minimum_size = Vector2(100, 35)
 layout_mode = 2
 min_value = 1.0
 max_value = 100.0
 value = 1.0
 
 [connection signal="pressed" from="MarginContainer/VBoxContainer/HeaderRow/RemoveButton" to="." method="_on_remove_pressed"]
-[connection signal="value_changed" from="MarginContainer/VBoxContainer/ConfigRow/RobotCountSpinBox" to="." method="_on_agent_count_changed"]
+[connection signal="pressed" from="MarginContainer/VBoxContainer/ConfigRow/TypeButtonsContainer/RobotButton" to="." method="_on_robot_button_pressed"]
+[connection signal="pressed" from="MarginContainer/VBoxContainer/ConfigRow/TypeButtonsContainer/GhostButton" to="." method="_on_ghost_button_pressed"]
+[connection signal="pressed" from="MarginContainer/VBoxContainer/ConfigRow/TypeButtonsContainer/ZombieButton" to="." method="_on_zombie_button_pressed"]
+[connection signal="value_changed" from="MarginContainer/VBoxContainer/ConfigRow/PartySizeSpinBox" to="." method="_on_party_size_changed"]

@@ -20,12 +20,14 @@ extends Node
 
 signal object_selected(selection_data: Dictionary)
 signal selection_cleared()
+signal controller_ready()
 
 # ============================================================================
 # STATE
 # ============================================================================
 
 var currently_selected = null  # Any object with get_selection_data() method
+var is_initialized: bool = false
 
 # ============================================================================
 # LIFECYCLE
@@ -37,6 +39,9 @@ func _ready():
 
 	# Listen for new objects added to scene tree
 	get_tree().node_added.connect(_on_node_added)
+
+	is_initialized = true
+	controller_ready.emit()
 
 	if OS.is_debug_build():
 		print("SelectionController: Initialized")

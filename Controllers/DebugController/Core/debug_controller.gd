@@ -17,6 +17,9 @@ signal debug_info_updated(key: String, value: Variant)
 ## Emitted when hovered cell changes
 signal hovered_cell_changed(cell: HexCell)
 
+## Emitted when controller is fully initialized
+signal controller_ready()
+
 # ============================================================================
 # SIGNALS - Commands (Received from SessionController or UI)
 # ============================================================================
@@ -50,6 +53,7 @@ signal on_navigation_state_changed(nav_data: Dictionary)
 var debug_visible: bool = false  # Default to hidden to match SessionController
 var debug_data: Dictionary = {}
 var hovered_cell: HexCell = null
+var is_initialized: bool = false
 
 # Reference to SessionController (for checking navigability)
 var session_controller = null
@@ -87,9 +91,8 @@ func _ready():
 	on_grid_state_changed.connect(_on_grid_state_changed)
 	on_navigation_state_changed.connect(_on_navigation_state_changed)
 
-func _input(event):
-	if event.is_action_pressed("toggle_debug"):
-		toggle_debug_requested.emit()
+	is_initialized = true
+	controller_ready.emit()
 
 # ============================================================================
 # COMMAND HANDLERS

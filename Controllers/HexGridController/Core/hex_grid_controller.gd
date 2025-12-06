@@ -74,6 +74,9 @@ signal request_cells_in_range(request_id: String, center_pos: Vector2, range: in
 ## Query if position is navigable
 signal request_is_navigable(request_id: String, world_pos: Vector2)
 
+## Emitted when controller is fully initialized
+signal controller_ready()
+
 # ============================================================================
 # STATE
 # ============================================================================
@@ -87,6 +90,7 @@ var grid_width: int = 20
 var grid_height: int = 15
 var hex_size: float = 32.0
 var grid_offset: Vector2 = Vector2.ZERO
+var is_initialized: bool = false
 
 # ============================================================================
 # LIFECYCLE
@@ -132,6 +136,9 @@ func _on_initialize_grid_requested(width: int, height: int, size: float, offset:
 
 	grid_initialized.emit(grid_data)
 	grid_stats_changed.emit(stats)
+
+	is_initialized = true
+	controller_ready.emit()
 
 func _on_set_cell_enabled_requested(coords: Vector2i, enabled: bool):
 	if not hex_grid:

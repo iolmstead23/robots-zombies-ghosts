@@ -7,6 +7,7 @@ signal agent_turn_started(agent_data: AgentData)
 signal agent_turn_ended(agent_data: AgentData)
 signal all_agents_completed_round()
 signal movement_action_completed(agent_data: AgentData, movements_remaining: int)
+signal controller_ready()
 
 ## Exported/Configurable vars
 @export var agent_scene: PackedScene
@@ -38,27 +39,52 @@ func initialize(session_ctrl: Node) -> void:
 	session_controller = session_ctrl
 	_load_agent_scene()
 	is_initialized = true
+	controller_ready.emit()
 	_debug("Initialized with SessionController reference.")
 
 # ------------------------------------
 # SPAWN LOGIC
 # ------------------------------------
-func spawn_agents(count: int = -1) -> void:
+func spawn_agents(count: int = -1, parties: Array = []) -> void:
+	"""
+	Spawn agents based on party configuration.
+
+	Args:
+		count: Total agent count (backward compatibility)
+		parties: Array of party dictionaries with agent_type and agent_count
+	"""
 	if not is_initialized:
 		push_error("[AgentController] Not initialized.")
 		return
-	agent_count = clamp(count if count > 0 else agent_count, 1, 4)
+
+	# Determine spawn configuration
+	var spawn_configs = []
+	if parties.size() > 0:
+		spawn_configs = _build_spawn_configs_from_parties(parties)
+	else:
+		# Backward compatibility: spawn all as robots
+		agent_count = clamp(count if count > 0 else agent_count, 1, 4)
+		for i in agent_count:
+			spawn_configs.append({"index": i, "type": AgentTypes.Type.ROBOT})
+
 	_clear_agents()
-	var spawn_cells = _random_spawn_cells(agent_count)
-	if spawn_cells.size() < agent_count:
+	var spawn_cells = _random_spawn_cells(spawn_configs.size())
+	if spawn_cells.size() < spawn_configs.size():
 		push_error("[AgentController] Not enough spawn cells.")
 		return
-	for i in agent_count:
-		agents.append(_spawn_agent(i, spawn_cells[i]))
+
+	for i in spawn_configs.size():
+		var config = spawn_configs[i]
+		agents.append(_spawn_agent(config.index, spawn_cells[i], config.type))
+
 	if agents.any(func(a): return a == null):
 		push_error("[AgentController] Invalid agent in agents array.")
 		_clear_agents()
 		return
+
+	# Update agent_count to match actual spawned agents
+	agent_count = agents.size()
+
 	agents_spawned.emit(agents.size())
 	if agents.size() > 0:
 		session_active = true
@@ -100,17 +126,47 @@ func _is_valid_spawn_location(cell: HexCell, existing_cells: Array[HexCell], min
 			return false
 	return true
 
-func _spawn_agent(index: int, cell: HexCell) -> AgentData:
+func _build_spawn_configs_from_parties(parties: Array) -> Array:
+	"""
+	Build spawn configuration array from party definitions.
+
+	Returns: Array of {index: int, type: AgentTypes.Type}
+	"""
+	var configs = []
+	var agent_index = 0
+
+	for party in parties:
+		if not party is Dictionary:
+			continue
+
+		var type_str = party.get("agent_type", "robot")
+		var type_enum = AgentTypes.type_from_string(type_str)
+		var count = party.get("agent_count", 1)
+
+		for i in count:
+			configs.append({
+				"index": agent_index,
+				"type": type_enum
+			})
+			agent_index += 1
+
+	return configs
+
+func _spawn_agent(index: int, cell: HexCell, agent_type: AgentTypes.Type = AgentTypes.Type.ROBOT) -> AgentData:
 	if not agent_scene:
 		push_error("[AgentController] Agent scene not loaded!")
 		return null
 	var ac = agent_scene.instantiate()
 	add_child(ac)
+
+	# Load type-specific sprite
+	_apply_agent_sprite(ac, agent_type)
+
 	var pos = cell.world_position
 	ac.global_position = pos
 	var agent_id = "agent_%d" % index
-	var ad = AgentData.new(agent_id, ac)
-	ad.agent_name = "Agent %d" % (index + 1)
+	var ad = AgentData.new(agent_id, ac, agent_type)
+	ad.agent_name = "%s %d" % [AgentTypes.get_display_name(agent_type), index + 1]
 	ad.max_movements_per_turn = max_movements_per_turn
 	ad.current_position = pos
 	ad.set_current_cell(cell)  # Set the current hex cell
@@ -128,6 +184,30 @@ func _configure_agent_controller(ac):
 	else:
 		push_warning("[AgentController] SessionController is null - cannot configure agent navigation")
 
+func _apply_agent_sprite(agent_controller: Node, agent_type: AgentTypes.Type) -> void:
+	"""
+	Apply type-specific sprite to agent.
+
+	Args:
+		agent_controller: Agent node instance
+		agent_type: Type of agent to load sprite for
+	"""
+	var sprite_path = AgentTypes.get_sprite_path(agent_type)
+	var sprite_frames = load(sprite_path)
+
+	if not sprite_frames:
+		push_error("[AgentController] Failed to load sprite for type: %s" % AgentTypes.get_display_name(agent_type))
+		return
+
+	# Get AnimatedSprite2D child node
+	var animated_sprite = agent_controller.get_node_or_null("AnimatedSprite2D")
+	if animated_sprite:
+		animated_sprite.sprite_frames = sprite_frames
+		if OS.is_debug_build():
+			print("[AgentController] Applied sprite for type: %s" % AgentTypes.get_display_name(agent_type))
+	else:
+		push_warning("[AgentController] AnimatedSprite2D not found on agent")
+
 # ------------------------------------
 # AGENT TURN LOGIC
 # ------------------------------------
@@ -139,7 +219,6 @@ func start_agent_turn(agent_data: AgentData) -> void:
 		return
 	_cleanup_agent_turn()
 	active_agent_index = idx
-	_set_agents_controllable(active_agent_index)
 	agents[active_agent_index].start_turn()
 	_activate_agent_turn_mode(agents[active_agent_index])
 	agent_turn_started.emit(agents[active_agent_index])
@@ -154,7 +233,6 @@ func _next_agent_turn():
 		active_agent_index = 0
 		current_round += 1
 		all_agents_completed_round.emit()
-	_set_agents_controllable(active_agent_index)
 	agents[active_agent_index].start_turn()
 	_activate_agent_turn_mode(agents[active_agent_index])
 	agent_turn_started.emit(agents[active_agent_index])

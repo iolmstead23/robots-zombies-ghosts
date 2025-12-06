@@ -1,14 +1,11 @@
-"""
-SessionController.gd
-
-Core manager for the entire game session. Handles initialization, controller setup, game turn management,
-signal routing, and main session lifecycle functions (start, end, reset, etc.). Binds together grid,
-navigation, debug, UI, selection, and agent management.
-
-Provides the main interface for other systems to interact with the session's state.
-
-Signals are emitted for session and turn events, cell interactions, and selection changes.
-"""
+## SessionController - Core manager for the entire game session
+##
+## Handles initialization, controller setup, game turn management, signal routing,
+## and main session lifecycle functions (start, end, reset, etc.). Binds together
+## grid, navigation, debug, UI, selection, and agent management.
+##
+## Provides the main interface for other systems to interact with the session's state.
+## Signals are emitted for session and turn events, cell interactions, and selection changes.
 
 class_name SessionController
 extends Node2D
@@ -21,6 +18,7 @@ const UIControllerScript = preload("res://Controllers/UIController/Controller/UI
 const SelectionControllerScript = preload("res://Controllers/SelectionController/Core/selection_controller.gd")
 const AgentControllerScript = preload("res://Controllers/AgentController/Core/agent_controller.gd")
 const CameraControllerScript = preload("res://Controllers/CameraController/Core/camera_controller.gd")
+const LoadingModalScene = preload("res://Controllers/UIController/Implementations/LoadingModal/LoadingModal.tscn")
 
 # --- Signals for session and UI events ---
 signal session_initialized()
@@ -30,16 +28,19 @@ signal navigable_cells_updated(cells: Array[HexCell])
 signal selection_changed(selection_data: Dictionary)
 signal selection_cleared()
 signal cell_clicked(cell: HexCell)
-signal cell_right_clicked(cell: HexCell)
 signal cell_hovered(cell: HexCell)
 signal cell_hover_ended()
+signal grid_hex_size_updated(hex_size: float)
 
 # --- Exported properties grouped by category for editing in Godot editor ---
 @export_group("Grid")
 @export var grid_width: int = 20
 @export var grid_height: int = 15
-@export var hex_size: float = 32.0
+@export var hex_size: float = 32.0  # Default/fallback value
 @export var auto_initialize: bool = true
+
+# --- Actual calculated values ---
+var actual_hex_size: float = 32.0  # Actual calculated value from grid initialization
 
 @export_group("Navigation")
 @export var navigation_region: NavigationRegion2D
@@ -48,7 +49,6 @@ signal cell_hover_ended()
 
 @export_group("Debug")
 @export var debug_mode: bool = false
-@export var debug_hotkey_enabled: bool = true
 
 @export_group("Agents")
 const MAX_AGENTS: int = 4
@@ -72,6 +72,7 @@ var selection_controller = null
 var agent_manager = null
 var io_controller = null
 var camera_controller = null
+var loading_modal = null
 
 # --- Core helper instances ---
 var _initializer: SessionInitializer = SessionInitializer.new()
@@ -92,6 +93,10 @@ func _ready() -> void:
 
 ## Instantiate and add all necessary controller nodes as children.
 func _init_all_controllers() -> void:
+	# Create loading modal first so it's available during initialization
+	loading_modal = LoadingModalScene.instantiate()
+	add_child(loading_modal)
+
 	hex_grid_controller = _try_new(HexGridControllerScript, "HexGridController")
 	navigation_controller = _try_new(NavigationControllerScript, "NavigationController")
 	debug_controller = _try_new(DebugControllerScript, "DebugController", {"session_controller": self})
@@ -107,8 +112,9 @@ func _init_all_controllers() -> void:
 ## Configure helper instances with appropriate controllers.
 func _init_packages() -> void:
 	_initializer.configure(hex_grid_controller, navigation_controller, agent_manager, debug_controller)
+	_initializer.stage_changed.connect(_on_init_stage_changed)
 	_movement_planner.configure(navigation_controller, hex_grid_controller, agent_manager)
-	_input_handler.configure(_movement_planner, debug_hotkey_enabled)
+	_input_handler.configure(_movement_planner)
 
 ## Instantiate a node from a script and add to scene tree, optionally set properties.
 func _try_new(script: Resource, item_name: String, props := {}) -> Node:
@@ -128,6 +134,7 @@ func _try_new(script: Resource, item_name: String, props := {}) -> Node:
 ## Wire up signals between controllers and orchestrator logic.
 func _connect_signals() -> void:
 	hex_grid_controller.grid_initialized.connect(_event_router.on_grid_initialized)
+	hex_grid_controller.grid_initialized.connect(_on_grid_initialized)
 	hex_grid_controller.cell_state_changed.connect(_event_router.on_cell_state_changed)
 	hex_grid_controller.grid_stats_changed.connect(_event_router.on_grid_stats_changed)
 	hex_grid_controller.cell_at_position_response.connect(_route_to_navigation_controller)
@@ -157,7 +164,6 @@ func _connect_signals() -> void:
 
 	_input_handler.execute_movement_requested.connect(func(): _movement_planner.execute_movement(get_tree()))
 	_input_handler.cancel_movement_requested.connect(_movement_planner.cancel_movement)
-	_input_handler.toggle_debug_requested.connect(func(): debug_controller.toggle_debug_requested.emit())
 
 	_initializer.agents_ready.connect(_on_agents_ready)
 
@@ -166,13 +172,24 @@ func _connect_signals() -> void:
 		agent_manager.agent_turn_started.connect(_on_agent_turn_started_camera)
 		debug_controller.debug_visibility_changed.connect(_on_debug_visibility_changed_camera)
 
+## Capture actual hex_size after grid initialization
+func _on_grid_initialized(grid_data: Dictionary) -> void:
+	if grid_data.has("hex_size"):
+		actual_hex_size = grid_data.get("hex_size")
+		if OS.is_debug_build():
+			print("[SessionController] Grid initialized with hex_size: ", actual_hex_size)
+		grid_hex_size_updated.emit(actual_hex_size)
+	else:
+		# Fallback to exported hex_size property
+		actual_hex_size = hex_size
+		push_warning("[SessionController] grid_data missing hex_size, using fallback: ", actual_hex_size)
+
 ## Set the IO controller and connect UI gestures to logic.
 func connect_io_controller(io_ctrl) -> void:
 	io_controller = io_ctrl
 	if not io_controller:
 		return
 	io_controller.hex_cell_left_clicked.connect(_on_cell_left_clicked)
-	io_controller.hex_cell_right_clicked.connect(_on_cell_right_clicked)
 	io_controller.hex_cell_hovered.connect(_on_cell_hovered)
 	io_controller.hex_cell_hover_ended.connect(_on_cell_hover_ended)
 
@@ -183,6 +200,10 @@ func connect_io_controller(io_ctrl) -> void:
 
 ## Begins the session and sets up agents.
 func initialize_session() -> void:
+	# Show loading modal
+	if loading_modal:
+		loading_modal.show_modal()
+
 	number_of_agents = SessionData.get_total_agent_count()
 	agent_manager.initialize(self)
 
@@ -199,6 +220,9 @@ func initialize_session() -> void:
 		_abort_session("Initialization failed")
 		return
 
+	# Apply debug mode from SessionData (set in session setup menu) or fallback to exported property
+	var session_debug_enabled = SessionData.is_debug_enabled()
+	debug_mode = session_debug_enabled if session_debug_enabled else debug_mode
 	debug_controller.set_debug_visibility_requested.emit(debug_mode)
 	session_active = true
 	session_start_time = Time.get_ticks_msec() / 1000.0
@@ -210,7 +234,9 @@ func initialize_session() -> void:
 		if camera:
 			camera_controller.initialize(self, camera)
 			camera_controller.set_hex_grid_controller(hex_grid_controller)
-			print("[SessionController] CameraController initialized")
+
+			# Pass actual hex_size to camera controller
+			camera_controller.set_hex_size(actual_hex_size)
 
 			# Initial smooth transition to first agent
 			if agents.size() > 0:
@@ -218,6 +244,10 @@ func initialize_session() -> void:
 				camera_controller.move_camera_to_agent(agents[0])
 		else:
 			push_warning("[SessionController] Camera2D not found - camera controller not initialized")
+
+	# Hide loading modal
+	if loading_modal:
+		loading_modal.hide_modal()
 
 	session_initialized.emit()
 
@@ -234,6 +264,7 @@ func _build_init_config() -> Dictionary:
 		"spawn_agents_on_init": spawn_agents_on_init,
 		"number_of_agents": number_of_agents,
 		"max_agents": MAX_AGENTS,
+		"session_parties": SessionData.get_session_parties(),
 		"session_controller": self
 	}
 
@@ -275,7 +306,6 @@ func _on_agents_ready(spawned_agents: Array) -> void:
 func _on_agents_spawned(_count: int) -> void: pass
 func _on_agent_turn_ended(_data: AgentData) -> void: _movement_planner.cancel_movement()
 func _on_all_agents_completed_round() -> void: _movement_planner.cancel_movement()
-func _on_cell_right_clicked(cell: HexCell) -> void: cell_right_clicked.emit(cell)
 
 ## Start a new agent turn.
 func _on_agent_turn_started(data: AgentData) -> void:
@@ -436,13 +466,13 @@ func refresh_navmesh_integration() -> void: hex_grid_controller.refresh_navmesh_
 ## Camera controller signal handlers
 func _on_agent_turn_started_camera(agent_data: AgentData) -> void:
 	"""Route agent turn start to camera for smooth transition"""
-	if camera_controller:
+	if camera_controller and camera_controller.is_initialized:
 		camera_controller.move_camera_to_agent(agent_data)
 
-func _on_debug_visibility_changed_camera(visible: bool) -> void:
+func _on_debug_visibility_changed_camera(debug_visible: bool) -> void:
 	"""Route debug visibility to camera for free roam toggle"""
 	if camera_controller:
-		if visible:
+		if debug_visible:
 			camera_controller.enable_free_roam()
 		else:
 			camera_controller.disable_free_roam()
@@ -456,3 +486,10 @@ func _on_camera_zoom_out_requested() -> void:
 	"""Route zoom out request from IOController to CameraController"""
 	if camera_controller:
 		camera_controller.zoom_out()
+
+## Loading modal signal handler
+func _on_init_stage_changed(stage_name: String, stage_number: int, total_stages: int) -> void:
+	"""Update loading modal with current initialization stage"""
+	if loading_modal:
+		loading_modal.total_stages = total_stages
+		loading_modal.set_stage(stage_name, stage_number)

@@ -114,6 +114,41 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 10
 
+[node name="SessionOptionsFooter" type="PanelContainer" parent="VBoxContainer"]
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+
+[node name="SessionOptionsBg" type="ColorRect" parent="VBoxContainer/SessionOptionsFooter"]
+layout_mode = 2
+color = Color(0.18, 0.2, 0.25, 1)
+
+[node name="MarginContainer" type="MarginContainer" parent="VBoxContainer/SessionOptionsFooter"]
+layout_mode = 2
+theme_override_constants/margin_left = 40
+theme_override_constants/margin_top = 15
+theme_override_constants/margin_right = 40
+theme_override_constants/margin_bottom = 15
+
+[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/SessionOptionsFooter/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="OptionsLabel" type="Label" parent="VBoxContainer/SessionOptionsFooter/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.7, 0.75, 1)
+theme_override_font_sizes/font_size = 14
+text = "Session Options"
+
+[node name="OptionsContainer" type="HBoxContainer" parent="VBoxContainer/SessionOptionsFooter/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 30
+
+[node name="DebugModeCheckbox" type="CheckBox" parent="VBoxContainer/SessionOptionsFooter/MarginContainer/VBoxContainer/OptionsContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.9, 0.95, 1)
+theme_override_font_sizes/font_size = 16
+text = "Enable Debug Mode"
+
 [node name="BottomBar" type="PanelContainer" parent="VBoxContainer"]
 custom_minimum_size = Vector2(0, 100)
 layout_mode = 2
@@ -135,4 +170,5 @@ text = "Start Session"
 
 [connection signal="pressed" from="VBoxContainer/TopMenu/HBoxContainer/BackButton" to="." method="_on_back_pressed"]
 [connection signal="pressed" from="VBoxContainer/ContentArea/MainContent/PartiesSection/PartiesHeader/AddPartyButton" to="." method="_on_add_party_pressed"]
+[connection signal="toggled" from="VBoxContainer/SessionOptionsFooter/MarginContainer/VBoxContainer/OptionsContainer/DebugModeCheckbox" to="." method="_on_debug_mode_toggled"]
 [connection signal="pressed" from="VBoxContainer/BottomBar/CenterContainer/StartSessionButton" to="." method="_on_start_session_pressed"]

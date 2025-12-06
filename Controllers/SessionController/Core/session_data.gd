@@ -11,6 +11,7 @@ func _ready() -> void:
 
 # Session configuration data
 var session_parties = []
+var debug_enabled: bool = false
 
 # Harden: Forbid storing Node/agent node references in session_parties (config only)
 func _recursive_find_node(val, path := "") -> Variant:
@@ -63,7 +64,9 @@ func get_total_agent_count():
 		if party == null or typeof(party) != TYPE_DICTIONARY:
 			printerr("[SessionData] WARNING: session_parties[%d] is invalid in get_total_agent_count (party=%s)" % [i, str(party)])
 			continue
-		if "type" in party and party.type == "agent" and "agent_count" in party and typeof(party.agent_count) == TYPE_INT:
+		# Support both old "type" field and new "agent_type" field for backward compatibility
+		var is_agent_party = (party.has("type") and party.type == "agent") or party.has("agent_type")
+		if is_agent_party and "agent_count" in party and typeof(party.agent_count) == TYPE_INT:
 			total += party.agent_count
 		else:
 			printerr("[SessionData] WARNING: party[%d] missing required keys or has wrong type: %s" % [i, str(party)])
@@ -71,3 +74,10 @@ func get_total_agent_count():
 
 func clear_session():
 	session_parties.clear()
+	debug_enabled = false
+
+func set_debug_enabled(enabled: bool) -> void:
+	debug_enabled = enabled
+
+func is_debug_enabled() -> bool:
+	return debug_enabled
