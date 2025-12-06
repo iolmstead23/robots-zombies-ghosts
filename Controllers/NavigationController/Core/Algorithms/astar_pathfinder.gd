@@ -33,10 +33,10 @@ func find_path(start: HexCell, goal: HexCell, hex_grid: HexGrid, movement_cost: 
 	_reset_state()
 	_initialize_start(start, goal)
 
-	return _execute_astar(start, goal, hex_grid, movement_cost)
+	return _execute_astar(goal, hex_grid, movement_cost)
 
 ## Execute A* algorithm main loop
-func _execute_astar(start: HexCell, goal: HexCell, hex_grid: HexGrid, movement_cost: float) -> Array[HexCell]:
+func _execute_astar(goal: HexCell, hex_grid: HexGrid, movement_cost: float) -> Array[HexCell]:
 	while not _open_set.is_empty():
 		var current := _get_lowest_f_score()
 

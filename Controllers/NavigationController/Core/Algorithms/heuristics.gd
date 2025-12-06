@@ -25,13 +25,10 @@ static func hex_euclidean(from: HexCell, to: HexCell) -> float:
 	return from_world.distance_to(to_world)
 
 ## Axial hex distance heuristic with weighted costs
-static func diagonal_distance(from: HexCell, to: HexCell, straight_cost: float = 1.0, diagonal_cost: float = 1.0) -> float:
+static func diagonal_distance(from: HexCell, to: HexCell, straight_cost: float = 1.0) -> float:
 	var dq: int = abs(from.q - to.q)
 	var dr: int = abs(from.r - to.r)
 	var hex_steps: int = (dq + dr + abs(dq + dr)) / 2
-
-	# For hex grids, use straight_cost as the base per-step cost
-	# diagonal_cost can be used if you need to distinguish movement types
 	return float(hex_steps) * straight_cost
 
 # ----------------------

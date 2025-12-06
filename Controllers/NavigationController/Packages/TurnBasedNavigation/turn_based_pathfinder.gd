@@ -35,10 +35,8 @@ func initialize(player_ref: CharacterBody2D, grid: HexGrid = null, hex_pathfinde
 	hex_grid = grid
 	hex_pathfinder = hex_pathfinder_ref
 
-	if not hex_grid and OS.is_debug_build():
-		push_warning("TurnBasedPathfinder: HexGrid not provided")
-	if not hex_pathfinder and OS.is_debug_build():
-		push_warning("TurnBasedPathfinder: HexPathfinder not provided")
+	# Components may be deferred - will be set via set_hex_components()
+	# Validation happens in _validate_components() when pathfinding is attempted
 
 	if OS.is_debug_build():
 		print("TurnBasedPathfinder: Initialized")
@@ -125,11 +123,18 @@ func get_hex_path() -> Array[HexCell]:
 # ============================================================================
 
 func _validate_components() -> bool:
-	if not hex_grid or not hex_pathfinder or not player:
-		if OS.is_debug_build():
-			push_error("TurnBasedPathfinder: Missing components")
-		return false
-	return true
+	var valid = hex_grid != null and hex_pathfinder != null and player != null
+
+	if not valid and OS.is_debug_build():
+		# Provide specific warnings about what's missing
+		if not hex_grid:
+			push_warning("TurnBasedPathfinder: Attempted pathfinding without HexGrid")
+		if not hex_pathfinder:
+			push_warning("TurnBasedPathfinder: Attempted pathfinding without HexPathfinder")
+		if not player:
+			push_warning("TurnBasedPathfinder: Attempted pathfinding without player reference")
+
+	return valid
 
 # ============================================================================
 # INTERNAL - PATH PROCESSING

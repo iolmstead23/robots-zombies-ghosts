@@ -64,10 +64,11 @@ func _ready() -> void:
 	# Connect to navigation controller signals for logging
 	var nav_controller = session_controller.get_navigation_controller()
 	if nav_controller:
-		nav_controller.navigation_started.connect(_on_navigation_started)
-		nav_controller.navigation_completed.connect(_on_navigation_completed)
+		# Real-time navigation signals (disabled for turn-based gameplay)
+		# nav_controller.navigation_started.connect(_on_navigation_started)
+		# nav_controller.navigation_completed.connect(_on_navigation_completed)
 		nav_controller.navigation_failed.connect(_on_navigation_failed)
-		nav_controller.waypoint_reached.connect(_on_waypoint_reached)
+		# nav_controller.waypoint_reached.connect(_on_waypoint_reached)
 		nav_controller.path_found.connect(_on_path_found)
 		nav_controller.path_not_found.connect(_on_path_not_found)
 

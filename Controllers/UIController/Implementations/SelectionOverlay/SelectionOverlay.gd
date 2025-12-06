@@ -176,13 +176,24 @@ func _update_selection_labels(item_data: Dictionary) -> void:
 
 func _format_metadata(metadata: Dictionary) -> String:
 	"""Format metadata dictionary for display"""
-	if metadata.is_empty():
-		return "(No properties)"
+	# Filter out technical/debug properties (same as SelectionSchema)
+	const FILTERED_KEYS = [
+		"coordinates", "index", "world_position", "enabled", "navigable", "q", "r",
+		"position", "in_scene", "test_status", "is_selectable"
+	]
+
+	var display_metadata = {}
+	for key in metadata:
+		if key not in FILTERED_KEYS:
+			display_metadata[key] = metadata[key]
+
+	if display_metadata.is_empty():
+		return ""  # Don't show anything if no properties to display
 
 	var lines: Array = ["--- Properties ---"]
 
-	for key in metadata:
-		var formatted_line = _format_metadata_line(key, metadata[key])
+	for key in display_metadata:
+		var formatted_line = _format_metadata_line(key, display_metadata[key])
 		lines.append(formatted_line)
 
 	return "\n".join(lines)

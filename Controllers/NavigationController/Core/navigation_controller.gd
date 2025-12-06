@@ -19,17 +19,8 @@ signal path_found(start: HexCell, goal: HexCell, path: Array[HexCell], duration_
 ## Emitted when pathfinding fails
 signal path_not_found(start_pos: Vector2, goal_pos: Vector2, reason: String)
 
-## Emitted when agent navigation starts
-signal navigation_started(target: HexCell)
-
-## Emitted when agent navigation completes successfully
-signal navigation_completed()
-
 ## Emitted when agent navigation fails
 signal navigation_failed(reason: String)
-
-## Emitted when agent reaches a waypoint
-signal waypoint_reached(cell: HexCell, index: int, remaining: int)
 
 ## Emitted when navigation state changes
 signal navigation_state_changed(active: bool, path_length: int, remaining_distance: int)
@@ -289,7 +280,7 @@ func _handle_path_request_response(path_request_id: String, cell_request_id: Str
 func _handle_nav_request_response(request_id: String, cell: HexCell):
 	# Update and complete request using Core RequestManager
 	_request_manager.update_nav_request(request_id, cell)
-	var request = _request_manager.complete_nav_request(request_id)
+	var _request = _request_manager.complete_nav_request(request_id)
 
 	# Validate cell using Core PathValidator
 	if not PathValidator.is_cell_valid(cell):

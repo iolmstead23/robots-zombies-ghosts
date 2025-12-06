@@ -260,5 +260,5 @@ func update_style(
 ##
 ## Stub provided for audit and robustness—child classes should override to implement turn-specific behavior.
 ## Ensures overlays can safely and explicitly react to turn changes.
-func _on_turn_changed(agent_data):
+func _on_turn_changed(_turn_info: Dictionary):
 	pass
