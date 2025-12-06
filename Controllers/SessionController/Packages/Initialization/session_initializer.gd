@@ -23,9 +23,9 @@ func configure(hex_grid_ctrl, nav_ctrl, agent_mgr, debug_ctrl) -> void:
 
 
 func initialize(config: Dictionary, scene_tree: SceneTree) -> SessionTypes.InitResult:
-	var grid_offset := _align_grid_with_navmesh(config)
+	var grid_params := _align_grid_with_navmesh(config)
 
-	var grid_result := await _wait_for_grid_init(config, grid_offset, scene_tree)
+	var grid_result := await _wait_for_grid_init(config, grid_params, scene_tree)
 	if grid_result != SessionTypes.InitResult.SUCCESS:
 		initialization_failed.emit("Grid initialization failed")
 		return grid_result
@@ -52,29 +52,44 @@ func initialize(config: Dictionary, scene_tree: SceneTree) -> SessionTypes.InitR
 	return SessionTypes.InitResult.SUCCESS
 
 
-func _align_grid_with_navmesh(config: Dictionary) -> Vector2:
+func _align_grid_with_navmesh(config: Dictionary) -> Dictionary:
+	"""Calculate grid offset AND dimensions from navmesh"""
 	var nav_region: NavigationRegion2D = config.get("navigation_region")
+
+	# Return empty dict if navmesh integration disabled
 	if not config.get("integrate_with_navmesh", false):
-		return Vector2.ZERO
+		return {}
+
 	if not nav_region or not nav_region.navigation_polygon:
-		return Vector2.ZERO
+		return {}
 
 	var bounds := _calculate_navmesh_bounds(nav_region.navigation_polygon)
 	if bounds.size.x <= 0:
-		return Vector2.ZERO
+		return {}
 
-	return nav_region.global_position + bounds.position
+	# Calculate grid dimensions dynamically
+	var grid_params := _calculate_grid_dimensions(bounds)
+	grid_params["offset"] = nav_region.global_position + bounds.position
+
+	return grid_params
 
 
-func _wait_for_grid_init(config: Dictionary, offset: Vector2, scene_tree: SceneTree) -> SessionTypes.InitResult:
+func _wait_for_grid_init(config: Dictionary, grid_params: Dictionary, scene_tree: SceneTree) -> SessionTypes.InitResult:
 	var state := {"done": false}
 	var handler := func(_data): state.done = true
 
 	_hex_grid_controller.grid_initialized.connect(handler, CONNECT_ONE_SHOT)
+
+	# Use calculated dimensions if available, else fall back to config
+	var grid_width = grid_params.get("grid_width", config.get("grid_width", 20))
+	var grid_height = grid_params.get("grid_height", config.get("grid_height", 15))
+	var hex_size = grid_params.get("hex_size", config.get("hex_size", 32.0))
+	var offset = grid_params.get("offset", Vector2.ZERO)
+
 	_hex_grid_controller.initialize_grid_requested.emit(
-		config.get("grid_width", 20),
-		config.get("grid_height", 15),
-		config.get("hex_size", 32.0),
+		grid_width,
+		grid_height,
+		hex_size,
 		offset
 	)
 
@@ -182,3 +197,49 @@ func _calculate_navmesh_bounds(nav_poly: NavigationPolygon) -> Rect2:
 		return Rect2()
 
 	return Rect2(min_pos, max_pos - min_pos)
+
+
+func _calculate_grid_dimensions(bounds: Rect2) -> Dictionary:
+	"""Calculate optimal grid dimensions from navmesh bounds"""
+	const TARGET_HEX_SIZE := 12.0
+	const MAX_CELLS := 10000
+	const MIN_HEX_SIZE := 8.0
+
+	var hex_size := TARGET_HEX_SIZE
+	var grid_width := 0
+	var grid_height := 0
+	var total_cells := 0
+
+	# Calculate dimensions for target hex size
+	var horizontal_spacing := hex_size * 1.5
+	var vertical_spacing := hex_size * sqrt(3.0)
+
+	grid_width = ceili(bounds.size.x / horizontal_spacing) + 1
+	grid_height = ceili(bounds.size.y / vertical_spacing) + 1
+	total_cells = grid_width * grid_height
+
+	# Scale up hex size if exceeds max cells
+	if total_cells > MAX_CELLS:
+		var scale_factor := sqrt(float(total_cells) / float(MAX_CELLS))
+		hex_size = max(hex_size * scale_factor, MIN_HEX_SIZE)
+
+		# Recalculate with scaled hex size
+		horizontal_spacing = hex_size * 1.5
+		vertical_spacing = hex_size * sqrt(3.0)
+		grid_width = ceili(bounds.size.x / horizontal_spacing) + 1
+		grid_height = ceili(bounds.size.y / vertical_spacing) + 1
+		total_cells = grid_width * grid_height
+
+	if OS.is_debug_build():
+		print("[SessionInitializer] Dynamic grid sizing:")
+		print("  Navmesh bounds: ", bounds.size)
+		print("  Hex size: ", hex_size)
+		print("  Grid dimensions: %dx%d" % [grid_width, grid_height])
+		print("  Total cells: ", total_cells)
+
+	return {
+		"hex_size": hex_size,
+		"grid_width": grid_width,
+		"grid_height": grid_height,
+		"total_cells": total_cells
+	}

@@ -176,15 +176,10 @@ func _update_selection_labels(item_data: Dictionary) -> void:
 
 func _format_metadata(metadata: Dictionary) -> String:
 	"""Format metadata dictionary for display"""
-	# Filter out technical/debug properties (same as SelectionSchema)
-	const FILTERED_KEYS = [
-		"coordinates", "index", "world_position", "enabled", "navigable", "q", "r",
-		"position", "in_scene", "test_status", "is_selectable"
-	]
-
+	# Filter out technical/debug properties using SelectionSchema's source of truth
 	var display_metadata = {}
 	for key in metadata:
-		if key not in FILTERED_KEYS:
+		if key not in SelectionSchema.FILTERED_METADATA_KEYS:
 			display_metadata[key] = metadata[key]
 
 	if display_metadata.is_empty():
