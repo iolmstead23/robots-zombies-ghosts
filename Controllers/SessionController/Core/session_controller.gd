@@ -217,6 +217,9 @@ func initialize_session() -> void:
 	var result := await _initializer.initialize(config, get_tree())
 
 	if result != SessionTypes.InitResult.SUCCESS:
+		# Hide loading modal before aborting to prevent stuck UI
+		if loading_modal:
+			loading_modal.hide_modal()
 		_abort_session("Initialization failed")
 		return
 
@@ -271,6 +274,9 @@ func _build_init_config() -> Dictionary:
 ## Stop and clean up the current session.
 func _abort_session(msg: String) -> void:
 	push_error(msg)
+	# Hide loading modal if it's still visible
+	if loading_modal:
+		loading_modal.hide_modal()
 	agents.clear()
 	current_agent_index = 0
 	session_active = false

@@ -44,9 +44,6 @@ func _ready() -> void:
 	agent_manager = session_controller.get_agent_manager()
 	if agent_manager:
 		agent_manager.agent_turn_started.connect(_on_agent_turn_started)
-		agent_manager.agent_turn_ended.connect(_on_agent_turn_ended)
-		agent_manager.movement_action_completed.connect(_on_movement_action_completed)
-		agent_manager.all_agents_completed_round.connect(_on_all_agents_completed_round)
 
 		# Get initial active agent
 		active_agent_data = agent_manager.get_active_agent()
@@ -59,8 +56,6 @@ func _ready() -> void:
 		# nav_controller.navigation_completed.connect(_on_navigation_completed)
 		nav_controller.navigation_failed.connect(_on_navigation_failed)
 		# nav_controller.waypoint_reached.connect(_on_waypoint_reached)
-		nav_controller.path_found.connect(_on_path_found)
-		nav_controller.path_not_found.connect(_on_path_not_found)
 
 	# Add NavAgent2D follower to agent for automatic movement (only if single agent exists)
 	if agent:
@@ -102,10 +97,6 @@ func _create_io_controller() -> void:
 		var camera_handler = preload("res://Controllers/IOController/Input/camera_input_handler.gd").new()
 		camera_handler.name = "CameraInputHandler"
 
-		# CRITICAL FIX: Set dependencies BEFORE adding as children
-		mouse_handler.set_camera(camera)
-		mouse_handler.set_viewport(get_viewport())
-
 		# Now add IOController and handlers to scene tree
 		add_child(io_controller)
 		io_controller.add_child(mouse_handler)
@@ -145,6 +136,7 @@ func _connect_io_controller() -> void:
 	# Verify IOController dependencies
 	if not io_controller.verify_dependencies():
 		push_error("⚠️ IOController dependency verification FAILED")
+		return
 
 func _ensure_camera_free_roam_if_debug() -> void:
 	"""Force camera into free roam mode if debug is enabled"""
@@ -294,28 +286,9 @@ func _handle_cell_click(cell: HexCell) -> void:
 # NAVIGATION CONTROLLER CALLBACKS
 # ============================================================================
 
-func _on_path_found(_start: HexCell, goal: HexCell, path: Array[HexCell], duration_ms: float) -> void:
-	pass
-
-func _on_path_not_found(_start_pos: Vector2, _goal_pos: Vector2, reason: String) -> void:
-	pass
-
-func _on_navigation_started(target_cell: HexCell) -> void:
-	"""Called when agent navigation starts"""
-	pass
-
-func _on_navigation_completed() -> void:
-	"""Called when navigation reaches destination"""
-	pass
-
 func _on_navigation_failed(reason: String) -> void:
 	"""Called when navigation fails"""
 	push_warning("Navigation failed: %s" % reason)
-
-func _on_waypoint_reached(_cell: HexCell, _index: int, _remaining: int) -> void:
-	"""Called when agent reaches each waypoint"""
-	# Waypoint reached - no logging needed during normal operation
-	pass
 
 # ============================================================================
 # AGENT MANAGER CALLBACKS
@@ -324,15 +297,3 @@ func _on_waypoint_reached(_cell: HexCell, _index: int, _remaining: int) -> void:
 func _on_agent_turn_started(agent_data: AgentData) -> void:
 	"""Called when a new agent's turn starts"""
 	active_agent_data = agent_data
-
-func _on_agent_turn_ended(agent_data: AgentData) -> void:
-	"""Called when an agent's turn ends"""
-	pass
-
-func _on_movement_action_completed(agent_data: AgentData, movements_remaining: int) -> void:
-	"""Called when an agent completes a movement action"""
-	pass
-
-func _on_all_agents_completed_round() -> void:
-	"""Called when all agents have completed a round"""
-	pass
