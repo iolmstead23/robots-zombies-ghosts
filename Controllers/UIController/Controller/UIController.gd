@@ -28,6 +28,9 @@ signal selected_item_changed(item_data: Dictionary)
 ## Emitted when the current turn info changes (used for overlays)
 signal turn_info_changed(turn_data: Dictionary)
 
+## Emitted when controller is fully initialized
+signal controller_ready()
+
 # ============================================================================
 # SIGNALS - Commands (Received from SessionController or other features)
 # ============================================================================
@@ -57,6 +60,7 @@ signal on_grid_state_changed(grid_data: Dictionary)
 
 var ui_visible: bool = true # UI overlay is always visible (unlike debug overlay)
 var selected_item_data: Dictionary = {}
+var is_initialized: bool = false
 
 # ============================================================================
 # LIFECYCLE
@@ -72,6 +76,8 @@ func _ready():
 	## '_on_turn_changed' handler in SessionController._connect_controller_signals()
 	## No manual connection needed here.
 
+	is_initialized = true
+	controller_ready.emit()
 	print("UIController: Initialized with atomized features")
 
 # ============================================================================

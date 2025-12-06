@@ -61,8 +61,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	# Check if camera/viewport are set before processing
-	if not camera or not viewport:
-		return  # Dependencies not configured yet
+	if not camera:
+		push_warning("[MouseInputHandler] Camera not set - ignoring input")
+		return
+
+	if not viewport:
+		push_warning("[MouseInputHandler] Viewport not set - ignoring input")
+		return
 
 	# Get world position
 	var world_pos = _get_world_mouse_position()

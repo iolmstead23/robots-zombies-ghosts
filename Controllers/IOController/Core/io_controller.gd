@@ -49,6 +49,9 @@ signal camera_zoom_out_requested()
 ## Emitted when user presses Space or Enter (end current agent turn)
 signal end_turn_requested()
 
+## Emitted when controller is fully initialized
+signal controller_ready()
+
 # ============================================================================
 # COMPONENT REFERENCES
 # ============================================================================
@@ -76,6 +79,9 @@ var hex_grid: HexGrid
 
 ## Currently hovered cell
 var _hovered_cell: HexCell = null
+
+## Controller state
+var is_initialized: bool = false
 
 # ============================================================================
 # LIFECYCLE
@@ -132,6 +138,45 @@ func set_hex_grid(grid: HexGrid) -> void:
 	hex_grid = grid
 	if mouse_handler and mouse_handler.has_method("set_hex_grid"):
 		mouse_handler.set_hex_grid(grid)
+
+func verify_dependencies() -> bool:
+	"""Verify all dependencies are properly set"""
+	var all_ok = true
+
+	if not camera:
+		push_error("[IOController] CRITICAL: Camera not set!")
+		all_ok = false
+	else:
+		print("[IOController] ✓ Camera set")
+
+	if not viewport:
+		push_error("[IOController] CRITICAL: Viewport not set!")
+		all_ok = false
+	else:
+		print("[IOController] ✓ Viewport set")
+
+	if not hex_grid:
+		push_warning("[IOController] HexGrid not set - hover will not work")
+	else:
+		print("[IOController] ✓ HexGrid set")
+
+	if not mouse_handler:
+		push_error("[IOController] CRITICAL: MouseInputHandler not found!")
+		all_ok = false
+	else:
+		print("[IOController] ✓ MouseInputHandler found")
+
+	if not keyboard_handler:
+		push_error("[IOController] CRITICAL: KeyboardInputHandler not found!")
+		all_ok = false
+	else:
+		print("[IOController] ✓ KeyboardInputHandler found")
+
+	if all_ok:
+		is_initialized = true
+		controller_ready.emit()
+
+	return all_ok
 
 # ============================================================================
 # SIGNAL HANDLERS - Route component signals to IOController signals

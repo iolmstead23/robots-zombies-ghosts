@@ -10,6 +10,9 @@ extends RefCounted
 ## Unique identifier for this agent
 var agent_id: String = ""
 
+## Type of agent (robot, ghost, zombie)
+var agent_type: AgentTypes.Type = AgentTypes.Type.ROBOT
+
 ## Reference to the AgentController node
 var agent_controller: Node = null
 
@@ -41,11 +44,11 @@ var turn_number: int = 0
 var agent_name: String = ""
 
 
-func _init(id: String = "", controller: Node = null) -> void:
+func _init(id: String = "", controller: Node = null, type: AgentTypes.Type = AgentTypes.Type.ROBOT) -> void:
 	agent_id = id if id != "" else _generate_agent_id()
 	agent_controller = controller
+	agent_type = type
 	agent_name = "Agent_%s" % agent_id
-	print("[AgentData] _init called: id=%s, controller=%s, agent_name=%s, self=%s" % [str(agent_id), str(agent_controller), str(agent_name), str(self)])
 
 
 func _generate_agent_id() -> String:

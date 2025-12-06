@@ -4,6 +4,7 @@ extends RefCounted
 signal initialization_completed()
 signal initialization_failed(reason: String)
 signal agents_ready(agents: Array)
+signal stage_changed(stage_name: String, stage_number: int, total_stages: int)
 
 const GRID_TIMEOUT_MS := 5000
 const NAVMESH_TIMEOUT_MS := 10000
@@ -23,6 +24,10 @@ func configure(hex_grid_ctrl, nav_ctrl, agent_mgr, debug_ctrl) -> void:
 
 
 func initialize(config: Dictionary, scene_tree: SceneTree) -> SessionTypes.InitResult:
+	const TOTAL_STAGES := 5
+
+	# Stage 1: Grid initialization
+	stage_changed.emit("Initializing grid...", 1, TOTAL_STAGES)
 	var grid_params := _align_grid_with_navmesh(config)
 
 	var grid_result := await _wait_for_grid_init(config, grid_params, scene_tree)
@@ -30,24 +35,37 @@ func initialize(config: Dictionary, scene_tree: SceneTree) -> SessionTypes.InitR
 		initialization_failed.emit("Grid initialization failed")
 		return grid_result
 
+	# Stage 2: Navigation setup
+	stage_changed.emit("Setting up navigation...", 2, TOTAL_STAGES)
 	var nav_result := _init_navigation()
 	if nav_result != SessionTypes.InitResult.SUCCESS:
 		initialization_failed.emit("Navigation initialization failed")
 		return nav_result
 
+	# Stage 3: Navmesh integration
 	if config.get("integrate_with_navmesh", false):
+		stage_changed.emit("Integrating navmesh...", 3, TOTAL_STAGES)
 		var navmesh_result := await _integrate_navmesh(config, scene_tree)
 		if navmesh_result != SessionTypes.InitResult.SUCCESS:
 			initialization_failed.emit("Navmesh integration failed")
 			return navmesh_result
+	else:
+		stage_changed.emit("Skipping navmesh integration...", 3, TOTAL_STAGES)
 
+	# Stage 4: Agent spawning
 	if config.get("spawn_agents_on_init", true):
+		stage_changed.emit("Spawning agents...", 4, TOTAL_STAGES)
 		var agents_result := _spawn_agents(config)
 		if agents_result != SessionTypes.InitResult.SUCCESS:
 			initialization_failed.emit("Agent spawn failed")
 			return agents_result
+	else:
+		stage_changed.emit("Skipping agent spawn...", 4, TOTAL_STAGES)
 
+	# Stage 5: Debug visuals setup
+	stage_changed.emit("Setting up debug visuals...", 5, TOTAL_STAGES)
 	_setup_debug_visuals(config)
+
 	initialization_completed.emit()
 	return SessionTypes.InitResult.SUCCESS
 
@@ -140,8 +158,10 @@ func _integrate_navmesh(config: Dictionary, scene_tree: SceneTree) -> SessionTyp
 func _spawn_agents(config: Dictionary) -> SessionTypes.InitResult:
 	var count: int = config.get("number_of_agents", 4)
 	var max_agents: int = config.get("max_agents", 4)
+	var parties: Array = config.get("session_parties", [])
 
-	_agent_manager.spawn_agents(count)
+	# Pass parties if available, otherwise use count for backward compatibility
+	_agent_manager.spawn_agents(count, parties)
 	var agents: Array = _agent_manager.get_all_agents()
 
 	var validation := _validator.validate_agents_array(agents, "after spawn")

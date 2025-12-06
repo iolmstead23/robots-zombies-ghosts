@@ -24,11 +24,15 @@ signal camera_bounds_updated(bounds: Rect2)
 ## Emitted when camera mode changes
 signal camera_mode_changed(mode: CameraTypes.CameraMode)
 
-## Emitted when camera position changes
+## Emitted when camera position changes (reserved for future use)
+@warning_ignore("unused_signal")
 signal camera_moved(new_position: Vector2)
 
 ## Emitted when camera zoom changes
 signal camera_zoomed(new_zoom: Vector2)
+
+## Emitted when controller is fully initialized
+signal controller_ready()
 
 # ============================================================================
 # CONFIGURATION
@@ -44,7 +48,7 @@ signal camera_zoomed(new_zoom: Vector2)
 @export var transition_trans: Tween.TransitionType = Tween.TRANS_CUBIC
 
 @export_group("Viewport Settings")
-@export var movement_range_buffer: float = 1.5  # Multiplier for agent range
+@export var movement_range_buffer: float = 2.5  # Multiplier for agent range (increased from 2.0 to 2.5 for more zoomed out view)
 @export var min_zoom: float = 0.3
 @export var max_zoom: float = 2.0
 @export var auto_zoom_to_fit: bool = true
@@ -79,6 +83,7 @@ var _current_mode: CameraTypes.CameraMode = CameraTypes.CameraMode.FOLLOW
 var _is_transitioning: bool = false
 var _transition_tween: Tween = null
 var _camera_bounds: Rect2 = Rect2()
+var is_initialized: bool = false
 
 # ============================================================================
 # LIFECYCLE
@@ -128,6 +133,8 @@ func initialize(session_ctrl, cam: Camera2D) -> void:
 	_free_roam_handler.arrow_keys_enabled = true
 	_free_roam_handler.wasd_enabled = true
 
+	is_initialized = true
+	controller_ready.emit()
 	print("[CameraController] Initialized with camera at ", camera.global_position)
 
 func set_hex_grid_controller(controller) -> void:
@@ -318,11 +325,6 @@ func enable_free_roam() -> void:
 
 	camera_mode_changed.emit(_current_mode)
 
-	if camera:
-		print("[CameraController] Free roam enabled (zoom: %.2f)" % camera.zoom.x)
-	else:
-		print("[CameraController] Free roam enabled")
-
 func disable_free_roam() -> void:
 	"""Disable free roam camera control"""
 	# Save current zoom as FREE_ROAM mode zoom
@@ -345,11 +347,6 @@ func disable_free_roam() -> void:
 		_camera_state.last_zoom = target_zoom
 
 	camera_mode_changed.emit(_current_mode)
-
-	if camera:
-		print("[CameraController] Free roam disabled (zoom: %.2f)" % camera.zoom.x)
-	else:
-		print("[CameraController] Free roam disabled")
 
 	# Transition back to active agent if available
 	if session_controller and session_controller.has_method("get_current_turn_agent"):

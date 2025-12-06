@@ -18,7 +18,7 @@ func set_bounds_calculator(calculator: CameraBoundsCalculator) -> void:
 # TARGET CALCULATION
 # ============================================================================
 
-func calculate_target_for_agent(agent_data: AgentData, grid: HexGrid) -> Dictionary:
+func calculate_target_for_agent(agent_data: AgentData, _grid: HexGrid) -> Dictionary:
 	"""
 	Calculate target camera position and zoom for an agent.
 

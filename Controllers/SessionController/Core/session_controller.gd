@@ -1,14 +1,11 @@
-"""
-SessionController.gd
-
-Core manager for the entire game session. Handles initialization, controller setup, game turn management,
-signal routing, and main session lifecycle functions (start, end, reset, etc.). Binds together grid,
-navigation, debug, UI, selection, and agent management.
-
-Provides the main interface for other systems to interact with the session's state.
-
-Signals are emitted for session and turn events, cell interactions, and selection changes.
-"""
+## SessionController - Core manager for the entire game session
+##
+## Handles initialization, controller setup, game turn management, signal routing,
+## and main session lifecycle functions (start, end, reset, etc.). Binds together
+## grid, navigation, debug, UI, selection, and agent management.
+##
+## Provides the main interface for other systems to interact with the session's state.
+## Signals are emitted for session and turn events, cell interactions, and selection changes.
 
 class_name SessionController
 extends Node2D
@@ -21,6 +18,7 @@ const UIControllerScript = preload("res://Controllers/UIController/Controller/UI
 const SelectionControllerScript = preload("res://Controllers/SelectionController/Core/selection_controller.gd")
 const AgentControllerScript = preload("res://Controllers/AgentController/Core/agent_controller.gd")
 const CameraControllerScript = preload("res://Controllers/CameraController/Core/camera_controller.gd")
+const LoadingModalScene = preload("res://Controllers/UIController/Implementations/LoadingModal/LoadingModal.tscn")
 
 # --- Signals for session and UI events ---
 signal session_initialized()
@@ -74,6 +72,7 @@ var selection_controller = null
 var agent_manager = null
 var io_controller = null
 var camera_controller = null
+var loading_modal = null
 
 # --- Core helper instances ---
 var _initializer: SessionInitializer = SessionInitializer.new()
@@ -94,6 +93,10 @@ func _ready() -> void:
 
 ## Instantiate and add all necessary controller nodes as children.
 func _init_all_controllers() -> void:
+	# Create loading modal first so it's available during initialization
+	loading_modal = LoadingModalScene.instantiate()
+	add_child(loading_modal)
+
 	hex_grid_controller = _try_new(HexGridControllerScript, "HexGridController")
 	navigation_controller = _try_new(NavigationControllerScript, "NavigationController")
 	debug_controller = _try_new(DebugControllerScript, "DebugController", {"session_controller": self})
@@ -109,6 +112,7 @@ func _init_all_controllers() -> void:
 ## Configure helper instances with appropriate controllers.
 func _init_packages() -> void:
 	_initializer.configure(hex_grid_controller, navigation_controller, agent_manager, debug_controller)
+	_initializer.stage_changed.connect(_on_init_stage_changed)
 	_movement_planner.configure(navigation_controller, hex_grid_controller, agent_manager)
 	_input_handler.configure(_movement_planner)
 
@@ -196,6 +200,10 @@ func connect_io_controller(io_ctrl) -> void:
 
 ## Begins the session and sets up agents.
 func initialize_session() -> void:
+	# Show loading modal
+	if loading_modal:
+		loading_modal.show_modal()
+
 	number_of_agents = SessionData.get_total_agent_count()
 	agent_manager.initialize(self)
 
@@ -230,14 +238,16 @@ func initialize_session() -> void:
 			# Pass actual hex_size to camera controller
 			camera_controller.set_hex_size(actual_hex_size)
 
-			print("[SessionController] CameraController initialized with hex_size: ", actual_hex_size)
-
 			# Initial smooth transition to first agent
 			if agents.size() > 0:
 				await get_tree().process_frame
 				camera_controller.move_camera_to_agent(agents[0])
 		else:
 			push_warning("[SessionController] Camera2D not found - camera controller not initialized")
+
+	# Hide loading modal
+	if loading_modal:
+		loading_modal.hide_modal()
 
 	session_initialized.emit()
 
@@ -254,6 +264,7 @@ func _build_init_config() -> Dictionary:
 		"spawn_agents_on_init": spawn_agents_on_init,
 		"number_of_agents": number_of_agents,
 		"max_agents": MAX_AGENTS,
+		"session_parties": SessionData.get_session_parties(),
 		"session_controller": self
 	}
 
@@ -455,13 +466,13 @@ func refresh_navmesh_integration() -> void: hex_grid_controller.refresh_navmesh_
 ## Camera controller signal handlers
 func _on_agent_turn_started_camera(agent_data: AgentData) -> void:
 	"""Route agent turn start to camera for smooth transition"""
-	if camera_controller:
+	if camera_controller and camera_controller.is_initialized:
 		camera_controller.move_camera_to_agent(agent_data)
 
-func _on_debug_visibility_changed_camera(visible: bool) -> void:
+func _on_debug_visibility_changed_camera(debug_visible: bool) -> void:
 	"""Route debug visibility to camera for free roam toggle"""
 	if camera_controller:
-		if visible:
+		if debug_visible:
 			camera_controller.enable_free_roam()
 		else:
 			camera_controller.disable_free_roam()
@@ -475,3 +486,10 @@ func _on_camera_zoom_out_requested() -> void:
 	"""Route zoom out request from IOController to CameraController"""
 	if camera_controller:
 		camera_controller.zoom_out()
+
+## Loading modal signal handler
+func _on_init_stage_changed(stage_name: String, stage_number: int, total_stages: int) -> void:
+	"""Update loading modal with current initialization stage"""
+	if loading_modal:
+		loading_modal.total_stages = total_stages
+		loading_modal.set_stage(stage_name, stage_number)

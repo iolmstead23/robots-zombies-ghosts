@@ -55,6 +55,9 @@ signal query_cell_at_position(request_id: String, world_pos: Vector2)
 ## Receive cell response from grid controller
 signal on_cell_at_position_response(request_id: String, cell: HexCell)
 
+## Emitted when controller is fully initialized
+signal controller_ready()
+
 # ============================================================================
 # STATE
 # ============================================================================
@@ -81,6 +84,9 @@ var current_target: HexCell = null
 
 # Core components
 var _request_manager: RequestManager = null
+
+# Controller state
+var is_initialized: bool = false
 
 # ============================================================================
 # LIFECYCLE
@@ -158,6 +164,9 @@ func initialize(grid: HexGrid, agent_node: CharacterBody2D):
 	hex_cell_selector.name = "HexCellSelector"
 	hex_cell_selector.hex_grid = grid
 	add_child(hex_cell_selector)
+
+	is_initialized = true
+	controller_ready.emit()
 
 # ============================================================================
 # COMMAND HANDLERS

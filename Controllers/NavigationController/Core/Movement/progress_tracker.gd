@@ -1,14 +1,12 @@
+## ProgressTracker - Tracks movement progress with detailed metrics
+##
+## Design notes:
+## - Tracks progress along paths
+## - Provides progress metrics and statistics
+## - Handles progress bumps and adjustments
+
 extends Node
 class_name ProgressTracker
-
-"""
-Tracks movement progress with detailed metrics.
-
-Design notes:
-- Tracks progress along paths
-- Provides progress metrics and statistics
-- Handles progress bumps and adjustments
-"""
 
 # ----------------------
 # Signals
@@ -117,7 +115,7 @@ func get_average_speed() -> int:
 	if elapsed <= 0:
 		return 0
 
-	return int((distance_traveled * 1000) / elapsed)
+	return int(float(distance_traveled * 1000) / float(elapsed))
 
 ## Check if near completion
 func is_near_completion(threshold: float = MovementConstants.NEAR_FINISH_PROGRESS) -> bool:
