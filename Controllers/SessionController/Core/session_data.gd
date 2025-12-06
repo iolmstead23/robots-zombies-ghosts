@@ -11,6 +11,7 @@ func _ready() -> void:
 
 # Session configuration data
 var session_parties = []
+var debug_enabled: bool = false
 
 # Harden: Forbid storing Node/agent node references in session_parties (config only)
 func _recursive_find_node(val, path := "") -> Variant:
@@ -71,3 +72,10 @@ func get_total_agent_count():
 
 func clear_session():
 	session_parties.clear()
+	debug_enabled = false
+
+func set_debug_enabled(enabled: bool) -> void:
+	debug_enabled = enabled
+
+func is_debug_enabled() -> bool:
+	return debug_enabled

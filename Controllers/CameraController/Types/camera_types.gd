@@ -49,11 +49,16 @@ const SKIP_TRANSITION_ZOOM_THRESHOLD: float = 0.05
 # HEX GRID CONSTANTS
 # ============================================================================
 
-## Pixels per hex cell (matches hex_grid.gd)
+## Default hex size in pixels (used as fallback only)
+## NOTE: Actual hex_size is dynamically calculated (8-12 pixels) based on navmesh
+## and passed from SessionController to CameraController.
+## This constant should NOT be used for calculations - it's a fallback default only.
 const HEX_SIZE: float = 32.0
 
-## Maximum movement distance per turn in meters/hex cells
+## Maximum movement distance per turn in hex cells
 const MAX_MOVEMENT_DISTANCE: int = 10
 
-## Pixels per meter (1 hex = 1 meter = 32 pixels)
+## Default pixels per meter (1 hex = 1 meter)
+## NOTE: This is a fallback value. Actual conversions use dynamic hex_size
+## passed from the grid initialization.
 const PIXELS_PER_METER: int = 32

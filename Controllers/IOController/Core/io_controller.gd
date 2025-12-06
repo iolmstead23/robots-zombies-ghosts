@@ -23,14 +23,8 @@ class_name IOController
 ## Emitted when user left-clicks on a world position
 signal world_position_left_clicked(world_pos: Vector2)
 
-## Emitted when user right-clicks on a world position
-signal world_position_right_clicked(world_pos: Vector2)
-
 ## Emitted when user left-clicks and a hex cell is found at that position
 signal hex_cell_left_clicked(cell: HexCell)
-
-## Emitted when user right-clicks and a hex cell is found at that position
-signal hex_cell_right_clicked(cell: HexCell)
 
 ## Emitted when mouse hovers over a different hex cell
 signal hex_cell_hovered(cell: HexCell)
@@ -49,17 +43,8 @@ signal camera_zoom_in_requested()
 signal camera_zoom_out_requested()
 
 # ============================================================================
-# SIGNALS - Keyboard Input Events (Debug/Shortcuts)
+# SIGNALS - Keyboard Input Events
 # ============================================================================
-
-## Emitted when user presses R key (pathfinding report)
-signal debug_report_requested()
-
-## Emitted when user presses C key (clear path history)
-signal clear_history_requested()
-
-## Emitted when user presses E key (export path data)
-signal export_data_requested()
 
 ## Emitted when user presses Space or Enter (end current agent turn)
 signal end_turn_requested()
@@ -111,15 +96,11 @@ func _connect_component_signals() -> void:
 	mouse_handler = get_node_or_null("MouseInputHandler")
 	if mouse_handler:
 		mouse_handler.left_click_at_position.connect(_on_mouse_left_click)
-		mouse_handler.right_click_at_position.connect(_on_mouse_right_click)
 		print("IOController: MouseInputHandler connected")
 
 	# Find and connect keyboard handler
 	keyboard_handler = get_node_or_null("KeyboardInputHandler")
 	if keyboard_handler:
-		keyboard_handler.report_key_pressed.connect(func(): debug_report_requested.emit())
-		keyboard_handler.clear_key_pressed.connect(func(): clear_history_requested.emit())
-		keyboard_handler.export_key_pressed.connect(func(): export_data_requested.emit())
 		keyboard_handler.end_turn_requested.connect(func(): end_turn_requested.emit())
 		print("IOController: KeyboardInputHandler connected")
 
@@ -165,16 +146,6 @@ func _on_mouse_left_click(world_pos: Vector2) -> void:
 		var cell = hex_grid.get_cell_at_world_position(world_pos)
 		if cell:
 			hex_cell_left_clicked.emit(cell)
-
-func _on_mouse_right_click(world_pos: Vector2) -> void:
-	"""Handle right click from mouse handler"""
-	world_position_right_clicked.emit(world_pos)
-
-	# Check if position intersects with a hex cell
-	if hex_grid:
-		var cell = hex_grid.get_cell_at_world_position(world_pos)
-		if cell:
-			hex_cell_right_clicked.emit(cell)
 
 # ============================================================================
 # HOVER DETECTION

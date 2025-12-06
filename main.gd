@@ -111,12 +111,7 @@ func _ready() -> void:
 	print("")
 	print("Controls:")
 	print("  Left-click hex: Move active agent")
-	print("  Right-click hex: Toggle cell enabled/disabled")
 	print("  Space/Enter: End current turn early")
-	print("  R: Generate pathfinding report")
-	print("  C: Clear path history")
-	print("  E: Export path data to JSON")
-	print("  F3: Toggle debug mode")
 	print("=".repeat(60) + "\n")
 
 func _setup_io_controller() -> void:
@@ -172,10 +167,6 @@ func _setup_io_controller() -> void:
 	# io_controller.hex_cell_hover_ended.connect(_on_io_cell_hover_ended)
 
 	# Keep other IO signals for main.gd-specific functionality
-	# NOTE: Zoom signals now handled by CameraController, not main.gd
-	io_controller.debug_report_requested.connect(_on_io_debug_report)
-	io_controller.clear_history_requested.connect(_on_io_clear_history)
-	io_controller.export_data_requested.connect(_on_io_export_data)
 	io_controller.end_turn_requested.connect(_on_io_end_turn_requested)
 
 	print("IOController configured and signals connected")
@@ -236,10 +227,6 @@ func _on_io_cell_left_clicked(cell: HexCell) -> void:
 	"""Handle left click on hex cell from IOController"""
 	_handle_cell_click(cell)
 
-func _on_io_cell_right_clicked(cell: HexCell) -> void:
-	"""Handle right click on hex cell from IOController"""
-	_toggle_cell(cell)
-
 func _on_io_cell_hovered(cell: HexCell) -> void:
 	"""Handle hover on hex cell from IOController"""
 	var debug_controller = session_controller.get_debug_controller()
@@ -251,33 +238,6 @@ func _on_io_cell_hover_ended() -> void:
 	var debug_controller = session_controller.get_debug_controller()
 	if debug_controller:
 		debug_controller.set_hovered_cell(null)
-
-func _on_io_debug_report() -> void:
-	"""Handle debug report request from IOController"""
-	var nav_controller = session_controller.get_navigation_controller()
-	if nav_controller:
-		var tracker = nav_controller.get_path_tracker()
-		if tracker:
-			tracker.print_report()
-
-func _on_io_clear_history() -> void:
-	"""Handle clear history request from IOController"""
-	var nav_controller = session_controller.get_navigation_controller()
-	if nav_controller:
-		var tracker = nav_controller.get_path_tracker()
-		if tracker:
-			tracker.clear_history()
-			print("Path history cleared")
-
-func _on_io_export_data() -> void:
-	"""Handle export data request from IOController"""
-	var nav_controller = session_controller.get_navigation_controller()
-	if nav_controller:
-		var tracker = nav_controller.get_path_tracker()
-		if tracker:
-			var timestamp = Time.get_datetime_string_from_system().replace(":", "-")
-			var filename = "user://pathfinding_data_%s.json" % timestamp
-			tracker.export_to_json(filename)
 
 func _on_io_end_turn_requested() -> void:
 	"""Handle end turn request from IOController"""
@@ -562,18 +522,3 @@ func _on_all_agents_completed_round() -> void:
 	print("\n" + "🔄".repeat(30))
 	print("🔄 ALL AGENTS COMPLETED ROUND")
 	print("🔄".repeat(30) + "\n")
-
-# ============================================================================
-# HELPER METHODS
-# ============================================================================
-
-func _toggle_cell(cell: HexCell) -> void:
-	"""Toggle a cell between enabled and disabled via SessionController"""
-	var hex_grid_controller = session_controller.get_hex_grid_controller()
-	if not hex_grid_controller:
-		return
-
-	var coords = Vector2i(cell.q, cell.r)
-	hex_grid_controller.set_cell_enabled_requested.emit(coords, not cell.enabled)
-
-	print("Cell (%d,%d) %s" % [cell.q, cell.r, "enabled" if not cell.enabled else "disabled"])

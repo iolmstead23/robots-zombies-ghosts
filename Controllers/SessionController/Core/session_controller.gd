@@ -30,16 +30,19 @@ signal navigable_cells_updated(cells: Array[HexCell])
 signal selection_changed(selection_data: Dictionary)
 signal selection_cleared()
 signal cell_clicked(cell: HexCell)
-signal cell_right_clicked(cell: HexCell)
 signal cell_hovered(cell: HexCell)
 signal cell_hover_ended()
+signal grid_hex_size_updated(hex_size: float)
 
 # --- Exported properties grouped by category for editing in Godot editor ---
 @export_group("Grid")
 @export var grid_width: int = 20
 @export var grid_height: int = 15
-@export var hex_size: float = 32.0
+@export var hex_size: float = 32.0  # Default/fallback value
 @export var auto_initialize: bool = true
+
+# --- Actual calculated values ---
+var actual_hex_size: float = 32.0  # Actual calculated value from grid initialization
 
 @export_group("Navigation")
 @export var navigation_region: NavigationRegion2D
@@ -48,7 +51,6 @@ signal cell_hover_ended()
 
 @export_group("Debug")
 @export var debug_mode: bool = false
-@export var debug_hotkey_enabled: bool = true
 
 @export_group("Agents")
 const MAX_AGENTS: int = 4
@@ -108,7 +110,7 @@ func _init_all_controllers() -> void:
 func _init_packages() -> void:
 	_initializer.configure(hex_grid_controller, navigation_controller, agent_manager, debug_controller)
 	_movement_planner.configure(navigation_controller, hex_grid_controller, agent_manager)
-	_input_handler.configure(_movement_planner, debug_hotkey_enabled)
+	_input_handler.configure(_movement_planner)
 
 ## Instantiate a node from a script and add to scene tree, optionally set properties.
 func _try_new(script: Resource, item_name: String, props := {}) -> Node:
@@ -128,6 +130,7 @@ func _try_new(script: Resource, item_name: String, props := {}) -> Node:
 ## Wire up signals between controllers and orchestrator logic.
 func _connect_signals() -> void:
 	hex_grid_controller.grid_initialized.connect(_event_router.on_grid_initialized)
+	hex_grid_controller.grid_initialized.connect(_on_grid_initialized)
 	hex_grid_controller.cell_state_changed.connect(_event_router.on_cell_state_changed)
 	hex_grid_controller.grid_stats_changed.connect(_event_router.on_grid_stats_changed)
 	hex_grid_controller.cell_at_position_response.connect(_route_to_navigation_controller)
@@ -157,7 +160,6 @@ func _connect_signals() -> void:
 
 	_input_handler.execute_movement_requested.connect(func(): _movement_planner.execute_movement(get_tree()))
 	_input_handler.cancel_movement_requested.connect(_movement_planner.cancel_movement)
-	_input_handler.toggle_debug_requested.connect(func(): debug_controller.toggle_debug_requested.emit())
 
 	_initializer.agents_ready.connect(_on_agents_ready)
 
@@ -166,13 +168,24 @@ func _connect_signals() -> void:
 		agent_manager.agent_turn_started.connect(_on_agent_turn_started_camera)
 		debug_controller.debug_visibility_changed.connect(_on_debug_visibility_changed_camera)
 
+## Capture actual hex_size after grid initialization
+func _on_grid_initialized(grid_data: Dictionary) -> void:
+	if grid_data.has("hex_size"):
+		actual_hex_size = grid_data.get("hex_size")
+		if OS.is_debug_build():
+			print("[SessionController] Grid initialized with hex_size: ", actual_hex_size)
+		grid_hex_size_updated.emit(actual_hex_size)
+	else:
+		# Fallback to exported hex_size property
+		actual_hex_size = hex_size
+		push_warning("[SessionController] grid_data missing hex_size, using fallback: ", actual_hex_size)
+
 ## Set the IO controller and connect UI gestures to logic.
 func connect_io_controller(io_ctrl) -> void:
 	io_controller = io_ctrl
 	if not io_controller:
 		return
 	io_controller.hex_cell_left_clicked.connect(_on_cell_left_clicked)
-	io_controller.hex_cell_right_clicked.connect(_on_cell_right_clicked)
 	io_controller.hex_cell_hovered.connect(_on_cell_hovered)
 	io_controller.hex_cell_hover_ended.connect(_on_cell_hover_ended)
 
@@ -199,6 +212,9 @@ func initialize_session() -> void:
 		_abort_session("Initialization failed")
 		return
 
+	# Apply debug mode from SessionData (set in session setup menu) or fallback to exported property
+	var session_debug_enabled = SessionData.is_debug_enabled()
+	debug_mode = session_debug_enabled if session_debug_enabled else debug_mode
 	debug_controller.set_debug_visibility_requested.emit(debug_mode)
 	session_active = true
 	session_start_time = Time.get_ticks_msec() / 1000.0
@@ -210,7 +226,11 @@ func initialize_session() -> void:
 		if camera:
 			camera_controller.initialize(self, camera)
 			camera_controller.set_hex_grid_controller(hex_grid_controller)
-			print("[SessionController] CameraController initialized")
+
+			# Pass actual hex_size to camera controller
+			camera_controller.set_hex_size(actual_hex_size)
+
+			print("[SessionController] CameraController initialized with hex_size: ", actual_hex_size)
 
 			# Initial smooth transition to first agent
 			if agents.size() > 0:
@@ -275,7 +295,6 @@ func _on_agents_ready(spawned_agents: Array) -> void:
 func _on_agents_spawned(_count: int) -> void: pass
 func _on_agent_turn_ended(_data: AgentData) -> void: _movement_planner.cancel_movement()
 func _on_all_agents_completed_round() -> void: _movement_planner.cancel_movement()
-func _on_cell_right_clicked(cell: HexCell) -> void: cell_right_clicked.emit(cell)
 
 ## Start a new agent turn.
 func _on_agent_turn_started(data: AgentData) -> void:

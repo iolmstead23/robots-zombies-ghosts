@@ -10,6 +10,7 @@ extends RefCounted
 # ============================================================================
 
 var _viewport: Viewport = null
+var _hex_size: float = 32.0 # Actual hex size from grid
 
 # ============================================================================
 # CONFIGURATION
@@ -18,6 +19,17 @@ var _viewport: Viewport = null
 func set_viewport(viewport: Viewport) -> void:
 	"""Set the viewport for size calculations"""
 	_viewport = viewport
+
+func set_hex_size(size: float) -> void:
+	"""
+	Set the actual hex size from the grid.
+
+	Args:
+		size: Hex size in pixels
+	"""
+	_hex_size = size
+	if OS.is_debug_build():
+		print("[CameraBoundsCalculator] hex_size updated to: ", _hex_size)
 
 # ============================================================================
 # ZOOM CALCULATION
@@ -38,20 +50,23 @@ func calculate_zoom_for_agent_range(
 		Zoom level that fits agent's range on screen
 
 	Example:
-		Agent with 10-meter range on 1920x1080 screen:
-		- Range: 320 pixels (10 * 32px)
-		- Buffered radius: 480 pixels (320 * 1.5)
-		- Required diameter: 960 pixels
-		- Calculated zoom: 1.125 (fits 960px content in 1080px height)
+		Agent with 10-cell range with hex_size=12.0 on 1920x1080 screen:
+		- Range: 120 pixels (10 * 12px)
+		- Buffered radius: 180 pixels (120 * 1.5)
+		- Required diameter: 360 pixels
+		- Calculated zoom: 3.0 (fits 360px content in 1080px height)
 	"""
 	if not _viewport or not agent_data:
 		return CameraTypes.DEFAULT_ZOOM
 
-	# Get agent's maximum movement range in meters (hex cells)
-	var max_distance = agent_data.max_distance_per_turn  # e.g., 10 meters
+	# Get agent's maximum movement range in hex cells
+	var max_distance = agent_data.max_distance_per_turn # e.g., 10 cells
 
-	# Convert to pixels (each hex = 32 pixels = 1 meter)
-	var range_pixels = max_distance * CameraTypes.PIXELS_PER_METER
+	if max_distance <= 0.0 or buffer_multiplier <= 0.0:
+		return CameraTypes.DEFAULT_ZOOM
+
+	# Convert to pixels using ACTUAL hex size (not hardcoded 32)
+	var range_pixels = max_distance * _hex_size
 
 	# Apply buffer (show 1.5x the range for context)
 	var required_radius_pixels = range_pixels * buffer_multiplier
@@ -114,8 +129,8 @@ func calculate_camera_bounds(grid: HexGrid, padding: float = 200.0) -> Rect2:
 	# Find extremes of the grid
 	var min_x = INF
 	var min_y = INF
-	var max_x = -INF
-	var max_y = -INF
+	var max_x = - INF
+	var max_y = - INF
 
 	for cell in grid.enabled_cells:
 		min_x = min(min_x, cell.world_position.x)
@@ -155,16 +170,22 @@ func apply_bounds_to_position(position: Vector2, zoom: float, bounds: Rect2) -> 
 	var half_viewport = viewport_world_size * 0.5
 
 	# Clamp camera position to keep viewport within bounds
-	var clamped_x = clamp(
-		position.x,
-		bounds.position.x + half_viewport.x,
-		bounds.position.x + bounds.size.x - half_viewport.x
-	)
-	var clamped_y = clamp(
-		position.y,
-		bounds.position.y + half_viewport.y,
-		bounds.position.y + bounds.size.y - half_viewport.y
-	)
+	var min_x = bounds.position.x + half_viewport.x
+	var max_x = bounds.position.x + bounds.size.x - half_viewport.x
+	var min_y = bounds.position.y + half_viewport.y
+	var max_y = bounds.position.y + bounds.size.y - half_viewport.y
+	var clamped_x;
+	var clamped_y;
+
+	if viewport_world_size.x >= bounds.size.x:
+		clamped_x = bounds.position.x + bounds.size.x * 0.5
+	else:
+		clamped_x = clamp(position.x, min_x, max_x)
+
+	if viewport_world_size.y >= bounds.size.y:
+		clamped_y = bounds.position.y + bounds.size.y * 0.5
+	else:
+		clamped_y = clamp(position.y, min_y, max_y)
 
 	return Vector2(clamped_x, clamped_y)
 
@@ -182,8 +203,10 @@ func calculate_viewport_bounds_for_agent(agent_data: AgentData) -> Rect2:
 		return Rect2()
 
 	var agent_position = agent_data.current_position
-	var max_reach_meters = agent_data.max_distance_per_turn
-	var max_reach_pixels = max_reach_meters * CameraTypes.PIXELS_PER_METER
+	var max_reach_cells = agent_data.max_distance_per_turn
+
+	# Convert cells to pixels using ACTUAL hex size
+	var max_reach_pixels = max_reach_cells * _hex_size
 
 	# Add buffer
 	var viewport_radius = max_reach_pixels * 1.5

@@ -22,9 +22,6 @@ class_name MouseInputHandler
 ## Emitted when left mouse button is clicked
 signal left_click_at_position(world_pos: Vector2)
 
-## Emitted when right mouse button is clicked
-signal right_click_at_position(world_pos: Vector2)
-
 # ============================================================================
 # DEPENDENCIES
 # ============================================================================
@@ -70,13 +67,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	# Get world position
 	var world_pos = _get_world_mouse_position()
 
-	# Handle different mouse buttons
-	match event.button_index:
-		MOUSE_BUTTON_LEFT:
-			left_click_at_position.emit(world_pos)
-
-		MOUSE_BUTTON_RIGHT:
-			right_click_at_position.emit(world_pos)
+	# Handle left mouse button click
+	if event.button_index == MOUSE_BUTTON_LEFT:
+		left_click_at_position.emit(world_pos)
 
 # ============================================================================
 # HELPER METHODS

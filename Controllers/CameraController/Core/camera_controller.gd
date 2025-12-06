@@ -64,6 +64,7 @@ signal camera_zoomed(new_zoom: Vector2)
 
 var session_controller = null
 var hex_grid_controller = null
+var hex_size: float = 32.0  # Actual hex size from grid (defaults to 32.0)
 
 # ============================================================================
 # INTERNAL STATE
@@ -136,6 +137,27 @@ func set_hex_grid_controller(controller) -> void:
 	# Calculate initial camera bounds
 	if enable_camera_bounds and hex_grid_controller:
 		_update_camera_bounds()
+
+func set_hex_size(size: float) -> void:
+	"""
+	Set the actual hex size from the grid.
+	Must be called after grid initialization.
+
+	Args:
+		size: Actual hex size in pixels from grid initialization
+	"""
+	hex_size = size
+
+	# Update bounds calculator with new hex size
+	if _bounds_calculator:
+		_bounds_calculator.set_hex_size(hex_size)
+
+	# Recalculate camera bounds with new hex size
+	if enable_camera_bounds and hex_grid_controller:
+		_update_camera_bounds()
+
+	if OS.is_debug_build():
+		print("[CameraController] hex_size updated to: ", hex_size)
 
 # ============================================================================
 # CAMERA TRANSITIONS

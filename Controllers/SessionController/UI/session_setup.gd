@@ -6,8 +6,10 @@ const PARTY_ITEM_SCENE: PackedScene = preload("res://Controllers/SessionControll
 # --- STATE ---
 var parties: Array = []
 var party_id_counter: int = 0
+var debug_mode_enabled: bool = false
 
 @onready var parties_list: VBoxContainer = $VBoxContainer/ContentArea/MainContent/PartiesSection/PartiesScrollContainer/PartiesList
+@onready var debug_checkbox: CheckBox = $VBoxContainer/SessionOptionsFooter/MarginContainer/VBoxContainer/OptionsContainer/DebugModeCheckbox
 
 # --- LIFECYCLE ---
 func _ready() -> void:
@@ -33,8 +35,13 @@ func _on_party_removed(party_id: int) -> void:
 	_remove_party_from_list(party_id)
 	_remove_party_from_ui(party_id)
 
+func _on_debug_mode_toggled(toggled_on: bool) -> void:
+	debug_mode_enabled = toggled_on
+	print_debug("Debug mode: %s" % ("enabled" if toggled_on else "disabled"))
+
 func _on_start_session_pressed() -> void:
 	SessionData.set_session_parties(parties)
+	SessionData.set_debug_enabled(debug_mode_enabled)
 	_change_scene("res://main.tscn")
 
 # --- HELPERS ---

@@ -87,10 +87,6 @@ func _ready():
 	on_grid_state_changed.connect(_on_grid_state_changed)
 	on_navigation_state_changed.connect(_on_navigation_state_changed)
 
-func _input(event):
-	if event.is_action_pressed("toggle_debug"):
-		toggle_debug_requested.emit()
-
 # ============================================================================
 # COMMAND HANDLERS
 # ============================================================================
