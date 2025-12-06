@@ -18,6 +18,9 @@ func handle_input(event: InputEvent, viewport: Viewport) -> bool:
 	if not _is_key_press(event):
 		return false
 
+	if not _movement_planner:
+		return false
+
 	var key_event := event as InputEventKey
 
 	if key_event.keycode == KEY_SPACE:
@@ -49,6 +52,8 @@ func _handle_space_key(viewport: Viewport) -> bool:
 
 
 func _handle_escape_key(viewport: Viewport) -> bool:
+	if not _movement_planner or not _movement_planner.has_planned_movement():
+		return false
 	cancel_movement_requested.emit()
 	viewport.set_input_as_handled()
 	return true

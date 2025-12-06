@@ -1,5 +1,5 @@
 class_name AgentController
-extends Node
+extends Node2D
 
 ## Signals for session/agent events
 signal agents_spawned(count: int)
