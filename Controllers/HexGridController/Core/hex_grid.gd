@@ -77,24 +77,24 @@ func _create_grid() -> void:
 func _axial_to_world(q: int, r: int) -> Vector2:
 	var x: float
 	var y: float
-	
+
 	if layout_flat_top:
 		x = hex_size * (1.5 * q)
 		y = hex_size * (sqrt(3.0) * (r + 0.5 * (q & 1)))
 	else:
 		x = hex_size * (sqrt(3.0) * (q + 0.5 * (r & 1)))
 		y = hex_size * (1.5 * r)
-	
+
 	return Vector2(x, y) + grid_offset
 
 func world_position_to_axial(world_pos: Vector2) -> Vector2i:
 	var p := world_pos - grid_offset
 	if sprite_vertical_offset != 0.0:
 		p.y += sprite_vertical_offset
-	
+
 	var q: float
 	var r: float
-	
+
 	if layout_flat_top:
 		q = (2.0 / 3.0 * p.x) / hex_size
 		var col_offset := 0.5 * (int(round(q)) & 1)
@@ -103,7 +103,7 @@ func world_position_to_axial(world_pos: Vector2) -> Vector2i:
 		r = (2.0 / 3.0 * p.y) / hex_size
 		var row_offset := 0.5 * (int(round(r)) & 1)
 		q = (p.x / (hex_size * sqrt(3.0))) - row_offset
-	
+
 	return _hex_round(q, r)
 
 func _hex_round(q: float, r: float) -> Vector2i:

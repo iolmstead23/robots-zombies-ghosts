@@ -545,7 +545,7 @@ func get_string_puller() -> HexStringPuller:
 		return traversable_area_visualizer.get_string_puller()
 	return null
 
-## Curve method controls (Chaikin vs Catmull-Rom).
+# Curve method controls (Chaikin vs Catmull-Rom).
 func set_curve_method(method: HexStringPuller.CurveMethod) -> void:
 	if traversable_area_visualizer:
 		traversable_area_visualizer.set_curve_method(method)
@@ -564,7 +564,63 @@ func get_smoothing_iterations() -> int:
 		return traversable_area_visualizer.get_smoothing_iterations()
 	return 2
 
-## Refresh navmesh integration with the current grid setup.
+# ============================================================================
+# MIDPOINT INTERPOLATION CONTROLS
+# ============================================================================
+
+func set_interpolation_layers(layers: int) -> void:
+	# Set midpoint interpolation layers (1-3) for path smoothing
+	var clamped := clampi(layers, 1, 3)
+
+	# Update path visualizer
+	if debug_controller and debug_controller.hex_path_visualizer:
+		debug_controller.hex_path_visualizer.set_interpolation_layers(clamped)
+
+	# Update navigation controller's turn-based pathfinder
+	if navigation_controller:
+		var pathfinder = navigation_controller.get_turn_based_pathfinder()
+		if pathfinder and pathfinder.has_method("set_interpolation_layers"):
+			pathfinder.set_interpolation_layers(clamped)
+
+	if OS.is_debug_build():
+		print("[SessionController] Interpolation layers set to: %d" % clamped)
+
+
+func get_interpolation_layers() -> int:
+	# Get current midpoint interpolation layer count
+	if debug_controller and debug_controller.hex_path_visualizer:
+		return debug_controller.hex_path_visualizer.get_interpolation_layers()
+	return 1
+
+
+func set_path_string_pulling_enabled(enabled: bool) -> void:
+	# Enable/disable string pulling on path generation
+	if debug_controller and debug_controller.hex_path_visualizer:
+		var puller = debug_controller.hex_path_visualizer._string_puller
+		if puller:
+			puller.enable_string_pulling = enabled
+
+	if navigation_controller:
+		var pathfinder = navigation_controller.get_turn_based_pathfinder()
+		if pathfinder and pathfinder._string_puller:
+			pathfinder._string_puller.enable_string_pulling = enabled
+
+	if OS.is_debug_build():
+		print("[SessionController] Path string pulling: %s" % ("enabled" if enabled else "disabled"))
+
+
+func is_path_string_pulling_enabled() -> bool:
+	if debug_controller and debug_controller.hex_path_visualizer:
+		var puller = debug_controller.hex_path_visualizer._string_puller
+		if puller:
+			return puller.enable_string_pulling
+	return true
+
+# ============================================================================
+# NAVMESH INTEGRATION
+# ============================================================================
+
+# Refresh navmesh integration with the current grid setup.
 func refresh_navmesh_integration() -> void: hex_grid_controller.refresh_navmesh_integration()
 
 ## Camera controller signal handlers
