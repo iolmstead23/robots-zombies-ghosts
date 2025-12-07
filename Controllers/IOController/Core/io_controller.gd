@@ -26,6 +26,9 @@ signal world_position_left_clicked(world_pos: Vector2)
 ## Emitted when user left-clicks and a hex cell is found at that position
 signal hex_cell_left_clicked(cell: HexCell)
 
+## Emitted when user clicks a hex cell that is not navigable (rejected click)
+signal hex_cell_click_rejected(cell: HexCell)
+
 ## Emitted when mouse hovers over a different hex cell
 signal hex_cell_hovered(cell: HexCell)
 
@@ -72,6 +75,9 @@ var viewport: Viewport
 
 ## Reference to hex grid for cell lookups
 var hex_grid: HexGrid
+
+## Reference to session controller for navigability checks
+var session_controller: SessionController
 
 # ============================================================================
 # HOVER STATE
@@ -139,6 +145,10 @@ func set_hex_grid(grid: HexGrid) -> void:
 	if mouse_handler and mouse_handler.has_method("set_hex_grid"):
 		mouse_handler.set_hex_grid(grid)
 
+func set_session_controller(controller: SessionController) -> void:
+	# Set the session controller reference for navigability checks
+	session_controller = controller
+
 func verify_dependencies() -> bool:
 	# Verify all dependencies are properly set
 	var all_ok = true
@@ -180,7 +190,12 @@ func _on_mouse_left_click(world_pos: Vector2) -> void:
 	if hex_grid:
 		var cell = hex_grid.get_cell_at_world_position(world_pos)
 		if cell:
-			hex_cell_left_clicked.emit(cell)
+			# Validate cell is clickable before emitting signal
+			if _is_cell_clickable(cell):
+				hex_cell_left_clicked.emit(cell)
+			else:
+				# Emit rejection signal for visual feedback
+				hex_cell_click_rejected.emit(cell)
 
 # ============================================================================
 # HOVER DETECTION
@@ -208,3 +223,31 @@ func _process(_delta: float) -> void:
 
 		if _hovered_cell != null:
 			hex_cell_hovered.emit(_hovered_cell)
+
+# ============================================================================
+# VALIDATION HELPERS
+# ============================================================================
+
+func _is_cell_clickable(cell: HexCell) -> bool:
+	## Validates if a hex cell can be clicked and selected.
+	## Returns true only if the cell is navigable within the current agent's range.
+
+	# 1. Cell must exist and be valid
+	if not cell or not is_instance_valid(cell):
+		return false
+
+	# 2. Cell must be enabled (base traversability)
+	if not cell.enabled:
+		return false
+
+	# 3. Cell must be navigable (within agent's movement range)
+	if not session_controller:
+		# Graceful degradation: if no session context, allow enabled cells
+		return cell.enabled
+
+	# Edge case: No navigable cells means nothing is clickable
+	if session_controller.get_navigable_cells().is_empty():
+		return false
+
+	# Normal case: Check if cell is in the navigable cells array
+	return session_controller.is_cell_navigable(cell)

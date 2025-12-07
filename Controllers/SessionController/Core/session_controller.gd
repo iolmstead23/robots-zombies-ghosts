@@ -114,7 +114,7 @@ func _init_all_controllers() -> void:
 func _init_packages() -> void:
 	_initializer.configure(hex_grid_controller, navigation_controller, agent_manager, debug_controller)
 	_initializer.stage_changed.connect(_on_init_stage_changed)
-	_movement_planner.configure(navigation_controller, hex_grid_controller, agent_manager)
+	_movement_planner.configure(navigation_controller, hex_grid_controller, agent_manager, self)
 	_input_handler.configure(_movement_planner)
 
 ## Instantiate a node from a script and add to scene tree, optionally set properties.
@@ -190,6 +190,16 @@ func connect_io_controller(io_ctrl) -> void:
 	io_controller = io_ctrl
 	if not io_controller:
 		return
+
+	# Set session controller reference for navigability validation
+	if io_controller.has_method("set_session_controller"):
+		io_controller.set_session_controller(self)
+
+	# Connect hover visualizer to rejection signal for visual pulse feedback
+	if debug_controller and debug_controller.hex_cell_hover_visualizer:
+		if debug_controller.hex_cell_hover_visualizer.has_method("set_io_controller"):
+			debug_controller.hex_cell_hover_visualizer.set_io_controller(io_controller)
+
 	io_controller.hex_cell_left_clicked.connect(_on_cell_left_clicked)
 	io_controller.hex_cell_hovered.connect(_on_cell_hovered)
 	io_controller.hex_cell_hover_ended.connect(_on_cell_hover_ended)
@@ -241,6 +251,11 @@ func initialize_session() -> void:
 
 			# Pass actual hex_size to camera controller
 			camera_controller.set_hex_size(actual_hex_size)
+
+			# Set camera on IOController for mouse input
+			if io_controller:
+				io_controller.set_camera(camera)
+				io_controller.set_viewport(get_viewport())
 
 			# Initial smooth transition to first agent
 			if agents.size() > 0:
@@ -316,8 +331,17 @@ func _on_agents_ready(spawned_agents: Array) -> void:
 	current_agent_index = 0
 
 func _on_agents_spawned(_count: int) -> void: pass
-func _on_agent_turn_ended(_data: AgentData) -> void: _movement_planner.cancel_movement()
-func _on_all_agents_completed_round() -> void: _movement_planner.cancel_movement()
+func _on_agent_turn_ended(_data: AgentData) -> void:
+	_movement_planner.cancel_movement()
+	# Clear selected cell highlight when turn ends
+	if traversable_area_visualizer:
+		traversable_area_visualizer.clear_selected_cell()
+
+func _on_all_agents_completed_round() -> void:
+	_movement_planner.cancel_movement()
+	# Clear selected cell highlight when round completes
+	if traversable_area_visualizer:
+		traversable_area_visualizer.clear_selected_cell()
 
 ## Start a new agent turn.
 func _on_agent_turn_started(data: AgentData) -> void:
@@ -327,6 +351,9 @@ func _on_agent_turn_started(data: AgentData) -> void:
 		current_agent_index = agent_index
 
 	_movement_planner.cancel_movement()
+	# Clear selected cell highlight when new turn starts
+	if traversable_area_visualizer:
+		traversable_area_visualizer.clear_selected_cell()
 	update_navigable_cells(data)
 	_emit_turn_changed(data)
 
@@ -375,9 +402,19 @@ func _on_selection_cleared() -> void:
 func _on_cell_left_clicked(cell: HexCell) -> void:
 	if not cell:
 		return
+
+	# VALIDATION: Defense-in-depth - block non-navigable cells
+	# This is a backup check in case IOController validation is bypassed
+	if not is_cell_navigable(cell):
+		return
+
 	if selection_controller: selection_controller.select_object(cell)
 	var agent = agent_manager.get_active_agent() if agent_manager else null
-	if agent: _movement_planner.plan_movement(agent, cell)
+	if agent:
+		_movement_planner.plan_movement(agent, cell)
+		# Highlight the selected navigation cell in blue
+		if traversable_area_visualizer:
+			traversable_area_visualizer.set_selected_cell(cell)
 	cell_clicked.emit(cell)
 
 ## Hover and debug information helpers.

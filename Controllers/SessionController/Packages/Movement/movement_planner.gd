@@ -12,12 +12,14 @@ var _validator: AgentValidator = AgentValidator.new()
 var navigation_controller = null
 var hex_grid_controller = null
 var agent_manager = null
+var session_controller = null
 
 
-func configure(nav_ctrl, grid_ctrl, agent_mgr) -> void:
+func configure(nav_ctrl, grid_ctrl, agent_mgr, session_ctrl = null) -> void:
 	navigation_controller = nav_ctrl
 	hex_grid_controller = grid_ctrl
 	agent_manager = agent_mgr
+	session_controller = session_ctrl
 
 
 func has_planned_movement() -> bool:
@@ -33,7 +35,8 @@ func get_planned_target() -> HexCell:
 
 
 func plan_movement(agent: AgentData, target_cell: HexCell) -> bool:
-	var validation := _validator.validate_movement_request(agent, target_cell)
+	# Pass session_controller to validator for navigability check
+	var validation := _validator.validate_movement_request(agent, target_cell, session_controller)
 	if not validation.success:
 		_clear_planned()
 		return false
