@@ -14,7 +14,7 @@ signal cell_deselected()
 
 var selected_cell: HexCell = null
 var pulse_time: float = 0.0
-var pulse_speed: int = 2;
+var pulse_speed: int = 2
 
 func _ready() -> void:
 	z_index = 10
@@ -63,21 +63,4 @@ func _draw() -> void:
 	var outline_color := highlight_outline_color if selected_cell.enabled else disabled_highlight_color
 
 	# Draw outline only (no fill)
-	_draw_hexagon(pos, size * 0.95, outline_color, false)
-
-func _draw_hexagon(center: Vector2, radius: float, color: Color, filled: bool) -> void:
-	var points := PackedVector2Array()
-	
-	for i in range(6):
-		var angle_deg := 60.0 * i
-		var angle_rad := deg_to_rad(angle_deg)
-		var x := center.x + radius * cos(angle_rad)
-		var y := center.y + radius * sin(angle_rad)
-		points.append(Vector2(x, y))
-	
-	if filled:
-		draw_colored_polygon(points, color)
-	else:
-		for i in range(6):
-			var next_i := (i + 1) % 6
-			draw_line(points[i], points[next_i], color, outline_width)
+	HexGeometry.draw_hexagon_outline(self, pos, size * 0.95, outline_color, outline_width)

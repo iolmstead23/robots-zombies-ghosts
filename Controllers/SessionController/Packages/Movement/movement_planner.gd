@@ -12,12 +12,14 @@ var _validator: AgentValidator = AgentValidator.new()
 var navigation_controller = null
 var hex_grid_controller = null
 var agent_manager = null
+var session_controller = null
 
 
-func configure(nav_ctrl, grid_ctrl, agent_mgr) -> void:
+func configure(nav_ctrl, grid_ctrl, agent_mgr, session_ctrl = null) -> void:
 	navigation_controller = nav_ctrl
 	hex_grid_controller = grid_ctrl
 	agent_manager = agent_mgr
+	session_controller = session_ctrl
 
 
 func has_planned_movement() -> bool:
@@ -33,7 +35,8 @@ func get_planned_target() -> HexCell:
 
 
 func plan_movement(agent: AgentData, target_cell: HexCell) -> bool:
-	var validation := _validator.validate_movement_request(agent, target_cell)
+	# Pass session_controller to validator for navigability check
+	var validation := _validator.validate_movement_request(agent, target_cell, session_controller)
 	if not validation.success:
 		_clear_planned()
 		return false
@@ -172,7 +175,16 @@ func _record_movement(distance: int) -> bool:
 
 func _ensure_controller_active(turn_based, scene_tree: SceneTree) -> void:
 	if not turn_based.is_active:
+		turn_based.activate()
 		await scene_tree.process_frame
+
+	# Ensure state is IDLE before proceeding
+	if not turn_based.is_in_state(NavigationTypes.TurnState.IDLE):
+		var max_wait_frames := 60  # ~1 second at 60fps
+		var frames_waited := 0
+		while not turn_based.is_in_state(NavigationTypes.TurnState.IDLE) and frames_waited < max_wait_frames:
+			await scene_tree.process_frame
+			frames_waited += 1
 
 
 func _connect_completion_handler(turn_based) -> void:

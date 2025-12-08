@@ -9,7 +9,6 @@ signal obstacle_removed(world_pos: Vector2, cell: HexCell)
 @export var hex_grid: HexGrid
 @export var auto_scan_on_ready: bool = false
 @export var collision_mask: int = 1
-@export var scan_radius: float = 10.0
 
 var space_state: PhysicsDirectSpaceState2D
 

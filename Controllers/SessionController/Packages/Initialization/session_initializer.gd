@@ -190,13 +190,25 @@ func _setup_debug_visuals(config: Dictionary) -> void:
 	_hex_grid_controller.add_child(hex_debug)
 	_debug_controller.set_hex_grid_debug(hex_debug)
 
+	# Hover visualizer (kept for future use, disabled by default)
 	var hover := HexCellHoverVisualizer.new()
 	hover.name = "HexCellHoverVisualizer"
 	hover.hex_grid = grid
 	hover.session_controller = config.get("session_controller")
-	hover.hover_enabled = not debug_enabled
+	hover.hover_enabled = false  # Disabled by default (kept for future use)
 	_hex_grid_controller.add_child(hover)
 	_debug_controller.set_hex_cell_hover_visualizer(hover)
+
+	# Traversable area visualizer (replaces hover for normal gameplay)
+	var traversable_vis := TraversableAreaVisualizer.new()
+	traversable_vis.name = "TraversableAreaVisualizer"
+	traversable_vis.hex_grid = grid
+	traversable_vis.session_controller = config.get("session_controller")
+	_hex_grid_controller.add_child(traversable_vis)
+
+	var session_ctrl = config.get("session_controller")
+	if session_ctrl:
+		session_ctrl.traversable_area_visualizer = traversable_vis
 
 	var path_visualizer = _navigation_controller.get_path_visualizer()
 	if path_visualizer:

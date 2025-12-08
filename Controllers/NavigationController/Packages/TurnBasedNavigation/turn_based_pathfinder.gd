@@ -1,9 +1,8 @@
 extends Node
 class_name TurnBasedPathfinder
 
-## Turn-based pathfinder using hex grid navigation
-##
-## Refactored to use Core components for better organization and reusability.
+# Turn-based pathfinder using hex grid navigation
+# Refactored to use Core components for better organization and reusability.
 
 signal path_calculated(segments: Array, total_distance: int)
 signal path_confirmed()
@@ -26,6 +25,14 @@ var player: CharacterBody2D
 var hex_grid: HexGrid
 var hex_pathfinder: HexPathfinder
 
+# Path smoothing components
+var _path_interpolator: PathInterpolator = PathInterpolator.new()
+var _string_pull_validator: StringPullValidator = StringPullValidator.new()
+var _catmull_rom_smoother: CatmullRomSmoother = CatmullRomSmoother.new()
+
+# Midpoint interpolation settings
+var interpolation_layers: int = 1  # 1-3 layers
+
 # ============================================================================
 # INITIALIZATION
 # ============================================================================
@@ -34,6 +41,9 @@ func initialize(player_ref: CharacterBody2D, grid: HexGrid = null, hex_pathfinde
 	player = player_ref
 	hex_grid = grid
 	hex_pathfinder = hex_pathfinder_ref
+
+	# Initialize smoothing components
+	_catmull_rom_smoother.set_smoothing_iterations(3)  # Moderate smoothing - 3 segments per edge
 
 	# Components may be deferred - will be set via set_hex_components()
 	# Validation happens in _validate_components() when pathfinding is attempted
@@ -53,13 +63,11 @@ func set_hex_components(grid: HexGrid, hex_pathfinder_ref: HexPathfinder) -> voi
 # ============================================================================
 
 func calculate_path_to(destination: Vector2, max_distance: int = -1) -> bool:
-	"""
-	Calculate a path to the destination.
-
-	Args:
-		destination: Target world position
-		max_distance: Maximum distance in meters (if -1, uses MovementConstants.MAX_MOVEMENT_DISTANCE)
-	"""
+	# Calculate a path to the destination
+	#
+	# Args:
+	#   destination: Target world position
+	#   max_distance: Maximum distance in meters (if -1, uses MovementConstants.MAX_MOVEMENT_DISTANCE)
 	if not _validate_components():
 		return false
 
@@ -162,8 +170,31 @@ func _process_hex_path(distance_limit: int) -> void:
 
 func _convert_hex_to_world() -> void:
 	current_path.clear()
-	for cell in current_hex_path:
-		current_path.append(cell.world_position)
+
+	# Generate smooth waypoints using new refactored classes
+	if current_hex_path.size() > 0:
+		var hex_size_value := 32.0
+		if hex_grid:
+			hex_size_value = hex_grid.hex_size
+
+		# Step 1: Generate waypoints from path
+		var waypoints := _path_interpolator.generate_path_waypoints(current_hex_path, 0.5)
+
+		# Step 2: Apply midpoint interpolation
+		var interpolated := _path_interpolator.generate_midpoint_interpolation(waypoints, interpolation_layers)
+
+		# Step 3: Apply string pulling to tighten the path
+		_string_pull_validator.set_hex_size(hex_size_value)
+		var pulled := _string_pull_validator.pull_string_through_path(interpolated, current_hex_path)
+
+		# Step 4: Apply final smoothing
+		var smooth_waypoints := _catmull_rom_smoother.smooth_curve(pulled, false)  # false = open path
+
+		for waypoint in smooth_waypoints:
+			current_path.append(waypoint)
+	else:
+		# Empty path
+		pass
 
 func _calculate_distance() -> void:
 	# Distance is measured in hex cells (each cell = 1 meter)
@@ -204,3 +235,19 @@ func _log_path_success() -> void:
 			total_path_distance,
 			total_path_distance
 		])
+
+# ============================================================================
+# INTERPOLATION LAYER CONTROL
+# ============================================================================
+
+func set_interpolation_layers(layers: int) -> void:
+	# Set midpoint interpolation layers (1-3) for path smoothing
+	interpolation_layers = clampi(layers, 1, 3)
+	# Interpolation layers is now used directly by PathInterpolator in _convert_hex_to_world()
+
+	if OS.is_debug_build():
+		print("TurnBasedPathfinder: Interpolation layers set to: %d" % interpolation_layers)
+
+
+func get_interpolation_layers() -> int:
+	return interpolation_layers

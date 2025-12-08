@@ -31,7 +31,7 @@ func validate_agents_array(agents: Array, context: String = "") -> SessionTypes.
 	return SessionTypes.ValidationResult.ok()
 
 
-func validate_movement_request(agent: AgentData, target_cell: HexCell) -> SessionTypes.ValidationResult:
+func validate_movement_request(agent: AgentData, target_cell: HexCell, session_controller = null) -> SessionTypes.ValidationResult:
 	if not agent:
 		return SessionTypes.ValidationResult.fail("No agent provided")
 
@@ -40,6 +40,11 @@ func validate_movement_request(agent: AgentData, target_cell: HexCell) -> Sessio
 
 	if not target_cell.enabled:
 		return SessionTypes.ValidationResult.fail("Target cell is disabled")
+
+	# Check if cell is navigable (within agent's movement range)
+	if session_controller and session_controller.has_method("is_cell_navigable"):
+		if not session_controller.is_cell_navigable(target_cell):
+			return SessionTypes.ValidationResult.fail("Target cell is not navigable")
 
 	if not agent.can_move():
 		return SessionTypes.ValidationResult.fail("Agent has no movements remaining")

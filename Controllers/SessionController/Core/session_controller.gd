@@ -73,6 +73,7 @@ var agent_manager = null
 var io_controller = null
 var camera_controller = null
 var loading_modal = null
+var traversable_area_visualizer = null
 
 # --- Core helper instances ---
 var _initializer: SessionInitializer = SessionInitializer.new()
@@ -113,7 +114,7 @@ func _init_all_controllers() -> void:
 func _init_packages() -> void:
 	_initializer.configure(hex_grid_controller, navigation_controller, agent_manager, debug_controller)
 	_initializer.stage_changed.connect(_on_init_stage_changed)
-	_movement_planner.configure(navigation_controller, hex_grid_controller, agent_manager)
+	_movement_planner.configure(navigation_controller, hex_grid_controller, agent_manager, self)
 	_input_handler.configure(_movement_planner)
 
 ## Instantiate a node from a script and add to scene tree, optionally set properties.
@@ -189,6 +190,16 @@ func connect_io_controller(io_ctrl) -> void:
 	io_controller = io_ctrl
 	if not io_controller:
 		return
+
+	# Set session controller reference for navigability validation
+	if io_controller.has_method("set_session_controller"):
+		io_controller.set_session_controller(self)
+
+	# Connect hover visualizer to rejection signal for visual pulse feedback
+	if debug_controller and debug_controller.hex_cell_hover_visualizer:
+		if debug_controller.hex_cell_hover_visualizer.has_method("set_io_controller"):
+			debug_controller.hex_cell_hover_visualizer.set_io_controller(io_controller)
+
 	io_controller.hex_cell_left_clicked.connect(_on_cell_left_clicked)
 	io_controller.hex_cell_hovered.connect(_on_cell_hovered)
 	io_controller.hex_cell_hover_ended.connect(_on_cell_hover_ended)
@@ -217,6 +228,9 @@ func initialize_session() -> void:
 	var result := await _initializer.initialize(config, get_tree())
 
 	if result != SessionTypes.InitResult.SUCCESS:
+		# Hide loading modal before aborting to prevent stuck UI
+		if loading_modal:
+			loading_modal.hide_modal()
 		_abort_session("Initialization failed")
 		return
 
@@ -238,12 +252,22 @@ func initialize_session() -> void:
 			# Pass actual hex_size to camera controller
 			camera_controller.set_hex_size(actual_hex_size)
 
+			# Set camera on IOController for mouse input
+			if io_controller:
+				io_controller.set_camera(camera)
+				io_controller.set_viewport(get_viewport())
+
 			# Initial smooth transition to first agent
 			if agents.size() > 0:
 				await get_tree().process_frame
 				camera_controller.move_camera_to_agent(agents[0])
 		else:
 			push_warning("[SessionController] Camera2D not found - camera controller not initialized")
+
+	# Initialize navigable cells for the first agent before session starts
+	# This ensures the traversable area visualizer displays during loading
+	if agents.size() > 0:
+		update_navigable_cells(agents[0])
 
 	# Hide loading modal
 	if loading_modal:
@@ -271,6 +295,9 @@ func _build_init_config() -> Dictionary:
 ## Stop and clean up the current session.
 func _abort_session(msg: String) -> void:
 	push_error(msg)
+	# Hide loading modal if it's still visible
+	if loading_modal:
+		loading_modal.hide_modal()
 	agents.clear()
 	current_agent_index = 0
 	session_active = false
@@ -304,8 +331,17 @@ func _on_agents_ready(spawned_agents: Array) -> void:
 	current_agent_index = 0
 
 func _on_agents_spawned(_count: int) -> void: pass
-func _on_agent_turn_ended(_data: AgentData) -> void: _movement_planner.cancel_movement()
-func _on_all_agents_completed_round() -> void: _movement_planner.cancel_movement()
+func _on_agent_turn_ended(_data: AgentData) -> void:
+	_movement_planner.cancel_movement()
+	# Clear selected cell highlight when turn ends
+	if traversable_area_visualizer:
+		traversable_area_visualizer.clear_selected_cell()
+
+func _on_all_agents_completed_round() -> void:
+	_movement_planner.cancel_movement()
+	# Clear selected cell highlight when round completes
+	if traversable_area_visualizer:
+		traversable_area_visualizer.clear_selected_cell()
 
 ## Start a new agent turn.
 func _on_agent_turn_started(data: AgentData) -> void:
@@ -315,6 +351,9 @@ func _on_agent_turn_started(data: AgentData) -> void:
 		current_agent_index = agent_index
 
 	_movement_planner.cancel_movement()
+	# Clear selected cell highlight when new turn starts
+	if traversable_area_visualizer:
+		traversable_area_visualizer.clear_selected_cell()
 	update_navigable_cells(data)
 	_emit_turn_changed(data)
 
@@ -363,9 +402,19 @@ func _on_selection_cleared() -> void:
 func _on_cell_left_clicked(cell: HexCell) -> void:
 	if not cell:
 		return
+
+	# VALIDATION: Defense-in-depth - block non-navigable cells
+	# This is a backup check in case IOController validation is bypassed
+	if not is_cell_navigable(cell):
+		return
+
 	if selection_controller: selection_controller.select_object(cell)
 	var agent = agent_manager.get_active_agent() if agent_manager else null
-	if agent: _movement_planner.plan_movement(agent, cell)
+	if agent:
+		_movement_planner.plan_movement(agent, cell)
+		# Highlight the selected navigation cell in blue
+		if traversable_area_visualizer:
+			traversable_area_visualizer.set_selected_cell(cell)
 	cell_clicked.emit(cell)
 
 ## Hover and debug information helpers.
@@ -460,7 +509,101 @@ func calculate_path(start: Vector2, goal: Vector2) -> void: navigation_controlle
 func set_debug_mode(enabled: bool) -> void: debug_controller.set_debug_visibility_requested.emit(enabled)
 func toggle_debug_mode() -> void: debug_controller.toggle_debug_requested.emit()
 
-## Refresh navmesh integration with the current grid setup.
+## Traversable area visualizer controls.
+func set_traversable_area_visible(enabled: bool) -> void:
+	if traversable_area_visualizer:
+		traversable_area_visualizer.set_visualizer_enabled(enabled)
+
+func is_traversable_area_visible() -> bool:
+	if traversable_area_visualizer:
+		return traversable_area_visualizer.is_visualizer_enabled()
+	return false
+
+func toggle_traversable_area_visible() -> void:
+	set_traversable_area_visible(not is_traversable_area_visible())
+
+func get_traversable_area_visualizer():
+	return traversable_area_visualizer
+
+## String pulling controls.
+func set_string_pulling_enabled(enabled: bool) -> void:
+	if traversable_area_visualizer:
+		traversable_area_visualizer.set_use_string_pulling(enabled)
+
+func is_string_pulling_enabled() -> bool:
+	if traversable_area_visualizer:
+		return traversable_area_visualizer.use_string_pulling
+	return false
+
+func get_boundary_curve() -> PackedVector2Array:
+	if traversable_area_visualizer:
+		return traversable_area_visualizer.get_boundary_curve()
+	return PackedVector2Array()
+
+# Curve method controls (Chaikin vs Catmull-Rom)
+func set_curve_method(method: PathSmootherBase.CurveMethod) -> void:
+	if traversable_area_visualizer:
+		traversable_area_visualizer.set_curve_method(method)
+
+func get_curve_method() -> PathSmootherBase.CurveMethod:
+	if traversable_area_visualizer:
+		return traversable_area_visualizer.get_curve_method()
+	return PathSmootherBase.CurveMethod.CHAIKIN
+
+func set_smoothing_iterations(iterations: int) -> void:
+	if traversable_area_visualizer:
+		traversable_area_visualizer.set_smoothing_iterations(iterations)
+
+func get_smoothing_iterations() -> int:
+	if traversable_area_visualizer:
+		return traversable_area_visualizer.get_smoothing_iterations()
+	return 2
+
+# ============================================================================
+# MIDPOINT INTERPOLATION CONTROLS
+# ============================================================================
+
+func set_interpolation_layers(layers: int) -> void:
+	# Set midpoint interpolation layers (1-3) for path smoothing
+	var clamped := clampi(layers, 1, 3)
+
+	# Update path visualizer
+	if debug_controller and debug_controller.hex_path_visualizer:
+		debug_controller.hex_path_visualizer.set_interpolation_layers(clamped)
+
+	# Update navigation controller's turn-based pathfinder
+	if navigation_controller:
+		var pathfinder = navigation_controller.get_turn_based_pathfinder()
+		if pathfinder and pathfinder.has_method("set_interpolation_layers"):
+			pathfinder.set_interpolation_layers(clamped)
+
+	if OS.is_debug_build():
+		print("[SessionController] Interpolation layers set to: %d" % clamped)
+
+
+func get_interpolation_layers() -> int:
+	# Get current midpoint interpolation layer count
+	if debug_controller and debug_controller.hex_path_visualizer:
+		return debug_controller.hex_path_visualizer.get_interpolation_layers()
+	return 1
+
+
+func set_path_string_pulling_enabled(enabled: bool) -> void:
+	# String pulling is now always integrated into the path generation pipeline
+	# This method is kept for API compatibility but no longer does anything
+	if OS.is_debug_build():
+		print("[SessionController] String pulling is always enabled in refactored code")
+
+
+func is_path_string_pulling_enabled() -> bool:
+	# String pulling is now always integrated into the path generation pipeline
+	return true
+
+# ============================================================================
+# NAVMESH INTEGRATION
+# ============================================================================
+
+# Refresh navmesh integration with the current grid setup.
 func refresh_navmesh_integration() -> void: hex_grid_controller.refresh_navmesh_integration()
 
 ## Camera controller signal handlers

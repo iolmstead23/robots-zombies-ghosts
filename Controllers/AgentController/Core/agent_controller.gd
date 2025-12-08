@@ -168,6 +168,7 @@ func _spawn_agent(index: int, cell: HexCell, agent_type: AgentTypes.Type = Agent
 	var ad = AgentData.new(agent_id, ac, agent_type)
 	ad.agent_name = "%s %d" % [AgentTypes.get_display_name(agent_type), index + 1]
 	ad.max_movements_per_turn = max_movements_per_turn
+	ad.max_distance_per_turn = max_movements_per_turn  # Set distance-based limit (meters = hex cells)
 	ad.current_position = pos
 	ad.set_current_cell(cell)  # Set the current hex cell
 	ad.turn_started.connect(_on_agent_turn_started)

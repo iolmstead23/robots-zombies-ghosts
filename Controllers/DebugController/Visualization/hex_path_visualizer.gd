@@ -1,35 +1,57 @@
 class_name HexPathVisualizer
 extends Node2D
 
-## Visualizes paths on hexagonal grid with arrows and highlights
+# Visualizes paths on hexagonal grid with arrows and highlights
 
 signal path_drawn(path: Array[HexCell])
 signal path_cleared()
 
 @export var hex_grid: HexGrid
-@export var path_color: Color = Color(0.0, 0.8, 1.0, 0.8)  # Cyan with higher opacity
-@export var path_outline_color: Color = Color(0.0, 0.8, 1.0, 1.0)  # Bright cyan
-@export var line_width: float = 2.0  # Thin line for path outline
-@export var show_arrows: bool = true
-@export var arrow_size: float = 10.0
-@export var show_cell_numbers: bool = true
-@export var number_color: Color = Color.WHITE
+@export var path_stroke_color: Color = Color(0.0, 0.2, 0.8, 1.0)  # Dark blue
+@export var path_stroke_width: float = 3.0
+@export_range(0.0, 1.0, 0.1) var string_pulling_tension: float = 0.5  # 0.0 = tight, 1.0 = loose
+@export_range(1, 3, 1) var interpolation_layers: int = 1  # 1-3 layers of midpoint interpolation
+@export var show_distance: bool = true
+@export var distance_color: Color = Color.WHITE
+@export var distance_background_color: Color = Color(0, 0, 0, 0.7)
 
 var current_path: Array[HexCell] = []
 var path_statistics: Dictionary = {}
 var debug_enabled: bool = false
 
+# Path smoothing components
+var _path_interpolator: PathInterpolator = PathInterpolator.new()
+var _string_pull_validator: StringPullValidator = StringPullValidator.new()
+var _catmull_rom_smoother: CatmullRomSmoother = CatmullRomSmoother.new()
+var _smooth_path: PackedVector2Array = []
+
 func _ready() -> void:
-	z_index = 1  # Path visualization above objects
+	z_index = -1  # Path visualization at hex cell level - matches traversable_area_visualizer
+	_catmull_rom_smoother.set_smoothing_iterations(3)  # Moderate smoothing - 3 segments per edge
 
 func set_path(path: Array[HexCell]) -> void:
 	current_path = path.duplicate()
 
 	if path.size() > 0:
 		_calculate_statistics()
-		path_drawn.emit(path)
 
-		# Always queue redraw - _draw() will check debug_enabled
+		# Generate smooth pull string path using new refactored classes
+		var hex_size_value := hex_grid.hex_size if hex_grid else 32.0
+
+		# Step 1: Generate waypoints from path
+		var waypoints := _path_interpolator.generate_path_waypoints(current_path, string_pulling_tension)
+
+		# Step 2: Apply midpoint interpolation
+		var interpolated := _path_interpolator.generate_midpoint_interpolation(waypoints, interpolation_layers)
+
+		# Step 3: Apply string pulling to tighten the path
+		_string_pull_validator.set_hex_size(hex_size_value)
+		var pulled := _string_pull_validator.pull_string_through_path(interpolated, current_path)
+
+		# Step 4: Apply final smoothing
+		_smooth_path = _catmull_rom_smoother.smooth_curve(pulled, false)  # false = open path
+
+		path_drawn.emit(path)
 		queue_redraw()
 	else:
 		clear_path()
@@ -37,6 +59,7 @@ func set_path(path: Array[HexCell]) -> void:
 func clear_path() -> void:
 	current_path.clear()
 	path_statistics.clear()
+	_smooth_path.clear()
 	path_cleared.emit()
 
 	# Always redraw to clear any existing visualization
@@ -91,65 +114,45 @@ func _print_path_info() -> void:
 	pass
 
 func _draw() -> void:
-	# Only draw path visualization in debug mode
-	if not debug_enabled:
-		return
-
+	# Draw path visualization - always visible in both debug and normal gameplay
 	if current_path.size() < 2:
 		return
 
-	_draw_path_lines()
-	_draw_cell_highlights()
+	_draw_smooth_path()
 
-func _draw_path_lines() -> void:
-	for i in range(current_path.size() - 1):
-		var start_pos := current_path[i].world_position
-		var end_pos := current_path[i + 1].world_position
-		
-		draw_line(start_pos, end_pos, path_color, line_width)
-		
-		if show_arrows:
-			_draw_arrow(start_pos, end_pos)
+	if show_distance and current_path.size() > 0:
+		_draw_distance_on_last_cell()
 
-func _draw_cell_highlights() -> void:
-	for i in range(current_path.size()):
-		var cell := current_path[i]
-		var pos := cell.world_position
-		
-		# Highlight
-		if hex_grid:
-			var radius := hex_grid.hex_size * 0.7
-			var highlight := Color(path_color.r, path_color.g, path_color.b, 0.2)
-			draw_circle(pos, radius, highlight)
-		
-		# Cell numbers
-		if show_cell_numbers:
-			_draw_cell_number(pos, i)
+func _draw_smooth_path() -> void:
+	# Draw smooth pull string path with dark blue stroke
+	if _smooth_path.size() < 2:
+		return
 
-func _draw_cell_number(pos: Vector2, index: int) -> void:
+	# Draw connected line segments
+	for i in range(_smooth_path.size() - 1):
+		draw_line(_smooth_path[i], _smooth_path[i + 1], path_stroke_color, path_stroke_width)
+
+func _draw_distance_on_last_cell() -> void:
+	# Draw total distance number on the last hex cell
+	var last_cell := current_path[current_path.size() - 1]
+	var distance := get_path_distance()
+	var pos := last_cell.world_position
+
+	# Position text above the cell
+	var offset := Vector2(0, -hex_grid.hex_size * 0.8) if hex_grid else Vector2(0, -25)
+	var text_pos := pos + offset
+
 	var font := ThemeDB.fallback_font
-	var font_size := 16
-	var text := str(index)
+	var font_size := 20
+	var text := str(distance)
 	var string_size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
-	var text_pos := pos - string_size / 2
-	
-	# Background
-	draw_circle(pos, string_size.x * 0.6, Color(0, 0, 0, 0.7))
-	
-	# Text
-	draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, number_color)
 
-func _draw_arrow(from: Vector2, to: Vector2) -> void:
-	var direction := (to - from).normalized()
-	var perpendicular := Vector2(-direction.y, direction.x)
-	var arrow_base := to - direction * arrow_size
-	var wing1 := arrow_base - direction * arrow_size + perpendicular * arrow_size * 0.5
-	var wing2 := arrow_base - direction * arrow_size - perpendicular * arrow_size * 0.5
-
-	var arrow_points := PackedVector2Array([to, wing1, wing2])
-	draw_colored_polygon(arrow_points, path_outline_color)
+	# Text only - no background circle
+	var draw_pos := text_pos - string_size / 2
+	draw_string(font, draw_pos, text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, distance_color)
 
 func set_debug_enabled(enabled: bool) -> void:
+	# Kept for backwards compatibility - path is now always visible
 	debug_enabled = enabled
 	queue_redraw()
 
@@ -157,7 +160,7 @@ func export_path_data() -> Dictionary:
 	var export_data := path_statistics.duplicate()
 	export_data["timestamp"] = Time.get_datetime_string_from_system()
 	export_data["cells"] = []
-	
+
 	for cell in current_path:
 		export_data["cells"].append({
 			"q": cell.q,
@@ -165,5 +168,22 @@ func export_path_data() -> Dictionary:
 			"world_pos": cell.world_position,
 			"enabled": cell.enabled
 		})
-	
+
 	return export_data
+
+# ============================================================================
+# INTERPOLATION LAYER CONTROL
+# ============================================================================
+
+func set_interpolation_layers(layers: int) -> void:
+	# Set midpoint interpolation layers (1-3) for path smoothing
+	interpolation_layers = clampi(layers, 1, 3)
+	# Interpolation layers is now used directly by PathInterpolator in set_path()
+
+	# Regenerate path if one exists
+	if current_path.size() > 0:
+		set_path(current_path)
+
+
+func get_interpolation_layers() -> int:
+	return interpolation_layers

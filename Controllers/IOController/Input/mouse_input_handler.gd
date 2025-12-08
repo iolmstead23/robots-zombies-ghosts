@@ -37,15 +37,15 @@ var viewport: Viewport
 # ============================================================================
 
 func set_camera(new_camera: Camera2D) -> void:
-	"""Set the camera reference"""
+	# Set the camera reference
 	camera = new_camera
 
 func set_viewport(new_viewport: Viewport) -> void:
-	"""Set the viewport reference"""
+	# Set the viewport reference
 	viewport = new_viewport
 
 func set_hex_grid(_grid: HexGrid) -> void:
-	"""Hex grid setter for compatibility - not used by this handler"""
+	# Hex grid setter for compatibility - not used by this handler
 	pass
 
 # ============================================================================
@@ -62,11 +62,11 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	# Check if camera/viewport are set before processing
 	if not camera:
-		push_warning("[MouseInputHandler] Camera not set - ignoring input")
+		push_warning("MouseInputHandler: Camera not set - ignoring input")
 		return
 
 	if not viewport:
-		push_warning("[MouseInputHandler] Viewport not set - ignoring input")
+		push_warning("MouseInputHandler: Viewport not set - ignoring input")
 		return
 
 	# Get world position
@@ -81,7 +81,7 @@ func _unhandled_input(event: InputEvent) -> void:
 # ============================================================================
 
 func _get_world_mouse_position() -> Vector2:
-	"""Convert screen mouse position to world coordinates"""
+	# Convert screen mouse position to world coordinates
 	if not camera:
 		push_warning("MouseInputHandler: Camera not set")
 		return Vector2.ZERO
