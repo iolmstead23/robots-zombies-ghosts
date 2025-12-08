@@ -83,7 +83,7 @@ func _draw() -> void:
 		var pos := _rejection_pulse_cell.world_position
 		var size := hex_grid.hex_size
 		# Draw thicker red outline for rejection pulse
-		_draw_hexagon_thick(pos, size * 0.95, not_navigable_color, rejection_pulse_width)
+		HexGeometry.draw_hexagon_outline(self, pos, size * 0.95, not_navigable_color, rejection_pulse_width)
 
 	# Draw normal hover outline
 	if not hover_enabled or not hovered_cell:
@@ -104,23 +104,4 @@ func _draw() -> void:
 	# Draw hex outline
 	var pos := hovered_cell.world_position
 	var size := hex_grid.hex_size
-	_draw_hexagon(pos, size * 0.95, outline_color)
-
-func _draw_hexagon(center: Vector2, radius: float, color: Color) -> void:
-	_draw_hexagon_thick(center, radius, color, outline_width)
-
-func _draw_hexagon_thick(center: Vector2, radius: float, color: Color, width: float) -> void:
-	var points := PackedVector2Array()
-
-	# Generate hexagon points (flat-top orientation)
-	for i in range(6):
-		var angle_deg := 60.0 * i
-		var angle_rad := deg_to_rad(angle_deg)
-		var x := center.x + radius * cos(angle_rad)
-		var y := center.y + radius * sin(angle_rad)
-		points.append(Vector2(x, y))
-
-	# Draw outline
-	for i in range(6):
-		var next_i := (i + 1) % 6
-		draw_line(points[i], points[next_i], color, width)
+	HexGeometry.draw_hexagon_outline(self, pos, size * 0.95, outline_color, outline_width)

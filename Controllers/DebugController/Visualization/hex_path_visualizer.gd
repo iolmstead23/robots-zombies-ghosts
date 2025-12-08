@@ -19,17 +19,15 @@ var current_path: Array[HexCell] = []
 var path_statistics: Dictionary = {}
 var debug_enabled: bool = false
 
-# String pulling
-var _string_puller: HexStringPuller = null
+# Path smoothing components
+var _path_interpolator: PathInterpolator = PathInterpolator.new()
+var _string_pull_validator: StringPullValidator = StringPullValidator.new()
+var _catmull_rom_smoother: CatmullRomSmoother = CatmullRomSmoother.new()
 var _smooth_path: PackedVector2Array = []
 
 func _ready() -> void:
 	z_index = -1  # Path visualization at hex cell level - matches traversable_area_visualizer
-	_string_puller = HexStringPuller.new()
-	_string_puller.smoothing_iterations = 3  # Moderate smoothing - 3 points per segment
-	_string_puller.curve_method = HexStringPuller.CurveMethod.CATMULL_ROM
-	_string_puller.interpolation_layers = interpolation_layers
-	_string_puller.enable_string_pulling = true
+	_catmull_rom_smoother.set_smoothing_iterations(3)  # Moderate smoothing - 3 segments per edge
 
 func set_path(path: Array[HexCell]) -> void:
 	current_path = path.duplicate()
@@ -37,14 +35,21 @@ func set_path(path: Array[HexCell]) -> void:
 	if path.size() > 0:
 		_calculate_statistics()
 
-		# Generate smooth pull string path with midpoint interpolation
+		# Generate smooth pull string path using new refactored classes
 		var hex_size_value := hex_grid.hex_size if hex_grid else 32.0
-		_smooth_path = _string_puller.pull_string_through_path(
-			current_path,
-			string_pulling_tension,
-			interpolation_layers,
-			hex_size_value
-		)
+
+		# Step 1: Generate waypoints from path
+		var waypoints := _path_interpolator.generate_path_waypoints(current_path, string_pulling_tension)
+
+		# Step 2: Apply midpoint interpolation
+		var interpolated := _path_interpolator.generate_midpoint_interpolation(waypoints, interpolation_layers)
+
+		# Step 3: Apply string pulling to tighten the path
+		_string_pull_validator.set_hex_size(hex_size_value)
+		var pulled := _string_pull_validator.pull_string_through_path(interpolated, current_path)
+
+		# Step 4: Apply final smoothing
+		_smooth_path = _catmull_rom_smoother.smooth_curve(pulled, false)  # false = open path
 
 		path_drawn.emit(path)
 		queue_redraw()
@@ -173,8 +178,7 @@ func export_path_data() -> Dictionary:
 func set_interpolation_layers(layers: int) -> void:
 	# Set midpoint interpolation layers (1-3) for path smoothing
 	interpolation_layers = clampi(layers, 1, 3)
-	if _string_puller:
-		_string_puller.interpolation_layers = interpolation_layers
+	# Interpolation layers is now used directly by PathInterpolator in set_path()
 
 	# Regenerate path if one exists
 	if current_path.size() > 0:

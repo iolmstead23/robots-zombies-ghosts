@@ -540,20 +540,15 @@ func get_boundary_curve() -> PackedVector2Array:
 		return traversable_area_visualizer.get_boundary_curve()
 	return PackedVector2Array()
 
-func get_string_puller() -> HexStringPuller:
-	if traversable_area_visualizer:
-		return traversable_area_visualizer.get_string_puller()
-	return null
-
-# Curve method controls (Chaikin vs Catmull-Rom).
-func set_curve_method(method: HexStringPuller.CurveMethod) -> void:
+# Curve method controls (Chaikin vs Catmull-Rom)
+func set_curve_method(method: PathSmootherBase.CurveMethod) -> void:
 	if traversable_area_visualizer:
 		traversable_area_visualizer.set_curve_method(method)
 
-func get_curve_method() -> HexStringPuller.CurveMethod:
+func get_curve_method() -> PathSmootherBase.CurveMethod:
 	if traversable_area_visualizer:
 		return traversable_area_visualizer.get_curve_method()
-	return HexStringPuller.CurveMethod.CHAIKIN
+	return PathSmootherBase.CurveMethod.CHAIKIN
 
 func set_smoothing_iterations(iterations: int) -> void:
 	if traversable_area_visualizer:
@@ -594,26 +589,14 @@ func get_interpolation_layers() -> int:
 
 
 func set_path_string_pulling_enabled(enabled: bool) -> void:
-	# Enable/disable string pulling on path generation
-	if debug_controller and debug_controller.hex_path_visualizer:
-		var puller = debug_controller.hex_path_visualizer._string_puller
-		if puller:
-			puller.enable_string_pulling = enabled
-
-	if navigation_controller:
-		var pathfinder = navigation_controller.get_turn_based_pathfinder()
-		if pathfinder and pathfinder._string_puller:
-			pathfinder._string_puller.enable_string_pulling = enabled
-
+	# String pulling is now always integrated into the path generation pipeline
+	# This method is kept for API compatibility but no longer does anything
 	if OS.is_debug_build():
-		print("[SessionController] Path string pulling: %s" % ("enabled" if enabled else "disabled"))
+		print("[SessionController] String pulling is always enabled in refactored code")
 
 
 func is_path_string_pulling_enabled() -> bool:
-	if debug_controller and debug_controller.hex_path_visualizer:
-		var puller = debug_controller.hex_path_visualizer._string_puller
-		if puller:
-			return puller.enable_string_pulling
+	# String pulling is now always integrated into the path generation pipeline
 	return true
 
 # ============================================================================

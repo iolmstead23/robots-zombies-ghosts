@@ -26,7 +26,7 @@ extends Node2D
 
 @export_group("String Pulling")
 @export var smoothing_iterations: int = 1  # Chaikin iterations or Catmull-Rom segments (lower = tighter)
-@export var curve_method: HexStringPuller.CurveMethod = HexStringPuller.CurveMethod.CHAIKIN
+@export var curve_method: PathSmootherBase.CurveMethod = PathSmootherBase.CurveMethod.CHAIKIN
 
 @export_group("Edge Fill Colors")
 @export var edge_fill_color: Color = Color(0.0, 0.4, 0.0, 0.8)  # Dark green for boundary cells
@@ -43,8 +43,10 @@ var _navigable_coords_set: Dictionary = {}  # Vector2i -> bool for O(1) lookup
 var _hex_corners: PackedVector2Array = []
 var _visualizer_enabled: bool = true
 
-# String pulling
-var _string_puller: HexStringPuller = HexStringPuller.new()
+# Boundary detection and smoothing
+var _boundary_tracer: BoundaryTracer = BoundaryTracer.new()
+var _chaikin_smoother: ChaikinSmoother = ChaikinSmoother.new()
+var _catmull_rom_smoother: CatmullRomSmoother = CatmullRomSmoother.new()
 var _boundary_curve: PackedVector2Array = []
 
 # Boundary cells (cells with at least one non-navigable neighbor)
@@ -58,40 +60,7 @@ var _selected_cell: HexCell = null
 # CONSTANTS - Direction to Edge Mapping
 # ============================================================================
 
-# Flat-top hex directions for neighbor checking
-const FLAT_TOP_DIRECTIONS: Array[Vector2i] = [
-	Vector2i(1, 0),    # Direction 0 (right)
-	Vector2i(1, -1),   # Direction 1 (upper-right)
-	Vector2i(0, -1),   # Direction 2 (upper-left)
-	Vector2i(-1, 0),   # Direction 3 (left)
-	Vector2i(-1, 1),   # Direction 4 (lower-left)
-	Vector2i(0, 1)     # Direction 5 (lower-right)
-]
-
-# Maps direction index to the hex corner indices that form that edge
-# For flat-top hexagon with corners at 0°, 60°, 120°, 180°, 240°, 300°
-# Note: Uses odd-q offset system where odd columns are shifted down
-# This requires different mappings for even vs odd columns
-
-# Direction to edge mapping for EVEN columns (q % 2 == 0)
-const DIRECTION_TO_EDGE_EVEN: Array[Vector2i] = [
-	Vector2i(0, 1),  # Direction 0 (+q): neighbor is lower-right -> edge 0-1
-	Vector2i(5, 0),  # Direction 1 (+q-r): neighbor is upper-right -> edge 5-0
-	Vector2i(4, 5),  # Direction 2 (-r): neighbor is up -> edge 4-5
-	Vector2i(3, 4),  # Direction 3 (-q): neighbor is upper-left -> edge 3-4
-	Vector2i(2, 3),  # Direction 4 (-q+r): neighbor is lower-left -> edge 2-3
-	Vector2i(1, 2),  # Direction 5 (+r): neighbor is down -> edge 1-2
-]
-
-# Direction to edge mapping for ODD columns (q % 2 == 1)
-const DIRECTION_TO_EDGE_ODD: Array[Vector2i] = [
-	Vector2i(5, 0),  # Direction 0 (+q): neighbor is upper-right -> edge 5-0
-	Vector2i(4, 5),  # Direction 1 (+q-r): neighbor is up -> edge 4-5
-	Vector2i(3, 4),  # Direction 2 (-r): neighbor is upper-left -> edge 3-4
-	Vector2i(2, 3),  # Direction 3 (-q): neighbor is lower-left -> edge 2-3
-	Vector2i(1, 2),  # Direction 4 (-q+r): neighbor is down -> edge 1-2
-	Vector2i(0, 1),  # Direction 5 (+r): neighbor is lower-right -> edge 0-1
-]
+# Direction constants moved to HexDirections utility
 
 # ============================================================================
 # LIFECYCLE
@@ -113,17 +82,13 @@ func _connect_session_signals() -> void:
 
 
 func _calculate_hex_corners() -> void:
-	# Pre-calculate corner offsets for hex drawing
+	# Pre-calculate corner offsets for hex drawing using HexGeometry utility
 	_hex_corners.clear()
 	if not hex_grid:
 		return
 
 	var size := hex_grid.hex_size
-	# Flat-top hexagon: corners at 0, 60, 120, 180, 240, 300 degrees
-	for i in range(6):
-		var angle_deg := 60.0 * i
-		var angle_rad := deg_to_rad(angle_deg)
-		_hex_corners.append(Vector2(size * cos(angle_rad), size * sin(angle_rad)))
+	_hex_corners = HexGeometry.get_hex_corner_offsets(size)
 
 # ============================================================================
 # SIGNAL HANDLERS
@@ -146,10 +111,40 @@ func _rebuild_navigable_lookup() -> void:
 
 
 func _rebuild_boundary_curve() -> void:
-	# Rebuild the smooth boundary curve using string pulling
-	_string_puller.smoothing_iterations = smoothing_iterations
-	_string_puller.curve_method = curve_method
-	_boundary_curve = _string_puller.pull_string(_navigable_cells, _navigable_coords_set)
+	# Rebuild the smooth boundary curve using new refactored classes
+	if _navigable_cells.is_empty():
+		_boundary_curve = PackedVector2Array()
+		return
+
+	# Step 1: Get boundary cells
+	var boundary_cells := _boundary_tracer.get_boundary_cells(_navigable_cells, _navigable_coords_set)
+
+	if boundary_cells.size() < 3:
+		_boundary_curve = PackedVector2Array()
+		return
+
+	# Step 2: Order boundary cells into contour
+	var ordered_boundary := _boundary_tracer.trace_boundary(boundary_cells)
+
+	# Step 3: Extract positions from ordered cells
+	var positions: Array[Vector2] = []
+	for cell in ordered_boundary:
+		positions.append(cell.world_position)
+
+	# Step 4: Apply smoothing based on selected method
+	var smoother: PathSmootherBase = null
+	match curve_method:
+		PathSmootherBase.CurveMethod.CHAIKIN:
+			smoother = _chaikin_smoother
+		PathSmootherBase.CurveMethod.CATMULL_ROM:
+			smoother = _catmull_rom_smoother
+
+	if smoother:
+		smoother.set_smoothing_iterations(smoothing_iterations)
+		_boundary_curve = smoother.smooth_curve(positions, true)  # true = closed loop
+	else:
+		# No smoothing - just return positions
+		_boundary_curve = PackedVector2Array(positions)
 
 
 func _identify_boundary_cells() -> void:
@@ -162,7 +157,7 @@ func _identify_boundary_cells() -> void:
 		var is_boundary := false
 
 		# Check each of the 6 directions - if ANY neighbor is not navigable, mark as boundary
-		for dir in FLAT_TOP_DIRECTIONS:
+		for dir in HexDirections.FLAT_TOP_DIRECTIONS:
 			var neighbor_coords := cell_coords + dir
 
 			# A cell is on the boundary if its neighbor is:
@@ -175,7 +170,7 @@ func _identify_boundary_cells() -> void:
 		# Double-check: If cell is enabled but has fewer than 6 navigable neighbors, it's definitely boundary
 		if not is_boundary and hex_grid:
 			var navigable_neighbor_count := 0
-			for dir in FLAT_TOP_DIRECTIONS:
+			for dir in HexDirections.FLAT_TOP_DIRECTIONS:
 				var neighbor_coords := cell_coords + dir
 				if _navigable_coords_set.has(neighbor_coords):
 					navigable_neighbor_count += 1
@@ -222,12 +217,7 @@ func get_boundary_curve() -> PackedVector2Array:
 	return _boundary_curve
 
 
-func get_string_puller() -> HexStringPuller:
-	# Get the string puller instance for external use
-	return _string_puller
-
-
-func set_curve_method(method: HexStringPuller.CurveMethod) -> void:
+func set_curve_method(method: PathSmootherBase.CurveMethod) -> void:
 	# Set the curve generation method
 	if curve_method == method:
 		return
@@ -236,7 +226,7 @@ func set_curve_method(method: HexStringPuller.CurveMethod) -> void:
 	queue_redraw()
 
 
-func get_curve_method() -> HexStringPuller.CurveMethod:
+func get_curve_method() -> PathSmootherBase.CurveMethod:
 	# Get the current curve generation method
 	return curve_method
 

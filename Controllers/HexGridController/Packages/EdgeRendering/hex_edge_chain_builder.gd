@@ -4,17 +4,11 @@ extends RefCounted
 ## Builds edge chains from navigable hex cells
 ## Detects boundary edges, groups them into continuous chains, and orders them into polylines
 
-# Flat-top hex directions for neighbor checking
-const FLAT_TOP_DIRECTIONS: Array[Vector2i] = [
-]
-
-# Direction to edge mapping for EVEN columns (q % 2 == 0)
-const DIRECTION_TO_EDGE_EVEN: Array[Vector2i] = [
-]
-
-# Direction to edge mapping for ODD columns (q % 2 == 1)
-const DIRECTION_TO_EDGE_ODD: Array[Vector2i] = [
-]
+# Direction constants now provided by HexDirections utility
+# References maintained for backwards compatibility during refactoring
+const FLAT_TOP_DIRECTIONS: Array[Vector2i] = HexDirections.FLAT_TOP_DIRECTIONS
+const DIRECTION_TO_EDGE_EVEN: Array[Vector2i] = HexDirections.DIRECTION_TO_EDGE_EVEN
+const DIRECTION_TO_EDGE_ODD: Array[Vector2i] = HexDirections.DIRECTION_TO_EDGE_ODD
 
 
 func build_chains(navigable_cells: Array[HexCell],
@@ -241,7 +235,7 @@ func _create_chain_from_indices(all_edges: Array[HexEdgeSegment], edge_indices: 
 
 
 func _is_chain_closed(edges: Array[HexEdgeSegment]) -> bool:
-	A chain is closed if all corners appear exactly twice (each corner shared by 2 edges).
+	# A chain is closed if all corners appear exactly twice (each corner shared by 2 edges)
 	var corner_count: Dictionary = {}  # String -> int
 
 	for edge in edges:
