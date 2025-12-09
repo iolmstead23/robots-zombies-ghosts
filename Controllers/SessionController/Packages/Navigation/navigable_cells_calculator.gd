@@ -1,8 +1,6 @@
 class_name NavigableCellsCalculator
 extends RefCounted
 
-const HEX_DISTANCE_MULTIPLIER := 2.0
-
 signal calculation_completed(cells: Array[HexCell], agent_cell: HexCell)
 
 var _last_agent_cell: HexCell = null
@@ -47,24 +45,11 @@ func resolve_agent_cell(agent: AgentData, grid: HexGrid) -> HexCell:
 
 
 func _filter_reachable_cells(context: SessionTypes.NavigableContext) -> Array[HexCell]:
-	var result: Array[HexCell] = []
-	var max_hex_range := int(context.remaining_distance * HEX_DISTANCE_MULTIPLIER)
-	var candidates := context.grid.get_enabled_cells_in_range(context.agent_cell, max_hex_range)
-
-	for cell in candidates:
-		if _is_cell_reachable(cell, context):
-			result.append(cell)
-
+	# Use HexFloodFill for efficient area calculation
+	var flood_fill := HexFloodFill.new()
+	var result := flood_fill.get_reachable_cells(
+		context.agent_cell,
+		context.grid,
+		context.remaining_distance
+	)
 	return result
-
-
-func _is_cell_reachable(cell: HexCell, context: SessionTypes.NavigableContext) -> bool:
-	if cell == context.agent_cell:
-		return true
-
-	var path: Array = context.pathfinder.find_path(context.agent_cell, cell)
-	if path.is_empty():
-		return false
-
-	var path_distance := path.size() - 1
-	return path_distance <= context.remaining_distance
