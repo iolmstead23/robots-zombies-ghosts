@@ -63,4 +63,7 @@ func _draw() -> void:
 	var outline_color := highlight_outline_color if selected_cell.enabled else disabled_highlight_color
 
 	# Draw outline only (no fill)
-	HexGeometry.draw_hexagon_outline(self, pos, size * 0.95, outline_color, outline_width)
+	if hex_grid.use_isometric_transform:
+		HexGeometry.draw_isometric_hexagon_outline(self, pos, size * 0.95, outline_color, outline_width)
+	else:
+		HexGeometry.draw_hexagon_outline(self, pos, size * 0.95, outline_color, outline_width)

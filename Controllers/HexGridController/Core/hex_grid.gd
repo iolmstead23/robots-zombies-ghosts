@@ -19,6 +19,12 @@ signal grid_initialized()
 @export var iso_angle: float = 30.0
 @export var sprite_vertical_offset: float = 0.0
 @export var click_isometric_correction: bool = false
+@export var use_isometric_transform: bool = false
+
+# Distance calculation settings
+@export_group("Distance Settings")
+@export var use_hybrid_range: bool = false
+@export_range(0.0, 1.0) var hybrid_alpha: float = 0.5
 
 # Storage
 var cells: Array[HexCell] = []
@@ -48,11 +54,35 @@ func initialize_grid(width: int = -1, height: int = -1) -> void:
 		print("HexGrid: Initialized %dx%d (%d cells)" % [grid_width, grid_height, cells.size()])
 
 func _calculate_layout() -> void:
+	if use_isometric_transform and layout_flat_top:
+		var metrics := IsoCornerCalculator.calculate_isometric_metrics(hex_size)
+		hex_width = metrics.width
+		hex_height = metrics.height
+		horizontal_spacing = metrics.horizontal_spacing
+		vertical_spacing = metrics.vertical_spacing
+		if OS.is_debug_build():
+			print("HexGrid: Using 30° ROTATED isometric transform")
+			print("  - Rotation: 30° diagonal axis")
+			print("  - Horizontal spacing: %.2f" % horizontal_spacing)
+			print("  - Vertical spacing: %.2f" % vertical_spacing)
+			print("  - Ratio: %.2f:1" % metrics.ratio)
+			var dist_check := IsoDistanceCalculator.verify_equal_distances(hex_size)
+			print("  - Distance variance: %.4f (equal=%s)" % [dist_check.variance, dist_check.are_equal])
+			print("  - Finding optimal Y-scale factor...")
+			var optimal := IsoDistanceCalculator.find_optimal_scale(hex_size)
+			print("  - OPTIMAL: scale_y=%.3f, variance=%.4f" % [optimal.best_scale, optimal.best_variance])
+			print("  - Current DISTANCE_SCALE=%.3f needs adjustment!" % IsoTransform.DISTANCE_SCALE)
+		return
+
 	if layout_flat_top:
 		hex_width = hex_size * 2.0
 		hex_height = sqrt(3.0) * hex_size
 		horizontal_spacing = hex_width * 0.75
 		vertical_spacing = hex_height
+		if OS.is_debug_build():
+			print("HexGrid: Using STANDARD flat-top layout")
+			print("  - Horizontal spacing: %.2f" % horizontal_spacing)
+			print("  - Vertical spacing: %.2f" % vertical_spacing)
 	else:
 		hex_width = sqrt(3.0) * hex_size
 		hex_height = hex_size * 2.0
@@ -75,6 +105,9 @@ func _create_grid() -> void:
 			idx += 1
 
 func _axial_to_world(q: int, r: int) -> Vector2:
+	if use_isometric_transform:
+		return IsoTransform.axial_to_isometric(q, r, hex_size, grid_offset)
+
 	var x: float
 	var y: float
 
@@ -88,6 +121,9 @@ func _axial_to_world(q: int, r: int) -> Vector2:
 	return Vector2(x, y) + grid_offset
 
 func world_position_to_axial(world_pos: Vector2) -> Vector2i:
+	if use_isometric_transform:
+		return IsoTransform.isometric_to_axial(world_pos, hex_size, grid_offset)
+
 	var p := world_pos - grid_offset
 	if sprite_vertical_offset != 0.0:
 		p.y += sprite_vertical_offset
@@ -220,6 +256,36 @@ func get_cells_in_range(center: HexCell, radius: int) -> Array[HexCell]:
 func get_enabled_cells_in_range(center: HexCell, radius: int) -> Array[HexCell]:
 	var result: Array[HexCell] = []
 	for cell in get_cells_in_range(center, radius):
+		if cell.enabled:
+			result.append(cell)
+	return result
+
+func get_cells_in_visual_range(center: HexCell, pixel_radius: float) -> Array[HexCell]:
+	var result: Array[HexCell] = []
+	for cell in cells:
+		var visual_dist := IsoDistanceCalculator.calculate_isometric_distance(center, cell)
+		if visual_dist <= pixel_radius:
+			result.append(cell)
+	return result
+
+func get_enabled_cells_in_visual_range(center: HexCell, pixel_radius: float) -> Array[HexCell]:
+	var result: Array[HexCell] = []
+	for cell in get_cells_in_visual_range(center, pixel_radius):
+		if cell.enabled:
+			result.append(cell)
+	return result
+
+func get_cells_in_hybrid_range(center: HexCell, radius: float) -> Array[HexCell]:
+	var result: Array[HexCell] = []
+	for cell in cells:
+		var hybrid_dist := IsoDistanceCalculator.calculate_hybrid_distance(center, cell, hybrid_alpha)
+		if hybrid_dist <= radius:
+			result.append(cell)
+	return result
+
+func get_enabled_cells_in_hybrid_range(center: HexCell, radius: float) -> Array[HexCell]:
+	var result: Array[HexCell] = []
+	for cell in get_cells_in_hybrid_range(center, radius):
 		if cell.enabled:
 			result.append(cell)
 	return result

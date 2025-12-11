@@ -212,6 +212,7 @@ func _init_hex_grid() -> void:
 	hex_grid.grid_height = grid_height
 	hex_grid.hex_size = hex_size
 	hex_grid.layout_flat_top = true
+	hex_grid.use_isometric_transform = true
 	hex_grid.sprite_vertical_offset = 0.0
 	hex_grid.grid_offset = grid_offset
 	add_child(hex_grid)

@@ -67,3 +67,32 @@ static func calculate_flat_top_metrics(hex_size: float) -> Dictionary:
 		"vertical_spacing": hex_size * sqrt(3.0),
 		"radius": hex_size
 	}
+
+
+# Generate isometric hex corners
+static func get_isometric_hex_corners(center: Vector2, radius: float) -> PackedVector2Array:
+	return IsoCornerCalculator.get_isometric_hex_corners(center, radius)
+
+
+# Get isometric corner offsets
+static func get_isometric_corner_offsets(radius: float) -> PackedVector2Array:
+	return IsoCornerCalculator.get_isometric_corner_offsets(radius)
+
+
+# Draw isometric hexagon outline
+static func draw_isometric_hexagon_outline(canvas: CanvasItem, center: Vector2, radius: float, color: Color, width: float = 2.0) -> void:
+	var points := get_isometric_hex_corners(center, radius)
+	for i in range(6):
+		var next_i := (i + 1) % 6
+		canvas.draw_line(points[i], points[next_i], color, width)
+
+
+# Draw isometric hexagon filled
+static func draw_isometric_hexagon_filled(canvas: CanvasItem, center: Vector2, radius: float, color: Color) -> void:
+	var points := get_isometric_hex_corners(center, radius)
+	canvas.draw_colored_polygon(points, color)
+
+
+# Calculate isometric hex metrics
+static func calculate_isometric_metrics(hex_size: float) -> Dictionary:
+	return IsoCornerCalculator.calculate_isometric_metrics(hex_size)

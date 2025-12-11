@@ -33,6 +33,10 @@ func distance_to(other: HexCell) -> int:
 	@warning_ignore("integer_division")
 	return (dx + dy + dz) / 2
 
+# Calculate visual isometric distance
+func isometric_distance_to(other: HexCell) -> float:
+	return IsoDistanceCalculator.calculate_isometric_distance(self, other)
+
 func get_neighbors_coords() -> Array[Vector2i]:
 	const FLAT_TOP_DIRECTIONS := [
 		Vector2i(1, 0), Vector2i(1, -1), Vector2i(0, -1),

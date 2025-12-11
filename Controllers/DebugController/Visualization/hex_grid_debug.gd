@@ -38,10 +38,17 @@ func _calculate_hex_corners() -> void:
 	_hex_corners.clear()
 	if not hex_grid:
 		return
-	
+
 	var size := hex_grid.hex_size
+
+	# Use isometric corners if transform is enabled
+	if hex_grid.use_isometric_transform:
+		_hex_corners = HexGeometry.get_isometric_corner_offsets(size)
+		return
+
+	# Standard hex corners
 	var angle_offset := 0.0 if hex_grid.layout_flat_top else PI / 6.0
-	
+
 	for i in range(6):
 		var angle := angle_offset + PI / 3.0 * i
 		_hex_corners.append(Vector2(size * cos(angle), size * sin(angle)))

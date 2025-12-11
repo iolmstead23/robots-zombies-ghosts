@@ -88,7 +88,12 @@ func _calculate_hex_corners() -> void:
 		return
 
 	var size := hex_grid.hex_size
-	_hex_corners = HexGeometry.get_hex_corner_offsets(size)
+
+	# Use isometric corners if transform is enabled
+	if hex_grid.use_isometric_transform:
+		_hex_corners = HexGeometry.get_isometric_corner_offsets(size)
+	else:
+		_hex_corners = HexGeometry.get_hex_corner_offsets(size)
 
 # ============================================================================
 # SIGNAL HANDLERS

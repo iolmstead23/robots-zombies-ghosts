@@ -83,7 +83,10 @@ func _draw() -> void:
 		var pos := _rejection_pulse_cell.world_position
 		var size := hex_grid.hex_size
 		# Draw thicker red outline for rejection pulse
-		HexGeometry.draw_hexagon_outline(self, pos, size * 0.95, not_navigable_color, rejection_pulse_width)
+		if hex_grid.use_isometric_transform:
+			HexGeometry.draw_isometric_hexagon_outline(self, pos, size * 0.95, not_navigable_color, rejection_pulse_width)
+		else:
+			HexGeometry.draw_hexagon_outline(self, pos, size * 0.95, not_navigable_color, rejection_pulse_width)
 
 	# Draw normal hover outline
 	if not hover_enabled or not hovered_cell:
@@ -104,4 +107,7 @@ func _draw() -> void:
 	# Draw hex outline
 	var pos := hovered_cell.world_position
 	var size := hex_grid.hex_size
-	HexGeometry.draw_hexagon_outline(self, pos, size * 0.95, outline_color, outline_width)
+	if hex_grid.use_isometric_transform:
+		HexGeometry.draw_isometric_hexagon_outline(self, pos, size * 0.95, outline_color, outline_width)
+	else:
+		HexGeometry.draw_hexagon_outline(self, pos, size * 0.95, outline_color, outline_width)
