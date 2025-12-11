@@ -65,7 +65,9 @@ func update_from_turn_data(turn_data: Dictionary) -> void:
 
 	# Agent info
 	section.add_line("Agent: %s" % turn_data.get("agent_name", "-"))
-	section.add_line("Distance: %s m" % turn_data.get("movements_left", "-"))
+	var movements = turn_data.get("movements_left", "-")
+	var movements_str = "%.2f" % movements if movements is float else str(movements)
+	section.add_line("Distance: %s m" % movements_str)
 	section.add_line("Actions left: %s" % turn_data.get("actions_left", "-"))
 
 func update_from_selection_data(item_data: Dictionary) -> void:

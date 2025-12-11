@@ -10,7 +10,7 @@ class TurnInfo:
 	var agent_name: String = ""
 	var agent_index: int = 0
 	var total_agents: int = 0
-	var movements_left: int = 0
+	var movements_left: float = 0.0
 	var actions_left: Variant = "-"
 
 	func _init(data: Dictionary = {}) -> void:
@@ -53,7 +53,7 @@ class NavigableContext:
 	var agent_cell: HexCell = null
 	var grid: HexGrid = null
 	var pathfinder = null
-	var remaining_distance: int = 0
+	var remaining_distance: float = 0.0
 	var is_valid: bool = false
 
 	static func build(p_agent: AgentData, p_grid: HexGrid, p_pathfinder, p_agent_cell: HexCell) -> NavigableContext:
@@ -67,8 +67,8 @@ class NavigableContext:
 			ctx.is_valid = false
 			return ctx
 
-		ctx.remaining_distance = int(p_agent.get_distance_remaining()) if p_agent.has_method("get_distance_remaining") else 10
-		ctx.is_valid = ctx.remaining_distance > 0
+		ctx.remaining_distance = p_agent.get_distance_remaining() if p_agent.has_method("get_distance_remaining") else 180.0
+		ctx.is_valid = ctx.remaining_distance > 0.0
 		return ctx
 
 

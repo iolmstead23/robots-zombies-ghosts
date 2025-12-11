@@ -279,17 +279,3 @@ func _emit_grid_stats():
 	if hex_grid:
 		var stats = hex_grid.get_grid_stats()
 		grid_stats_changed.emit(stats)
-
-# ============================================================================
-# PUBLIC API - Direct Accessors (for backward compatibility)
-# ============================================================================
-
-func get_hex_grid() -> HexGrid:
-	return hex_grid
-
-func get_grid_debug() -> HexGridDebug:
-	return hex_grid_debug
-
-func refresh_navmesh_integration() -> void:
-	if navmesh_integration:
-		navmesh_integration.refresh_integration()

@@ -5,10 +5,10 @@ extends RefCounted
 # Provides visual, logical, and hybrid distance measurements
 
 # Calculate visual distance between two cells in isometric space
+# Note: cell.world_position is already in isometric screen space (via axial_to_isometric)
+# so we use it directly without additional transformation
 static func calculate_isometric_distance(cell_a: HexCell, cell_b: HexCell) -> float:
-	var iso_pos_a := IsoTransform.to_isometric(cell_a.world_position)
-	var iso_pos_b := IsoTransform.to_isometric(cell_b.world_position)
-	return iso_pos_a.distance_to(iso_pos_b)
+	return cell_a.world_position.distance_to(cell_b.world_position)
 
 # Calculate logical hex distance (unchanged, uses axial coordinates)
 static func calculate_logical_distance(cell_a: HexCell, cell_b: HexCell) -> int:
@@ -29,15 +29,17 @@ static func calculate_hybrid_distance(cell_a: HexCell, cell_b: HexCell, alpha: f
 	return lerp(logical, visual, alpha)
 
 # Verify that all 6 hex directions have equal visual distance
+# Uses HEX_Y_SCALE to match the actual transformation applied in axial_to_isometric
 static func verify_equal_distances(hex_size: float) -> Dictionary:
 	var distances: Array[float] = []
+	var y_scale := IsoTransform.HEX_Y_SCALE
 	var neighbor_offsets := [
 		Vector2(hex_size * 1.5, 0),
-		Vector2(hex_size * 0.75, -hex_size * sqrt(3.0) * 0.5),
-		Vector2(-hex_size * 0.75, -hex_size * sqrt(3.0) * 0.5),
+		Vector2(hex_size * 0.75, -hex_size * sqrt(3.0) * 0.5 * y_scale),
+		Vector2(-hex_size * 0.75, -hex_size * sqrt(3.0) * 0.5 * y_scale),
 		Vector2(-hex_size * 1.5, 0),
-		Vector2(-hex_size * 0.75, hex_size * sqrt(3.0) * 0.5),
-		Vector2(hex_size * 0.75, hex_size * sqrt(3.0) * 0.5)
+		Vector2(-hex_size * 0.75, hex_size * sqrt(3.0) * 0.5 * y_scale),
+		Vector2(hex_size * 0.75, hex_size * sqrt(3.0) * 0.5 * y_scale)
 	]
 	for offset in neighbor_offsets:
 		var iso_vec := IsoTransform.to_isometric(offset)

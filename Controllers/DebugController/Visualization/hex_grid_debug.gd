@@ -13,7 +13,9 @@ extends Node2D
 @export_group("Colors")
 @export var navigable_outline_color: Color = Color(0.0, 0.8, 0.0, 1.0)  # Neutral green
 @export var not_navigable_outline_color: Color = Color(0.8, 0.0, 0.0, 1.0)  # Neutral red
+@export var disabled_outline_color: Color = Color(0.3, 0.3, 0.3, 0.3)  # Gray transparent
 @export var outline_width: float = 1.0
+@export var show_disabled_cells: bool = false
 
 var _hex_corners: PackedVector2Array
 
@@ -57,24 +59,29 @@ func _draw() -> void:
 	if not debug_enabled or not hex_grid:
 		return
 
-	# Only draw enabled cells
-	for cell in hex_grid.enabled_cells:
-		_draw_hex_cell(cell)
+	# Draw all cells if show_disabled_cells is true, otherwise only enabled cells
+	if show_disabled_cells:
+		for cell in hex_grid.cells:
+			_draw_hex_cell(cell)
+	else:
+		for cell in hex_grid.enabled_cells:
+			_draw_hex_cell(cell)
 
 func _draw_hex_cell(cell: HexCell) -> void:
-	# Skip disabled cells entirely
-	if not cell.enabled:
-		return
-
 	var pos := cell.world_position
 
-	# Check if cell is navigable using SessionController
-	var is_navigable := false
-	if session_controller:
-		is_navigable = session_controller.is_cell_navigable(cell)
+	# Choose color based on cell state
+	var color: Color
+	if not cell.enabled:
+		# Disabled cell (outside navmesh)
+		color = disabled_outline_color
+	else:
+		# Enabled cell - check if navigable
+		var is_navigable := false
+		if session_controller:
+			is_navigable = session_controller.is_cell_navigable(cell)
+		color = navigable_outline_color if is_navigable else not_navigable_outline_color
 
-	# Choose color based on navigability
-	var color := navigable_outline_color if is_navigable else not_navigable_outline_color
 	_draw_hex_outline(pos, color)
 
 func _draw_hex_outline(center: Vector2, color: Color) -> void:

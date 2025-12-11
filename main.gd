@@ -78,7 +78,7 @@ func _ready() -> void:
 	_setup_selection_overlay()
 
 func _create_io_controller() -> void:
-	"""Create IOController and set dependencies BEFORE session initialization"""
+	# Create IOController and set dependencies BEFORE session initialization
 	# Check if IOController exists in scene tree
 	io_controller = get_node_or_null("IOController")
 

@@ -69,11 +69,9 @@ func execute_movement(scene_tree: SceneTree) -> void:
 		movement_failed.emit("No planned movement to execute")
 		return
 
-	var path_distance := _planned.path.size() - 1
-	if not _record_movement(path_distance):
-		cancel_movement()
-		movement_failed.emit("Cannot record movement action")
-		return
+	# Don't record distance yet - wait for actual movement to complete
+	var path_distance := _calculate_path_pixel_distance(_planned.path)
+	print("[MovementPlanner] Planned distance: %.2f pixels (will record after movement)" % path_distance)
 
 	var agent_controller = _planned.agent.agent_controller
 	if not agent_controller:
@@ -88,7 +86,7 @@ func execute_movement(scene_tree: SceneTree) -> void:
 		return
 
 	await _ensure_controller_active(turn_based, scene_tree)
-	_connect_completion_handler(turn_based)
+	_connect_completion_handler(turn_based, path_distance)
 	turn_based.request_movement_to(_planned.target_cell.world_position, path_distance)
 
 	await scene_tree.process_frame
@@ -115,7 +113,7 @@ func _get_agent_cell(agent: AgentData) -> HexCell:
 	if not controller:
 		return null
 
-	var grid = hex_grid_controller.get_hex_grid()
+	var grid = hex_grid_controller.hex_grid
 	if not grid:
 		return null
 
@@ -129,17 +127,27 @@ func _calculate_path(start: HexCell, goal: HexCell) -> Array[HexCell]:
 	return pathfinder.find_path(start, goal)
 
 
-func _get_max_distance(agent: AgentData) -> int:
+func _get_max_distance(agent: AgentData) -> float:
 	if agent.has_method("get_distance_remaining"):
 		return agent.get_distance_remaining()
-	return agent.max_movements_per_turn
+	return float(agent.max_movements_per_turn)
 
 
-func _truncate_path_if_needed(path: Array[HexCell], max_distance: int) -> Array[HexCell]:
-	var path_distance := path.size() - 1
-	if path_distance <= max_distance:
+func _truncate_path_if_needed(path: Array[HexCell], max_distance: float) -> Array[HexCell]:
+	if path.size() <= 1:
 		return path
-	return path.slice(0, max_distance + 1)
+
+	var accumulated_distance := 0.0
+	var truncated_path: Array[HexCell] = [path[0]]
+
+	for i in range(1, path.size()):
+		var segment_distance := IsoDistanceCalculator.calculate_isometric_distance(path[i-1], path[i])
+		if accumulated_distance + segment_distance > max_distance:
+			break
+		accumulated_distance += segment_distance
+		truncated_path.append(path[i])
+
+	return truncated_path
 
 
 func _apply_plan(agent: AgentData, path: Array[HexCell]) -> void:
@@ -167,10 +175,25 @@ func _clear_planned() -> void:
 	_planned.clear()
 
 
-func _record_movement(distance: int) -> bool:
+func _calculate_path_pixel_distance(path: Array[HexCell]) -> float:
+	if path.size() <= 1:
+		print("[MovementPlanner] Path too short for distance calculation: size=%d" % path.size())
+		return 0.0
+	var total_distance := 0.0
+	for i in range(1, path.size()):
+		var segment := IsoDistanceCalculator.calculate_isometric_distance(path[i-1], path[i])
+		total_distance += segment
+	print("[MovementPlanner] Path pixel distance: %.2f pixels (%d segments)" % [total_distance, path.size() - 1])
+	return total_distance
+
+
+func _record_movement(distance: float) -> bool:
 	if not agent_manager:
 		return false
-	return agent_manager.record_movement_action(distance)
+	print("[MovementPlanner] Recording movement: %.2f pixels" % distance)
+	var result: bool = agent_manager.record_movement_action(distance)
+	print("[MovementPlanner] Record result: %s" % result)
+	return result
 
 
 func _ensure_controller_active(turn_based, scene_tree: SceneTree) -> void:
@@ -187,11 +210,13 @@ func _ensure_controller_active(turn_based, scene_tree: SceneTree) -> void:
 			frames_waited += 1
 
 
-func _connect_completion_handler(turn_based) -> void:
+func _connect_completion_handler(turn_based, planned_distance: float) -> void:
 	var agent_data = _planned.agent
-	# Distance is tracked through agent state, not recalculated from movement
+	# Record distance AFTER movement completes
 	var handler := func(_distance_moved: int):
+		print("[MovementPlanner] Movement completed, recording distance: %.2f pixels" % planned_distance)
 		if agent_manager:
+			agent_manager.record_movement_action(planned_distance)
 			agent_manager.update_agent_position_after_movement(agent_data)
 
 	if not turn_based.movement_completed.is_connected(handler):

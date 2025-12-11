@@ -358,14 +358,14 @@ func _on_agent_turn_started(data: AgentData) -> void:
 	_emit_turn_changed(data)
 
 ## Called after an agent completes a movement action.
-func _on_movement_action_completed(data: AgentData, moves: int) -> void:
+func _on_movement_action_completed(data: AgentData, moves: float) -> void:
 	update_navigable_cells(data)
 	_emit_turn_changed(data, moves)
 
 ## Compose and emit turn status updates for UI.
-func _emit_turn_changed(data: AgentData, moves_override: int = -1) -> void:
-	var moves: int
-	if moves_override >= 0:
+func _emit_turn_changed(data: AgentData, moves_override: float = -1.0) -> void:
+	var moves: float
+	if moves_override >= 0.0:
 		moves = moves_override
 	elif data.has_method("get_movements_remaining"):
 		moves = data.get_movements_remaining()
@@ -433,7 +433,7 @@ func update_navigable_cells(agent: Variant = null) -> void:
 		navigable_cells.clear()
 		navigable_cells_updated.emit(navigable_cells)
 		return
-	var grid = hex_grid_controller.get_hex_grid()
+	var grid = hex_grid_controller.hex_grid
 	var pathfinder = navigation_controller.get_pathfinder() if navigation_controller else null
 	navigable_cells = _nav_calculator.calculate(cur_agent, grid, pathfinder)
 	var agent_cell := _nav_calculator.get_last_agent_cell()
@@ -459,20 +459,20 @@ func report_object_selected(obj) -> void: if selection_controller: selection_con
 
 ## Utility getters and helpers.
 func get_random_enabled_cell() -> HexCell:
-	var grid = hex_grid_controller.get_hex_grid() if hex_grid_controller else null
+	var grid = hex_grid_controller.hex_grid if hex_grid_controller else null
 	return grid.enabled_cells[randi() % grid.enabled_cells.size()] if grid and not grid.enabled_cells.is_empty() else null
 
 func get_hex_distance(a: HexCell, b: HexCell) -> int:
-	var g = hex_grid_controller.get_hex_grid() if hex_grid_controller else null
+	var g = hex_grid_controller.hex_grid if hex_grid_controller else null
 	return g.get_distance(a, b) if g else 0
 
 func get_cell_at_world_position(pos: Vector2) -> HexCell:
-	var g = hex_grid_controller.get_hex_grid() if hex_grid_controller else null
+	var g = hex_grid_controller.hex_grid if hex_grid_controller else null
 	return g.get_cell_at_world_position(pos) if g else null
 
 ## Configure a given agent node for grid navigation.
 func configure_agent_navigation(agent_node: Node) -> void:
-	var g = hex_grid_controller.get_hex_grid() if hex_grid_controller else null
+	var g = hex_grid_controller.hex_grid if hex_grid_controller else null
 	var p = navigation_controller.get_pathfinder() if navigation_controller else null
 	if g and p and agent_node.has_method("set_hex_navigation"): agent_node.set_hex_navigation(g, p)
 
@@ -489,7 +489,7 @@ func get_total_turns() -> int: return agents.size()
 func get_current_turn_agent() -> Variant: return agents[current_agent_index] if agents.size() > 0 else null
 func is_cell_navigable(cell: HexCell) -> bool: return navigable_cells.has(cell)
 func get_navigable_cells() -> Array[HexCell]: return navigable_cells
-func get_terrain(): return hex_grid_controller.get_hex_grid() if hex_grid_controller else null
+func get_terrain(): return hex_grid_controller.hex_grid if hex_grid_controller else null
 func get_hex_grid_controller(): return hex_grid_controller
 func get_navigation_controller(): return navigation_controller
 func get_debug_controller(): return debug_controller
@@ -604,7 +604,9 @@ func is_path_string_pulling_enabled() -> bool:
 # ============================================================================
 
 # Refresh navmesh integration with the current grid setup.
-func refresh_navmesh_integration() -> void: hex_grid_controller.refresh_navmesh_integration()
+func refresh_navmesh_integration() -> void:
+	if hex_grid_controller and hex_grid_controller.navmesh_integration:
+		hex_grid_controller.navmesh_integration.refresh_integration()
 
 ## Camera controller signal handlers
 func _on_agent_turn_started_camera(agent_data: AgentData) -> void:

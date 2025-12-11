@@ -1,15 +1,13 @@
 extends Node
 class_name AStarPathfinder
 
-"""
-Core A* pathfinding algorithm for hexagonal grids.
-
-Design notes:
-- Pure algorithm implementation
-- Stateless between calls (resets state on each pathfind)
-- Uses heuristics and path reconstruction from separate utilities
-- Can be used independently of navigation controllers
-"""
+# Core A* pathfinding algorithm for hexagonal grids.
+#
+# Design notes:
+# - Pure algorithm implementation
+# - Stateless between calls (resets state on each pathfind)
+# - Uses heuristics and path reconstruction from separate utilities
+# - Can be used independently of navigation controllers
 
 # ----------------------
 # State (reset between pathfinding operations)

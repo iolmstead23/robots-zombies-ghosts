@@ -219,12 +219,14 @@ func _format_turn_label(turn_data: Dictionary) -> String:
 	"""Format turn data into display string"""
 	var agent_idx = turn_data.get("agent_index", 0) + 1
 	var total = turn_data.get("total_agents", 1)
+	var movements = turn_data.get("movements_left", "-")
+	var movements_str = "%.2f" % movements if movements is float else str(movements)
 
 	return "Turn %s / %s\nAgent: %s\nDistance: %s m\nActions left: %s" % [
 		str(agent_idx),
 		str(total),
 		str(turn_data.get("agent_name", "-")),
-		str(turn_data.get("movements_left", "-")),
+		movements_str,
 		str(turn_data.get("actions_left", "-"))
 	]
 

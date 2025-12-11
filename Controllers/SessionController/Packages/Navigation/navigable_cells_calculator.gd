@@ -4,8 +4,10 @@ extends RefCounted
 signal calculation_completed(cells: Array[HexCell], agent_cell: HexCell)
 
 # Distance filter configuration
+# Creates circular movement area by constraining to pixel radius
+# Radius based on minimum neighbor distance (horizontal=18px)
 var use_distance_filter: bool = true
-var distance_tolerance: float = 2.0  # 100% tolerance to account for distortion variance
+var distance_tolerance: float = 1.05  # Small tolerance for floating-point precision
 
 var _last_agent_cell: HexCell = null
 
@@ -55,14 +57,12 @@ func _filter_reachable_cells(context: SessionTypes.NavigableContext) -> Array[He
 	# Create distance validation filter if enabled
 	var distance_filter = null
 	if use_distance_filter and context.grid.use_isometric_transform:
+		var pixel_radius := context.remaining_distance
 		distance_filter = func(cell: HexCell) -> bool:
-			var logical_dist := context.agent_cell.distance_to(cell)
-			if logical_dist == 0:
+			if cell == context.agent_cell:
 				return true
 			var visual_dist := IsoDistanceCalculator.calculate_isometric_distance(context.agent_cell, cell)
-			var avg_spacing := (context.grid.horizontal_spacing + context.grid.vertical_spacing) / 2.0
-			var expected_visual := float(logical_dist) * avg_spacing
-			return visual_dist <= expected_visual * distance_tolerance
+			return visual_dist <= pixel_radius * distance_tolerance
 
 	return flood_fill.get_reachable_cells(
 		context.agent_cell,

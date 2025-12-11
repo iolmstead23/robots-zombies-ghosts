@@ -74,6 +74,16 @@ func _process_all_cells() -> void:
 		])
 
 func _emit_completion() -> void:
+	if OS.is_debug_build() and navigation_region and navigation_region.navigation_polygon:
+		var validation := validate_coverage(navigation_region.navigation_polygon)
+		print("HexNavmeshIntegration: Coverage validation - %d/%d cells (%.1f%%)" % [
+			validation.enabled_cells,
+			validation.expected_cells,
+			validation.coverage_ratio * 100.0
+		])
+		if not validation.fully_covered:
+			push_warning("HexNavmeshIntegration: Grid may not fully cover navmesh area!")
+
 	integration_complete.emit()
 
 func _is_cell_navigable(cell: HexCell) -> bool:
@@ -99,33 +109,43 @@ func _check_sample_points(cell: HexCell) -> bool:
 	return navigable_samples > (sample_points_per_cell / 2)
 
 func _is_point_on_navmesh(point: Vector2) -> bool:
-	if not navigation_map.is_valid():
+	if not _validate_navmesh_ready():
 		return false
 
-	if not navigation_region or not navigation_region.navigation_polygon:
-		return false
-
+	var local_point := _get_local_point(point)
 	var nav_poly := navigation_region.navigation_polygon
-	var local_point := point - navigation_region.global_position
-
-	# Check the BAKED navigation polygons (excludes obstacles)
-	# This checks the actual navigable areas after baking, not the input outlines
-	var vertices := nav_poly.get_vertices()
-	if vertices.size() == 0:
-		return false
 
 	for i in range(nav_poly.get_polygon_count()):
-		var polygon := nav_poly.get_polygon(i)
-		# Convert polygon indices to actual vertex positions
-		var polygon_points: PackedVector2Array = []
-		for vertex_index in polygon:
-			if vertex_index < vertices.size():
-				polygon_points.append(vertices[vertex_index])
-
-		if polygon_points.size() >= 3 and Geometry2D.is_point_in_polygon(local_point, polygon_points):
+		if _is_point_in_polygon_at_index(nav_poly, i, local_point):
 			return true
 
 	return false
+
+func _validate_navmesh_ready() -> bool:
+	if not navigation_map.is_valid():
+		return false
+	if not navigation_region or not navigation_region.navigation_polygon:
+		return false
+	var vertices := navigation_region.navigation_polygon.get_vertices()
+	return vertices.size() > 0
+
+func _get_local_point(point: Vector2) -> Vector2:
+	return point - navigation_region.global_position
+
+func _is_point_in_polygon_at_index(nav_poly: NavigationPolygon, polygon_index: int, local_point: Vector2) -> bool:
+	var polygon_points := _get_polygon_points(nav_poly, polygon_index)
+	if polygon_points.size() < 3:
+		return false
+	return Geometry2D.is_point_in_polygon(local_point, polygon_points)
+
+func _get_polygon_points(nav_poly: NavigationPolygon, polygon_index: int) -> PackedVector2Array:
+	var polygon := nav_poly.get_polygon(polygon_index)
+	var vertices := nav_poly.get_vertices()
+	var points: PackedVector2Array = []
+	for vertex_index in polygon:
+		if vertex_index < vertices.size():
+			points.append(vertices[vertex_index])
+	return points
 
 func update_cell_at_position(world_pos: Vector2) -> void:
 	if not hex_grid:
@@ -158,10 +178,43 @@ func get_navigable_neighbor(from_cell: HexCell, to_cell: HexCell) -> HexCell:
 func refresh_integration() -> void:
 	integrate_with_navmesh()
 
+func validate_coverage(nav_poly: NavigationPolygon) -> Dictionary:
+	# Calculate coverage statistics
+	var bounds := _calculate_bounds(nav_poly)
+	var coverage_area := bounds.size.x * bounds.size.y
+	var cell_area := hex_grid.hex_size * hex_grid.hex_size * 2.598  # Hex area formula (3*sqrt(3)/2 * r^2)
+	var expected_cells := ceili(coverage_area / cell_area)
+
+	var enabled_count := hex_grid.enabled_cells.size()
+	var coverage_ratio := float(enabled_count) / float(expected_cells) if expected_cells > 0 else 0.0
+
+	return {
+		"expected_cells": expected_cells,
+		"enabled_cells": enabled_count,
+		"coverage_ratio": coverage_ratio,
+		"fully_covered": coverage_ratio >= 0.9,  # 90% threshold
+		"bounds": bounds
+	}
+
+func _calculate_bounds(nav_poly: NavigationPolygon) -> Rect2:
+	var min_pos := Vector2(INF, INF)
+	var max_pos := Vector2(-INF, -INF)
+
+	for i in nav_poly.get_outline_count():
+		var outline := nav_poly.get_outline(i)
+		for v in outline:
+			min_pos = min_pos.min(v)
+			max_pos = max_pos.max(v)
+
+	if min_pos.x == INF:
+		return Rect2()
+
+	return Rect2(min_pos, max_pos - min_pos)
+
 func get_integration_stats() -> Dictionary:
 	if not hex_grid:
 		return {}
-	
+
 	var stats := hex_grid.get_grid_stats()
 	stats["navmesh_integrated"] = navigation_map.is_valid()
 	stats["sample_points_per_cell"] = sample_points_per_cell

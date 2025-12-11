@@ -6,7 +6,7 @@ signal agents_spawned(count: int)
 signal agent_turn_started(agent_data: AgentData)
 signal agent_turn_ended(agent_data: AgentData)
 signal all_agents_completed_round()
-signal movement_action_completed(agent_data: AgentData, movements_remaining: int)
+signal movement_action_completed(agent_data: AgentData, movements_remaining: float)
 signal controller_ready()
 
 ## Exported/Configurable vars
@@ -168,7 +168,13 @@ func _spawn_agent(index: int, cell: HexCell, agent_type: AgentTypes.Type = Agent
 	var ad = AgentData.new(agent_id, ac, agent_type)
 	ad.agent_name = "%s %d" % [AgentTypes.get_display_name(agent_type), index + 1]
 	ad.max_movements_per_turn = max_movements_per_turn
-	ad.max_distance_per_turn = max_movements_per_turn  # Set distance-based limit (meters = hex cells)
+	# Calculate pixel distance based on grid's horizontal spacing
+	var spacing := 18.0  # Default spacing
+	if session_controller and session_controller.has_method("get_hex_grid"):
+		var grid = session_controller.get_hex_grid()
+		if grid:
+			spacing = grid.horizontal_spacing
+	ad.max_distance_per_turn = float(max_movements_per_turn) * spacing
 	ad.current_position = pos
 	ad.set_current_cell(cell)  # Set the current hex cell
 	ad.turn_started.connect(_on_agent_turn_started)
@@ -291,10 +297,10 @@ func get_all_agents() -> Array[AgentData]:
 # ------------------------------------
 # MOVEMENT LOGIC
 # ------------------------------------
-func record_movement_action(distance_meters: int = 0) -> bool:
+func record_movement_action(distance_pixels: float = 0.0) -> bool:
 	var aa = get_active_agent()
 	if not aa: return false
-	if not aa.use_movement_action(distance_meters):
+	if not aa.use_movement_action(distance_pixels):
 		_debug("%s exhausted movement" % aa.agent_name)
 		return false
 
@@ -306,7 +312,7 @@ func record_movement_action(distance_meters: int = 0) -> bool:
 ## Called after movement physically completes to update state
 func update_agent_position_after_movement(agent_data: AgentData) -> void:
 	_update_agent_current_cell(agent_data)
-	movement_action_completed.emit(agent_data, agent_data.get_distance_remaining())
+	movement_action_completed.emit(agent_data, agent_data.get_movements_remaining())
 
 	# Auto-advance turn when movements are exhausted (AFTER movement completes)
 	if not agent_data.can_move():

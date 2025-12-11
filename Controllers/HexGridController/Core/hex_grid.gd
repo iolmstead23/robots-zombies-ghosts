@@ -2,6 +2,18 @@ class_name HexGrid
 extends Node
 
 ## 2D hexagonal grid with optional isometric projection
+##
+## COORDINATE SYSTEM:
+## - Layout: Flat-top hexagons (pointy sides left/right)
+## - Offset: Odd-q (odd columns shifted down by half height)
+## - Axial coordinates: (q, r) where q = column, r = row
+## - World space: Calculated via flat-top formulas with 30° isometric rotation
+##
+## GRID SIZING:
+## - Dynamic dimensions calculated from navmesh bounds (see SessionInitializer)
+## - Default fallback: 20x15 grid with 32.0 hex size
+## - All cells created for rectangular grid
+## - Invalid cells disabled by NavmeshIntegration
 
 signal cell_enabled_changed(cell: HexCell, enabled: bool)
 signal grid_initialized()
@@ -68,10 +80,8 @@ func _calculate_layout() -> void:
 			print("  - Ratio: %.2f:1" % metrics.ratio)
 			var dist_check := IsoDistanceCalculator.verify_equal_distances(hex_size)
 			print("  - Distance variance: %.4f (equal=%s)" % [dist_check.variance, dist_check.are_equal])
-			print("  - Finding optimal Y-scale factor...")
-			var optimal := IsoDistanceCalculator.find_optimal_scale(hex_size)
-			print("  - OPTIMAL: scale_y=%.3f, variance=%.4f" % [optimal.best_scale, optimal.best_variance])
-			print("  - Current DISTANCE_SCALE=%.3f needs adjustment!" % IsoTransform.DISTANCE_SCALE)
+			if dist_check.variance > 0.1:
+				push_warning("HexGrid: Distance variance too high, check IsoTransform.DISTANCE_SCALE")
 		return
 
 	if layout_flat_top:

@@ -28,13 +28,13 @@ var current_position: Vector2 = Vector2.ZERO
 var movements_used_this_turn: int = 0
 var max_movements_per_turn: int = 10
 
-signal distance_traveled(distance_remaining: int)
+signal distance_traveled(distance_remaining: float)
 signal turn_started(agent_id: String)
 signal turn_ended(agent_id: String)
 
-## Movement tracking (distance-based in meters)
-var distance_traveled_this_turn: int = 0
-var max_distance_per_turn: int = 10  # 10 meters per turn
+## Movement tracking (distance-based in pixels)
+var distance_traveled_this_turn: float = 0.0
+var max_distance_per_turn: float = 180.0  # Pixel distance (e.g., 10 hex × 18px)
 
 ## Turn state
 var is_active_agent: bool = false
@@ -61,29 +61,35 @@ func update_position(pos: Vector2) -> void:
 
 
 ## Use a movement action (returns true if movement allowed)
-## distance_meters: number of hex cells traveled (each cell = 1 meter)
-func use_movement_action(distance_meters: int = 0) -> bool:
+## distance_pixels: actual pixel distance traveled
+func use_movement_action(distance_pixels: float = 0.0) -> bool:
+	print("[AgentData] use_movement_action called: distance=%.2f, current_traveled=%.2f, max=%.2f" % [distance_pixels, distance_traveled_this_turn, max_distance_per_turn])
 	# Check if adding this distance would exceed the limit
-	var new_total = distance_traveled_this_turn + distance_meters
+	var new_total = distance_traveled_this_turn + distance_pixels
 	if new_total > max_distance_per_turn:
+		print("[AgentData] Movement rejected: new_total=%.2f > max=%.2f" % [new_total, max_distance_per_turn])
 		return false
 
 	# Record the distance traveled
-	distance_traveled_this_turn += distance_meters
+	distance_traveled_this_turn += distance_pixels
 	movements_used_this_turn += 1  # Still track action count for legacy compatibility
+	print("[AgentData] Movement accepted: traveled=%.2f, remaining=%.2f" % [distance_traveled_this_turn, get_distance_remaining()])
 
 	distance_traveled.emit(get_distance_remaining())
 	return true
 
 
-## Get remaining distance this turn (in meters)
-func get_distance_remaining() -> int:
-	return max(0, max_distance_per_turn - distance_traveled_this_turn)
+## Get remaining distance this turn (in pixels)
+func get_distance_remaining() -> float:
+	return max(0.0, max_distance_per_turn - distance_traveled_this_turn)
 
 
-## Get remaining movements this turn (legacy - returns distance remaining)
-func get_movements_remaining() -> int:
-	return get_distance_remaining()
+## Get remaining movements this turn (returns distance as fractional hex count)
+func get_movements_remaining() -> float:
+	var pixels := get_distance_remaining()
+	var hex_count := pixels / 18.0
+	print("[AgentData] get_movements_remaining called: pixels=%.2f, hex=%.2f" % [pixels, hex_count])
+	return hex_count
 
 
 ## Check if agent can still move this turn
@@ -102,6 +108,7 @@ func start_turn() -> void:
 	distance_traveled_this_turn = 0
 	is_active_agent = true
 	turn_number += 1
+	print("[AgentData] Turn started: agent=%s, max_distance=%.2f" % [agent_name, max_distance_per_turn])
 	turn_started.emit(agent_id)
 
 

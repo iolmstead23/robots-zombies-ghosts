@@ -4,8 +4,7 @@ extends RefCounted
 ## Builds edge chains from navigable hex cells
 ## Detects boundary edges, groups them into continuous chains, and orders them into polylines
 
-# Direction constants now provided by HexDirections utility
-# References maintained for backwards compatibility during refactoring
+# Direction constants from HexDirections utility
 const FLAT_TOP_DIRECTIONS: Array[Vector2i] = HexDirections.FLAT_TOP_DIRECTIONS
 const DIRECTION_TO_EDGE_EVEN: Array[Vector2i] = HexDirections.DIRECTION_TO_EDGE_EVEN
 const DIRECTION_TO_EDGE_ODD: Array[Vector2i] = HexDirections.DIRECTION_TO_EDGE_ODD
@@ -59,18 +58,18 @@ func _detect_edges(navigable_cells: Array[HexCell],
 
 
 func _build_adjacency_graph(edges: Array[HexEdgeSegment]) -> Dictionary:
+	var corner_to_edges := _build_corner_to_edges_mapping(edges)
+	var adjacency := _build_adjacency_from_corners(edges, corner_to_edges)
+	return adjacency
 
-	# Build corner-to-edges mapping
-	var corner_to_edges: Dictionary = {}  # Vector2 -> Array[int] (edge indices)
+func _build_corner_to_edges_mapping(edges: Array[HexEdgeSegment]) -> Dictionary:
+	var corner_to_edges: Dictionary = {}
 
 	for i in range(edges.size()):
 		var edge := edges[i]
-
-		# Round corner positions to avoid floating-point precision issues
 		var corner_a_key := _vector_to_key(edge.corner_a)
 		var corner_b_key := _vector_to_key(edge.corner_b)
 
-		# Add this edge to both corners' lists
 		if not corner_to_edges.has(corner_a_key):
 			corner_to_edges[corner_a_key] = []
 		corner_to_edges[corner_a_key].append(i)
@@ -79,8 +78,10 @@ func _build_adjacency_graph(edges: Array[HexEdgeSegment]) -> Dictionary:
 			corner_to_edges[corner_b_key] = []
 		corner_to_edges[corner_b_key].append(i)
 
-	# Build adjacency list from corner-to-edges mapping
-	var adjacency: Dictionary = {}  # int -> Array[int]
+	return corner_to_edges
+
+func _build_adjacency_from_corners(edges: Array[HexEdgeSegment], corner_to_edges: Dictionary) -> Dictionary:
+	var adjacency: Dictionary = {}
 
 	for i in range(edges.size()):
 		adjacency[i] = []
@@ -89,21 +90,22 @@ func _build_adjacency_graph(edges: Array[HexEdgeSegment]) -> Dictionary:
 		var edge := edges[i]
 		var corner_a_key := _vector_to_key(edge.corner_a)
 		var corner_b_key := _vector_to_key(edge.corner_b)
-
-		# Get all edges sharing corners with this edge
-		var adjacent_edges: Array[int] = []
-
-		for edge_idx in corner_to_edges[corner_a_key]:
-			if edge_idx != i and not adjacent_edges.has(edge_idx):
-				adjacent_edges.append(edge_idx)
-
-		for edge_idx in corner_to_edges[corner_b_key]:
-			if edge_idx != i and not adjacent_edges.has(edge_idx):
-				adjacent_edges.append(edge_idx)
-
-		adjacency[i] = adjacent_edges
+		adjacency[i] = _collect_adjacent_edges(i, corner_a_key, corner_b_key, corner_to_edges)
 
 	return adjacency
+
+func _collect_adjacent_edges(edge_index: int, corner_a_key: Vector2, corner_b_key: Vector2, corner_to_edges: Dictionary) -> Array[int]:
+	var adjacent_edges: Array[int] = []
+
+	for edge_idx in corner_to_edges[corner_a_key]:
+		if edge_idx != edge_index and not adjacent_edges.has(edge_idx):
+			adjacent_edges.append(edge_idx)
+
+	for edge_idx in corner_to_edges[corner_b_key]:
+		if edge_idx != edge_index and not adjacent_edges.has(edge_idx):
+			adjacent_edges.append(edge_idx)
+
+	return adjacent_edges
 
 
 func _extract_chains(edges: Array[HexEdgeSegment], adjacency: Dictionary) -> Array[HexEdgeChain]:
@@ -180,23 +182,7 @@ func _find_next_edge_from_corner(edges: Array[HexEdgeSegment], adjacency: Dictio
 	if adjacent_indices.is_empty():
 		return -1
 
-	# Find edges that have from_corner as one of their corners
-	var candidates: Array[int] = []
-	for adj_idx in adjacent_indices:
-		# Allow returning to first edge to close the loop
-		if adj_idx == boundary[0] and boundary.size() > 2:
-			var first_edge := edges[boundary[0]]
-			if _corners_match(first_edge.corner_a, from_corner) or _corners_match(first_edge.corner_b, from_corner):
-				return adj_idx
-
-		# Skip if already in boundary
-		if boundary.has(adj_idx):
-			continue
-
-		var adj_edge := edges[adj_idx]
-		# Check if this edge has from_corner
-		if _corners_match(adj_edge.corner_a, from_corner) or _corners_match(adj_edge.corner_b, from_corner):
-			candidates.append(adj_idx)
+	var candidates := _find_candidate_edges(edges, adjacent_indices, from_corner, boundary)
 
 	if candidates.is_empty():
 		return -1
@@ -204,6 +190,31 @@ func _find_next_edge_from_corner(edges: Array[HexEdgeSegment], adjacency: Dictio
 	# If multiple candidates, choose the first one
 	# TODO: Could improve by choosing based on angle to maintain consistent direction
 	return candidates[0]
+
+func _find_candidate_edges(edges: Array[HexEdgeSegment], adjacent_indices: Array, from_corner: Vector2, boundary: Array[int]) -> Array[int]:
+	var candidates: Array[int] = []
+
+	for adj_idx in adjacent_indices:
+		if _should_close_loop(edges, adj_idx, from_corner, boundary):
+			return [adj_idx]
+
+		if boundary.has(adj_idx):
+			continue
+
+		if _edge_has_corner(edges[adj_idx], from_corner):
+			candidates.append(adj_idx)
+
+	return candidates
+
+func _should_close_loop(edges: Array[HexEdgeSegment], adj_idx: int, from_corner: Vector2, boundary: Array[int]) -> bool:
+	if adj_idx != boundary[0] or boundary.size() <= 2:
+		return false
+
+	var first_edge := edges[boundary[0]]
+	return _corners_match(first_edge.corner_a, from_corner) or _corners_match(first_edge.corner_b, from_corner)
+
+func _edge_has_corner(edge: HexEdgeSegment, corner: Vector2) -> bool:
+	return _corners_match(edge.corner_a, corner) or _corners_match(edge.corner_b, corner)
 
 
 func _create_chain_from_indices(all_edges: Array[HexEdgeSegment], edge_indices: Array[int]) -> HexEdgeChain:

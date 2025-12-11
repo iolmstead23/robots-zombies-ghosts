@@ -199,7 +199,7 @@ func _start_transition_to_agent(agent_data: AgentData) -> void:
 		camera_transition_cancelled.emit()
 
 	# Calculate target position and zoom
-	var grid = hex_grid_controller.get_hex_grid() if hex_grid_controller else null
+	var grid = hex_grid_controller.hex_grid if hex_grid_controller else null
 	var target = _calculate_target_position_and_zoom(agent_data, grid)
 	var target_position: Vector2 = target.position
 	var target_zoom: float = target.zoom
@@ -420,7 +420,7 @@ func _update_camera_bounds() -> void:
 	if not hex_grid_controller:
 		return
 
-	var grid = hex_grid_controller.get_hex_grid()
+	var grid = hex_grid_controller.hex_grid
 	if not grid:
 		return
 

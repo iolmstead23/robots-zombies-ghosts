@@ -9,7 +9,7 @@ extends ContentSchema
 # ============================================================================
 
 func _initialize_sections() -> void:
-	"""Define sections for debug overlay content"""
+	# Define sections for debug overlay content
 	# Performance - Highest priority
 	add_section("Performance", 3, 100)
 
@@ -27,19 +27,17 @@ func _initialize_sections() -> void:
 # ============================================================================
 
 func update_from_debug_data(debug_data: Dictionary) -> void:
-	"""
-	Update all sections with debug data.
-
-	Args:
-		debug_data: Dictionary containing all debug information
-	"""
+	# Update all sections with debug data.
+	#
+	# Args:
+	#   debug_data: Dictionary containing all debug information
 	_update_performance(debug_data)
 	_update_grid_info(debug_data)
 	_update_navigation(debug_data)
 	_update_hovered_cell(debug_data)
 
 func _update_performance(data: Dictionary) -> void:
-	"""Update Performance section"""
+	# Update Performance section
 	var section = get_section("Performance")
 	if not section:
 		return
@@ -59,7 +57,7 @@ func _update_performance(data: Dictionary) -> void:
 	section.add_line("Frame Time: %.2f ms" % [frame_time])
 
 func _update_grid_info(data: Dictionary) -> void:
-	"""Update Grid Info section"""
+	# Update Grid Info section
 	var section = get_section("Grid Info")
 	if not section:
 		return
@@ -90,7 +88,7 @@ func _update_grid_info(data: Dictionary) -> void:
 	section.add_line("Navigable: %d cells" % [navigable])
 
 func _update_navigation(data: Dictionary) -> void:
-	"""Update Navigation section"""
+	# Update Navigation section
 	var section = get_section("Navigation")
 	if not section:
 		return
@@ -110,7 +108,7 @@ func _update_navigation(data: Dictionary) -> void:
 		section.add_line("Path length: %d" % [path_length])
 
 func _update_hovered_cell(data: Dictionary) -> void:
-	"""Update Hovered Cell section"""
+	# Update Hovered Cell section
 	var section = get_section("Hovered Cell")
 	if not section:
 		return
@@ -163,14 +161,14 @@ func _update_hovered_cell(data: Dictionary) -> void:
 # ============================================================================
 
 func clear_hovered_cell() -> void:
-	"""Clear hovered cell information"""
+	# Clear hovered cell information
 	var section = get_section("Hovered Cell")
 	if section:
 		section.clear()
 		section.add_line("(No cell hovered)")
 
 func has_hovered_cell() -> bool:
-	"""Check if there is currently a hovered cell"""
+	# Check if there is currently a hovered cell
 	var section = get_section("Hovered Cell")
 	if not section or section.lines.is_empty():
 		return false
@@ -179,7 +177,7 @@ func has_hovered_cell() -> bool:
 	return first_line != "(No cell hovered)"
 
 func get_fps() -> int:
-	"""Get current FPS from performance section"""
+	# Get current FPS from performance section
 	var section = get_section("Performance")
 	if not section or section.lines.is_empty():
 		return 0
@@ -193,7 +191,7 @@ func get_fps() -> int:
 	return 0
 
 func get_grid_cell_count() -> int:
-	"""Get total grid cell count"""
+	# Get total grid cell count
 	var section = get_section("Grid Info")
 	if not section or section.lines.is_empty():
 		return 0

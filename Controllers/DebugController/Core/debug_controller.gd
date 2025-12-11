@@ -74,7 +74,7 @@ func _ready():
 		"entities": 0,
 		"player_pos": Vector2.ZERO,
 		"session_active": false,
-		"grid_cells": 0,
+		"total_cells": 0,
 		"enabled_cells": 0,
 		"disabled_cells": 0,
 		"navigation_active": false,
@@ -121,7 +121,7 @@ func _on_session_state_changed(state_data: Dictionary):
 func _on_grid_state_changed(grid_data: Dictionary):
 	# Update debug data based on grid state
 	if grid_data.has("total_cells"):
-		update_debug_info("grid_cells", grid_data.total_cells)
+		update_debug_info("total_cells", grid_data.total_cells)
 	if grid_data.has("enabled_cells"):
 		update_debug_info("enabled_cells", grid_data.enabled_cells)
 	if grid_data.has("disabled_cells"):
@@ -191,7 +191,7 @@ func set_hex_cell_hover_visualizer(visualizer: HexCellHoverVisualizer):
 # ============================================================================
 
 func set_hovered_cell(cell: HexCell) -> void:
-	"""Update the currently hovered cell"""
+	# Update the currently hovered cell
 	if hovered_cell != cell:
 		hovered_cell = cell
 		hovered_cell_changed.emit(cell)
@@ -231,5 +231,5 @@ func set_hovered_cell(cell: HexCell) -> void:
 			update_debug_info("hovered_cell_metadata", null)
 
 func get_hovered_cell() -> HexCell:
-	"""Get the currently hovered cell"""
+	# Get the currently hovered cell
 	return hovered_cell

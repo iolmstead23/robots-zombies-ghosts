@@ -71,7 +71,7 @@ func initialize(config: Dictionary, scene_tree: SceneTree) -> SessionTypes.InitR
 
 
 func _align_grid_with_navmesh(config: Dictionary) -> Dictionary:
-	"""Calculate grid offset AND dimensions from navmesh"""
+	# Calculate grid offset AND dimensions from navmesh
 	var nav_region: NavigationRegion2D = config.get("navigation_region")
 
 	# Return empty dict if navmesh integration disabled
@@ -88,6 +88,14 @@ func _align_grid_with_navmesh(config: Dictionary) -> Dictionary:
 	# Calculate grid dimensions dynamically
 	var grid_params := _calculate_grid_dimensions(bounds)
 	grid_params["offset"] = nav_region.global_position + bounds.position
+
+	if OS.is_debug_build():
+		print("[SessionInitializer] Grid alignment:")
+		print("  NavRegion position: %s" % nav_region.global_position)
+		print("  Bounds position: %s" % bounds.position)
+		print("  Bounds size: %s" % bounds.size)
+		print("  Grid offset: %s" % grid_params["offset"])
+		print("  Navmesh outline count: %d" % nav_region.navigation_polygon.get_outline_count())
 
 	return grid_params
 
@@ -123,7 +131,7 @@ func _wait_for_grid_init(config: Dictionary, grid_params: Dictionary, scene_tree
 
 
 func _init_navigation() -> SessionTypes.InitResult:
-	var grid = _hex_grid_controller.get_hex_grid()
+	var grid = _hex_grid_controller.hex_grid
 	if not grid:
 		return SessionTypes.InitResult.FAILED
 	_navigation_controller.initialize(grid, null)
@@ -176,7 +184,7 @@ func _spawn_agents(config: Dictionary) -> SessionTypes.InitResult:
 
 
 func _setup_debug_visuals(config: Dictionary) -> void:
-	var grid = _hex_grid_controller.get_hex_grid()
+	var grid = _hex_grid_controller.hex_grid
 	if not grid:
 		return
 
@@ -232,7 +240,7 @@ func _calculate_navmesh_bounds(nav_poly: NavigationPolygon) -> Rect2:
 
 
 func _calculate_grid_dimensions(bounds: Rect2) -> Dictionary:
-	"""Calculate optimal grid dimensions from navmesh bounds"""
+	# Calculate optimal grid dimensions from navmesh bounds
 	const TARGET_HEX_SIZE := 12.0
 	const MAX_CELLS := 10000
 	const MIN_HEX_SIZE := 8.0
