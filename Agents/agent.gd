@@ -77,12 +77,12 @@ func _connect_signals() -> void:
 	state_manager.state_changed.connect(_on_state_changed)
 	animated_sprite.animation_finished.connect(animation_controller._on_animation_finished)
 
-func set_hex_navigation(grid: HexGrid, pathfinder: HexPathfinder) -> void:
+func set_hex_navigation(grid: HexGrid, pathfinder: HexPathfinder, session_ctrl = null) -> void:
 	hex_grid = grid
 	hex_pathfinder = pathfinder
 
 	if turn_based_controller:
-		turn_based_controller.set_hex_components(hex_grid, hex_pathfinder)
+		turn_based_controller.set_hex_components(hex_grid, hex_pathfinder, session_ctrl)
 
 	if OS.is_debug_build():
 		print("Agent: Hex navigation set")

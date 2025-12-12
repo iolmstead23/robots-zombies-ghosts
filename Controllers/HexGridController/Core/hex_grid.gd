@@ -21,7 +21,16 @@ signal grid_initialized()
 # Grid configuration
 @export var grid_width: int = 20
 @export var grid_height: int = 15
-@export var hex_size: float = 32.0
+@export var hex_size: float = 32.0:
+	set(value):
+		if value <= 0.0:
+			push_error("[HexGrid] hex_size must be > 0 (got %.2f), using default 32.0" % value)
+			hex_size = 32.0
+		elif value > 500.0:
+			push_warning("[HexGrid] hex_size unusually large: %.2f (typical range: 16-128)" % value)
+			hex_size = value
+		else:
+			hex_size = value
 @export var layout_flat_top: bool = true
 @export var grid_offset: Vector2 = Vector2.ZERO
 
@@ -178,9 +187,11 @@ func _hex_round(q: float, r: float) -> Vector2i:
 func get_cell_at_coords(coords: Vector2i) -> HexCell:
 	return cells_by_coords.get(coords)
 
-func get_cell_at_index(index: int) -> HexCell:
+func get_cell_at_index(index: int) -> Variant:  # Returns HexCell or null
 	if index >= 0 and index < cells.size():
 		return cells[index]
+	if OS.is_debug_build():
+		push_warning("[HexGrid] Cell index %d out of range (0-%d)" % [index, cells.size() - 1])
 	return null
 
 func get_cell_at_world_position(world_pos: Vector2) -> HexCell:
@@ -210,7 +221,7 @@ func set_cell_enabled_at_coords(coords: Vector2i, enabled: bool) -> void:
 		set_cell_enabled(cell, enabled)
 
 func set_cell_enabled_at_index(index: int, enabled: bool) -> void:
-	var cell := get_cell_at_index(index)
+	var cell: HexCell = get_cell_at_index(index)
 	if cell:
 		set_cell_enabled(cell, enabled)
 

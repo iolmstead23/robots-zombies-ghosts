@@ -87,7 +87,7 @@ func get_distance_remaining() -> float:
 ## Get remaining movements this turn (returns distance as fractional hex count)
 func get_movements_remaining() -> float:
 	var pixels := get_distance_remaining()
-	var hex_count := pixels / 18.0
+	var hex_count := HexConstants.pixels_to_hex_cells(pixels)
 	print("[AgentData] get_movements_remaining called: pixels=%.2f, hex=%.2f" % [pixels, hex_count])
 	return hex_count
 

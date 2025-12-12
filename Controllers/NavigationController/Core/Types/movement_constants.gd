@@ -8,6 +8,7 @@ Design notes:
 - Central location for all movement-related constants
 - Provides consistent values for distance calculations, thresholds, and conversions
 - Used by all navigation packages to ensure consistency
+- Hex-specific constants are in HexConstants.gd for better organization
 """
 
 # ----------------------
@@ -16,10 +17,17 @@ Design notes:
 
 ## Conversion factor: meters to pixels (32 pixels = 1 meter)
 ## NOTE: This is only used for rendering/visualization. Distance calculations use hex cells.
+## Same value as HexConstants.HEX_SIZE for consistency
 const PIXELS_PER_METER: int = 32
 
 ## Maximum movement distance per turn (in meters/hex cells)
 const MAX_MOVEMENT_DISTANCE: int = 10 # 10 meters = 10 hex cells
+
+## Maximum movement distance per turn in pixels
+## Calculated as: MAX_MOVEMENT_DISTANCE × HexConstants.NEIGHBOR_DISTANCE_PIXELS
+## For reference: 10 cells × 18 pixels/cell = 180 pixels
+## Use HexConstants.DEFAULT_MAX_DISTANCE_PIXELS or calculate dynamically
+const MAX_MOVEMENT_DISTANCE_PIXELS: float = 180.0
 
 # ----------------------
 # Movement Thresholds

@@ -112,7 +112,7 @@ func _init_all_controllers() -> void:
 
 ## Configure helper instances with appropriate controllers.
 func _init_packages() -> void:
-	_initializer.configure(hex_grid_controller, navigation_controller, agent_manager, debug_controller)
+	_initializer.configure(hex_grid_controller, navigation_controller, agent_manager, debug_controller, self)
 	_initializer.stage_changed.connect(_on_init_stage_changed)
 	_movement_planner.configure(navigation_controller, hex_grid_controller, agent_manager, self)
 	_input_handler.configure(_movement_planner)
@@ -470,11 +470,27 @@ func get_cell_at_world_position(pos: Vector2) -> HexCell:
 	var g = hex_grid_controller.hex_grid if hex_grid_controller else null
 	return g.get_cell_at_world_position(pos) if g else null
 
+func get_enabled_neighbors(cell: HexCell) -> Array:
+	# Get enabled neighbors of a hex cell through proper API
+	var g = hex_grid_controller.hex_grid if hex_grid_controller else null
+	return g.get_enabled_neighbors(cell) if g else []
+
+func get_enabled_cells_in_range(center: HexCell, radius: int) -> Array[HexCell]:
+	# Get all enabled cells within radius of center through proper API
+	var g = hex_grid_controller.hex_grid if hex_grid_controller else null
+	return g.get_enabled_cells_in_range(center, radius) if g else []
+
+func get_hex_grid_for_pathfinding() -> HexGrid:
+	# Direct grid reference for performance-critical pathfinding
+	# USAGE: Only use this for A* inner loops where hundreds of calls occur
+	# For single-use queries, prefer the specific API methods above
+	return hex_grid_controller.hex_grid if hex_grid_controller else null
+
 ## Configure a given agent node for grid navigation.
 func configure_agent_navigation(agent_node: Node) -> void:
 	var g = hex_grid_controller.hex_grid if hex_grid_controller else null
 	var p = navigation_controller.get_pathfinder() if navigation_controller else null
-	if g and p and agent_node.has_method("set_hex_navigation"): agent_node.set_hex_navigation(g, p)
+	if g and p and agent_node.has_method("set_hex_navigation"): agent_node.set_hex_navigation(g, p, self)
 
 ## Session and controller state accessors.
 func get_session_state() -> Dictionary: 

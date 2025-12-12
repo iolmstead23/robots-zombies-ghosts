@@ -11,19 +11,57 @@ extends RefCounted
 #   for cell in result.cells:
 #       process_cell(cell, result.costs[cell])
 
+# Result container for flood fill operations
+# Provides type-safe storage for reachable cells and their costs
+class FloodFillResult:
+	# Array of all reachable cells
+	var cells: Array[HexCell] = []
+
+	# Cost to reach each cell (HexCell -> int mapping)
+	var costs: Dictionary = {}
+
+	func _init(p_cells: Array[HexCell] = [], p_costs: Dictionary = {}):
+		cells = p_cells
+		costs = p_costs
+
+	# Get cells at specific cost
+	func get_cells_at_cost(cost: int) -> Array[HexCell]:
+		var result: Array[HexCell] = []
+		for cell in costs:
+			if costs[cell] == cost:
+				result.append(cell)
+		return result
+
+	# Get cells in cost range (inclusive)
+	func get_cells_in_cost_range(min_cost: int, max_cost: int) -> Array[HexCell]:
+		var result: Array[HexCell] = []
+		for cell in costs:
+			var cell_cost: int = costs[cell]
+			if cell_cost >= min_cost and cell_cost <= max_cost:
+				result.append(cell)
+		return result
+
+	# Check if result is empty
+	func is_empty() -> bool:
+		return cells.is_empty()
+
+	# Get cell count
+	func size() -> int:
+		return cells.size()
+
 # ============================================================================
 # PUBLIC API
 # ============================================================================
 
 # Flood fill from start cell within max_cost, optionally filtering cells
-# Returns dictionary with 'cells' array and 'costs' dictionary
+# Returns FloodFillResult with reachable cells and their costs
 # Filter signature: func(cell: HexCell) -> bool (return true to include)
 func flood_fill(
 	start: HexCell,
 	hex_grid: HexGrid,
 	max_cost: int,
 	filter: Callable = Callable()
-) -> Dictionary:
+) -> FloodFillResult:
 	if not _validate_inputs(start, hex_grid, max_cost):
 		return _empty_result()
 
@@ -70,10 +108,7 @@ func flood_fill(
 				# Add to frontier
 				frontier.append(neighbor)
 
-	return {
-		"cells": reachable,
-		"costs": costs
-	}
+	return FloodFillResult.new(reachable, costs)
 
 
 # Simplified API - returns only cells array
@@ -84,53 +119,28 @@ func get_reachable_cells(
 	max_cost: int,
 	filter: Callable = Callable()
 ) -> Array[HexCell]:
-	var result := flood_fill(start, hex_grid, max_cost, filter)
+	var result: FloodFillResult = flood_fill(start, hex_grid, max_cost, filter)
 	return result.cells
 
 
 # Get all cells that have exactly the specified cost
 # Useful for creating range rings or distance-based zones
 # Example: get_cells_at_cost(result, 3) returns all cells at distance 3
-func get_cells_at_cost(flood_result: Dictionary, cost: int) -> Array[HexCell]:
-	var cells_at_cost: Array[HexCell] = []
-
-	if not flood_result.has("costs"):
-		if OS.is_debug_build():
-			push_warning("HexFloodFill: Invalid flood_result dictionary (missing 'costs')")
-		return cells_at_cost
-
-	var costs: Dictionary = flood_result.costs
-
-	for cell in costs:
-		if costs[cell] == cost:
-			cells_at_cost.append(cell)
-
-	return cells_at_cost
+# NOTE: Deprecated - use FloodFillResult.get_cells_at_cost() instead
+func get_cells_at_cost(flood_result: FloodFillResult, cost: int) -> Array[HexCell]:
+	return flood_result.get_cells_at_cost(cost)
 
 
 # Get all cells within a cost range (inclusive)
 # Useful for creating zones or layers based on distance
 # Example: get_cells_in_cost_range(result, 0, 2) returns cells at cost 0, 1, or 2
+# NOTE: Deprecated - use FloodFillResult.get_cells_in_cost_range() instead
 func get_cells_in_cost_range(
-	flood_result: Dictionary,
+	flood_result: FloodFillResult,
 	min_cost: int,
 	max_cost: int
 ) -> Array[HexCell]:
-	var cells_in_range: Array[HexCell] = []
-
-	if not flood_result.has("costs"):
-		if OS.is_debug_build():
-			push_warning("HexFloodFill: Invalid flood_result dictionary (missing 'costs')")
-		return cells_in_range
-
-	var costs: Dictionary = flood_result.costs
-
-	for cell in costs:
-		var cell_cost: int = costs[cell]
-		if cell_cost >= min_cost and cell_cost <= max_cost:
-			cells_in_range.append(cell)
-
-	return cells_in_range
+	return flood_result.get_cells_in_cost_range(min_cost, max_cost)
 
 
 # ============================================================================
@@ -162,9 +172,6 @@ func _validate_inputs(start: HexCell, hex_grid: HexGrid, max_cost: int) -> bool:
 	return true
 
 
-# Return empty result dictionary
-func _empty_result() -> Dictionary:
-	return {
-		"cells": [],
-		"costs": {}
-	}
+# Return empty result
+func _empty_result() -> FloodFillResult:
+	return FloodFillResult.new([], {})

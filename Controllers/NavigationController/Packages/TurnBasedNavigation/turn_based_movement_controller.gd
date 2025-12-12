@@ -1,6 +1,8 @@
 extends Node
 class_name TurnBasedMovementController
 
+const IsoDistanceCalculator = preload("res://Controllers/HexGridController/Packages/IsometricTransform/iso_distance_calculator.gd")
+
 """
 Manages turn-based movement execution with preview and confirmation.
 
@@ -31,12 +33,12 @@ Design notes:
 signal turn_started(turn_number: int)
 signal turn_ended(turn_number: int)
 signal movement_started()
-signal movement_completed(distance_moved: int)
+signal movement_completed(distance_moved: float)
 
 # ----------------------
 # Member variables (state & components)
 # ----------------------
-var movement_used_this_turn: int = 0
+var movement_used_this_turn: float = 0.0  # Pixel distance tracking
 
 # Components - set by initialize()
 var pathfinder: TurnBasedPathfinder = null
@@ -120,15 +122,19 @@ func _physics_process(delta: float) -> void:
 		])
 
 	# Check if we've reached the final destination
+	# Use hex cell center as the target for perfect snapping
+	var final_hex_cell: HexCell = pathfinder.current_hex_path[-1] if pathfinder.current_hex_path.size() > 0 else null
+	var final_position: Vector2 = final_hex_cell.world_position if final_hex_cell else pathfinder.current_path[-1]
+
 	var distance_to_final: int = DistanceCalculator.distance_between(
 		current_pos,
-		pathfinder.current_path[-1]
+		final_position
 	)
 
 	if distance_to_final <= MovementConstants.ARRIVAL_DISTANCE_PIXELS or \
 	   _progress_tracker.is_near_completion():
-		# Snap to destination and complete
-		player.global_position = pathfinder.current_path[-1]
+		# Snap to hex cell center for clean, precise positioning
+		player.global_position = final_position
 		_complete_movement()
 		return
 
@@ -291,11 +297,18 @@ func initialize(player_ref: CharacterBody2D, movement_ref: MovementComponent, st
 	set_physics_process(false)
 	set_process_unhandled_input(false)
 
-func set_hex_components(hex_grid: HexGrid, hex_pathfinder: HexPathfinder) -> void:
+func set_hex_components(hex_grid: HexGrid, hex_pathfinder: HexPathfinder, session_ctrl = null) -> void:
 	"""Set hex components after initialization"""
 	if pathfinder:
-		pathfinder.set_hex_components(hex_grid, hex_pathfinder)
+		pathfinder.set_hex_components(hex_grid, hex_pathfinder, session_ctrl)
 		print("TurnBasedMovementController: Hex components set")
+
+func set_agent_data(agent_data) -> void:
+	"""Set reference to agent data for distance tracking."""
+	if player != null:
+		player.set_meta("agent_data", agent_data)
+		if DEBUG:
+			print("TurnBasedMovementController: AgentData connected to player")
 
 func request_movement_to(destination: Vector2, remaining_distance: int = -1) -> void:
 	"""
@@ -382,16 +395,18 @@ func _complete_movement() -> void:
 	if not is_active:
 		return
 
-	var path_distance_meters: int = 0
+	var path_distance_pixels: float = 0.0
 
-	# Accumulate movement used in meters (hex cells)
-	if pathfinder != null:
-		# Distance is measured in hex cells (each cell = 1 meter)
-		path_distance_meters = pathfinder.current_hex_path.size() - 1 # Subtract 1 for starting cell
-		movement_used_this_turn += path_distance_meters
+	if pathfinder != null and pathfinder.current_hex_path.size() > 1:
+		# Calculate A* path pixel distance (segment by segment)
+		path_distance_pixels = _calculate_astar_path_distance(pathfinder.current_hex_path)
+
+		# NOTE: Don't accumulate here - AgentManager handles distance recording
+		# movement_used_this_turn tracks this controller's local state only
 
 		if DEBUG:
-			print("Movement complete - moved %d m (%d hex cells)" % [path_distance_meters, path_distance_meters])
+			var hex_equivalent := path_distance_pixels / 18.0
+			print("Movement complete - moved %.2f px (%.2f hex cells) via A* path" % [path_distance_pixels, hex_equivalent])
 
 	# Update state manager
 	if state_manager != null:
@@ -399,20 +414,53 @@ func _complete_movement() -> void:
 		state_manager.set_state_value("has_input", false)
 
 	_turn_state.change_state(NavigationTypes.TurnState.COMPLETED)
-	movement_completed.emit(path_distance_meters)
+	movement_completed.emit(path_distance_pixels)
 
 	# Clear pathfinder internal state
 	if pathfinder != null:
 		pathfinder.cancel_path()
 
 	# Decide whether turn ends or allows more movement
-	if movement_used_this_turn >= MovementConstants.MAX_MOVEMENT_DISTANCE * 0.95:
+	# Check if agent has remaining distance via AgentData (pixel-based)
+	if not _can_agent_continue_movement():
 		end_turn()
 	else:
 		_turn_state.change_state(NavigationTypes.TurnState.IDLE)
 		if DEBUG:
-			var remaining := MovementConstants.MAX_MOVEMENT_DISTANCE - movement_used_this_turn
-			print("%d m of movement remaining this turn" % remaining)
+			print("Movement remaining - returning to IDLE for next action")
+
+func _can_agent_continue_movement() -> bool:
+	# Check if agent has remaining movement distance
+	# Retrieves AgentData from player meta and checks can_move()
+	if not player:
+		if DEBUG:
+			print("[TurnBasedMovementController] Player is null")
+		return false
+
+	if not player.has_meta("agent_data"):
+		if DEBUG:
+			print("[TurnBasedMovementController] Player has no agent_data meta")
+		return false
+
+	var agent_data = player.get_meta("agent_data")
+	if not agent_data:
+		if DEBUG:
+			print("[TurnBasedMovementController] agent_data meta is null")
+		return false
+
+	if not agent_data.has_method("can_move"):
+		push_error("[TurnBasedMovementController] AgentData missing can_move() method")
+		return false
+
+	var can_move: bool = agent_data.can_move()
+	if DEBUG:
+		print("[TurnBasedMovementController] Agent can move: %s (%.2f/%.2f)" % [
+			can_move,
+			agent_data.distance_traveled_this_turn,
+			agent_data.max_distance_per_turn
+		])
+
+	return can_move
 
 func _show_path_preview() -> void:
 	"""Display the calculated path using Line2D and update distance label if present."""
@@ -454,6 +502,30 @@ func _setup_ui() -> void:
 		add_child(path_preview_line)
 
 	# Note: distance_label, confirm_button, cancel_button can be assigned externally if needed
+
+func _calculate_astar_path_distance(hex_path: Array) -> float:
+	"""
+	Calculate distance based on hex cell count for clean, discrete movement.
+
+	Uses the number of hex cells traveled multiplied by the standard neighbor distance.
+	This ensures agents move in whole hex cell increments and snap perfectly to cells.
+	"""
+	if hex_path.size() <= 1:
+		return 0.0
+
+	# Calculate distance based on hex cell count, not interpolated waypoints
+	# This ensures clean movement in discrete hex cell increments
+	var hex_cell_count := hex_path.size() - 1  # Subtract 1 because first cell is starting position
+	var distance := float(hex_cell_count) * HexConstants.NEIGHBOR_DISTANCE_PIXELS
+
+	if DEBUG:
+		print("[TurnBasedMovementController] Hex path: %d cells, distance: %.2f pixels (%.2f per cell)" % [
+			hex_cell_count,
+			distance,
+			HexConstants.NEIGHBOR_DISTANCE_PIXELS
+		])
+
+	return distance
 
 # ============================================================================
 # SIGNAL HANDLERS

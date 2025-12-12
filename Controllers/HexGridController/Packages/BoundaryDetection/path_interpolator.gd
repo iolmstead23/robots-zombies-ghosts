@@ -34,10 +34,10 @@ func generate_path_waypoints(path: Array[HexCell], tension: float = 1.0) -> Arra
 	if path.size() < 2:
 		return _cells_to_positions(path)
 
-	# Check if path is purely horizontal (same r) or vertical (same q)
+	# Check if path is straight (constant direction) or requires curves
 	var alignment := _check_path_alignment(path)
 
-	if alignment.is_horizontal or alignment.is_vertical:
+	if alignment.is_straight:
 		return _generate_straight_waypoints(path, alignment)
 	else:
 		return _generate_curved_waypoints(path, tension)
@@ -66,8 +66,28 @@ func _apply_midpoint_layer(points: Array[Vector2]) -> Array[Vector2]:
 	return new_points
 
 
-# Check if path is horizontal or vertical
+# Check if path is horizontal, vertical, or straight (constant direction)
 func _check_path_alignment(path: Array[HexCell]) -> Dictionary:
+	if path.size() < 2:
+		return {"is_horizontal": false, "is_vertical": false, "is_straight": true}
+
+	# Check if path has constant direction (truly straight)
+	var is_straight := true
+	var first_direction := Vector2.ZERO
+
+	for i in range(1, path.size()):
+		var current_direction := (path[i].world_position - path[i-1].world_position).normalized()
+
+		if i == 1:
+			first_direction = current_direction
+		else:
+			# Check if direction changed (angle > 5 degrees indicates a turn)
+			var angle_diff := first_direction.angle_to(current_direction)
+			if abs(angle_diff) > 0.087:  # ~5 degrees tolerance
+				is_straight = false
+				break
+
+	# Legacy horizontal/vertical checks for backwards compatibility
 	var is_horizontal := true
 	var is_vertical := true
 	var first_q := path[0].q
@@ -81,29 +101,19 @@ func _check_path_alignment(path: Array[HexCell]) -> Dictionary:
 
 	return {
 		"is_horizontal": is_horizontal,
-		"is_vertical": is_vertical
+		"is_vertical": is_vertical,
+		"is_straight": is_straight or is_horizontal or is_vertical
 	}
 
 
-# Generate waypoints for straight paths (horizontal or vertical)
-# Aligns waypoints perfectly along the primary axis
+# Generate waypoints for straight paths (any direction)
+# Uses hex cell centers directly for clean, straight lines
 func _generate_straight_waypoints(path: Array[HexCell], alignment: Dictionary) -> Array[Vector2]:
 	var waypoints: Array[Vector2] = []
 
-	# Calculate average position to align waypoints
-	var avg_pos := Vector2.ZERO
+	# For truly straight paths, just use cell centers - no offsets needed
 	for cell in path:
-		avg_pos += cell.world_position
-	avg_pos /= path.size()
-
-	for cell in path:
-		var pos := cell.world_position
-		if alignment.is_horizontal:
-			# Align Y coordinates for horizontal paths
-			waypoints.append(Vector2(pos.x, avg_pos.y))
-		else:
-			# Align X coordinates for vertical paths
-			waypoints.append(Vector2(avg_pos.x, pos.y))
+		waypoints.append(cell.world_position)
 
 	return waypoints
 

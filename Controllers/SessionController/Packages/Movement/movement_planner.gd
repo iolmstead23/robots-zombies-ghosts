@@ -113,11 +113,11 @@ func _get_agent_cell(agent: AgentData) -> HexCell:
 	if not controller:
 		return null
 
-	var grid = hex_grid_controller.hex_grid
-	if not grid:
+	if not session_controller:
 		return null
 
-	return grid.get_cell_at_world_position(controller.global_position)
+	# Use SessionController API instead of direct grid access
+	return session_controller.get_cell_at_world_position(controller.global_position)
 
 
 func _calculate_path(start: HexCell, goal: HexCell) -> Array[HexCell]:
@@ -137,14 +137,14 @@ func _truncate_path_if_needed(path: Array[HexCell], max_distance: float) -> Arra
 	if path.size() <= 1:
 		return path
 
-	var accumulated_distance := 0.0
+	# Use hex cell count for distance calculation (clean, discrete movement)
+	# Each hex cell = NEIGHBOR_DISTANCE_PIXELS
 	var truncated_path: Array[HexCell] = [path[0]]
 
 	for i in range(1, path.size()):
-		var segment_distance := IsoDistanceCalculator.calculate_isometric_distance(path[i-1], path[i])
-		if accumulated_distance + segment_distance > max_distance:
+		var next_distance := float(i) * HexConstants.NEIGHBOR_DISTANCE_PIXELS
+		if next_distance > max_distance:
 			break
-		accumulated_distance += segment_distance
 		truncated_path.append(path[i])
 
 	return truncated_path
@@ -179,11 +179,17 @@ func _calculate_path_pixel_distance(path: Array[HexCell]) -> float:
 	if path.size() <= 1:
 		print("[MovementPlanner] Path too short for distance calculation: size=%d" % path.size())
 		return 0.0
-	var total_distance := 0.0
-	for i in range(1, path.size()):
-		var segment := IsoDistanceCalculator.calculate_isometric_distance(path[i-1], path[i])
-		total_distance += segment
-	print("[MovementPlanner] Path pixel distance: %.2f pixels (%d segments)" % [total_distance, path.size() - 1])
+
+	# Calculate distance based on hex cell count for clean, discrete movement
+	# This ensures agents always move in whole hex cell increments
+	var hex_cell_count := path.size() - 1
+	var total_distance := float(hex_cell_count) * HexConstants.NEIGHBOR_DISTANCE_PIXELS
+
+	print("[MovementPlanner] Path: %d hex cells = %.2f pixels (%.2f per cell)" % [
+		hex_cell_count,
+		total_distance,
+		HexConstants.NEIGHBOR_DISTANCE_PIXELS
+	])
 	return total_distance
 
 

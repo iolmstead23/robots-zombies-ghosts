@@ -13,14 +13,16 @@ var _hex_grid_controller = null
 var _navigation_controller = null
 var _agent_manager = null
 var _debug_controller = null
+var _session_controller = null
 var _validator: AgentValidator = AgentValidator.new()
 
 
-func configure(hex_grid_ctrl, nav_ctrl, agent_mgr, debug_ctrl) -> void:
+func configure(hex_grid_ctrl, nav_ctrl, agent_mgr, debug_ctrl, session_ctrl = null) -> void:
 	_hex_grid_controller = hex_grid_ctrl
 	_navigation_controller = nav_ctrl
 	_agent_manager = agent_mgr
 	_debug_controller = debug_ctrl
+	_session_controller = session_ctrl
 
 
 func initialize(config: Dictionary, scene_tree: SceneTree) -> SessionTypes.InitResult:
@@ -134,7 +136,7 @@ func _init_navigation() -> SessionTypes.InitResult:
 	var grid = _hex_grid_controller.hex_grid
 	if not grid:
 		return SessionTypes.InitResult.FAILED
-	_navigation_controller.initialize(grid, null)
+	_navigation_controller.initialize(grid, null, _session_controller)
 	return SessionTypes.InitResult.SUCCESS
 
 

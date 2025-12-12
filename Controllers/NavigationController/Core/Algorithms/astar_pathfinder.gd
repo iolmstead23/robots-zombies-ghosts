@@ -24,7 +24,15 @@ var _f_score := {}
 # ----------------------
 
 ## Execute A* pathfinding from start to goal
-func find_path(start: HexCell, goal: HexCell, hex_grid: HexGrid, movement_cost: float = 1.0) -> Array[HexCell]:
+## Accepts grid_provider (SessionController or HexGrid) for API compliance
+func find_path(start: HexCell, goal: HexCell, grid_provider, movement_cost: float = 1.0) -> Array[HexCell]:
+	# Extract actual grid for performance - avoids hundreds of indirect calls in A* loop
+	var hex_grid: HexGrid = null
+	if grid_provider.has_method("get_hex_grid_for_pathfinding"):
+		hex_grid = grid_provider.get_hex_grid_for_pathfinding()
+	elif grid_provider is HexGrid:
+		hex_grid = grid_provider
+
 	if not _validate_pathfinding(start, goal, hex_grid):
 		return []
 

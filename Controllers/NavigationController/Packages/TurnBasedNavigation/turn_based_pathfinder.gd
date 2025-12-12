@@ -22,8 +22,9 @@ var confirmed_color: Color = Color.GREEN
 
 # References
 var player: CharacterBody2D
-var hex_grid: HexGrid
+var hex_grid: HexGrid  # DEPRECATED - use via session_controller
 var hex_pathfinder: HexPathfinder
+var session_controller = null  # Preferred API
 
 # Path smoothing components
 var _path_interpolator: PathInterpolator = PathInterpolator.new()
@@ -37,10 +38,11 @@ var interpolation_layers: int = 1  # 1-3 layers
 # INITIALIZATION
 # ============================================================================
 
-func initialize(player_ref: CharacterBody2D, grid: HexGrid = null, hex_pathfinder_ref: HexPathfinder = null) -> void:
+func initialize(player_ref: CharacterBody2D, grid: HexGrid = null, hex_pathfinder_ref: HexPathfinder = null, session_ctrl = null) -> void:
 	player = player_ref
 	hex_grid = grid
 	hex_pathfinder = hex_pathfinder_ref
+	session_controller = session_ctrl
 
 	# Initialize smoothing components
 	_catmull_rom_smoother.set_smoothing_iterations(3)  # Moderate smoothing - 3 segments per edge
@@ -51,9 +53,10 @@ func initialize(player_ref: CharacterBody2D, grid: HexGrid = null, hex_pathfinde
 	if OS.is_debug_build():
 		print("TurnBasedPathfinder: Initialized")
 
-func set_hex_components(grid: HexGrid, hex_pathfinder_ref: HexPathfinder) -> void:
+func set_hex_components(grid: HexGrid, hex_pathfinder_ref: HexPathfinder, session_ctrl = null) -> void:
 	hex_grid = grid
 	hex_pathfinder = hex_pathfinder_ref
+	session_controller = session_ctrl
 
 	if OS.is_debug_build():
 		print("TurnBasedPathfinder: Hex components set")
@@ -73,8 +76,12 @@ func calculate_path_to(destination: Vector2, max_distance: int = -1) -> bool:
 
 	_reset_path_data()
 
-	var start_cell := hex_grid.get_cell_at_world_position(player.global_position)
-	var dest_cell := hex_grid.get_cell_at_world_position(destination)
+	if not session_controller:
+		push_error("TurnBasedPathfinder: SessionController is required")
+		return false
+
+	var start_cell: HexCell = session_controller.get_cell_at_world_position(player.global_position)
+	var dest_cell: HexCell = session_controller.get_cell_at_world_position(destination)
 
 	if not PathValidator.are_cells_valid(start_cell, dest_cell):
 		if OS.is_debug_build():

@@ -12,7 +12,17 @@ signal controller_ready()
 ## Exported/Configurable vars
 @export var agent_scene: PackedScene
 @export_range(1, 4) var agent_count: int = 1
-@export var max_movements_per_turn: int = 10
+@export var max_movements_per_turn: int = 10  # Legacy: hex cell count (deprecated, kept for backward compatibility)
+@export var max_distance_per_turn_pixels: float = 180.0:  # Pixel-based distance budget per turn
+	set(value):
+		if value < 0.0:
+			push_warning("[AgentController] max_distance_per_turn_pixels must be >= 0, clamping to 0 (got %.2f)" % value)
+			max_distance_per_turn_pixels = 0.0
+		elif value > 10000.0:
+			push_warning("[AgentController] max_distance_per_turn_pixels unusually high: %.2f (max reasonable: 10000)" % value)
+			max_distance_per_turn_pixels = value
+		else:
+			max_distance_per_turn_pixels = value
 
 ## Context references
 var session_controller: Node
@@ -98,7 +108,7 @@ func _random_spawn_cells(count: int) -> Array[HexCell]:
 
 	var attempts := 0
 	while spawn_cells.size() < count and attempts < MAX_ATTEMPTS:
-		var cell := _get_random_enabled_cell()
+		var cell: HexCell = _get_random_enabled_cell()
 		if cell == null:
 			break
 
@@ -109,9 +119,10 @@ func _random_spawn_cells(count: int) -> Array[HexCell]:
 
 	return spawn_cells
 
-func _get_random_enabled_cell() -> HexCell:
-	"""Get single random enabled hex cell"""
+func _get_random_enabled_cell() -> Variant:  # Returns HexCell or null
+	# Get single random enabled hex cell
 	if not session_controller:
+		push_warning("[AgentController] Cannot get random cell: session_controller is null")
 		return null
 
 	return session_controller.get_random_enabled_cell()
@@ -167,27 +178,26 @@ func _spawn_agent(index: int, cell: HexCell, agent_type: AgentTypes.Type = Agent
 	var agent_id = "agent_%d" % index
 	var ad = AgentData.new(agent_id, ac, agent_type)
 	ad.agent_name = "%s %d" % [AgentTypes.get_display_name(agent_type), index + 1]
-	ad.max_movements_per_turn = max_movements_per_turn
-	# Calculate pixel distance based on grid's horizontal spacing
-	var spacing := 18.0  # Default spacing
-	if session_controller and session_controller.has_method("get_hex_grid"):
-		var grid = session_controller.get_hex_grid()
-		if grid:
-			spacing = grid.horizontal_spacing
-	ad.max_distance_per_turn = float(max_movements_per_turn) * spacing
+	ad.max_movements_per_turn = max_movements_per_turn  # Legacy compatibility
+	# Use configurable pixel-based distance budget
+	ad.max_distance_per_turn = max_distance_per_turn_pixels
 	ad.current_position = pos
 	ad.set_current_cell(cell)  # Set the current hex cell
 	ad.turn_started.connect(_on_agent_turn_started)
 	ad.turn_ended.connect(_on_agent_turn_ended)
-	_configure_agent_controller(ac)
+	_configure_agent_controller(ac, ad)
 	return ad
 
-func _configure_agent_controller(ac):
+func _configure_agent_controller(ac, agent_data: AgentData):
 	if OS.is_debug_build():
 		print("[AgentController] Configuring agent via SessionController")
 
 	if session_controller:
 		session_controller.configure_agent_navigation(ac)
+
+		# Connect agent_data to TurnBasedMovementController
+		if ac.turn_based_controller and ac.turn_based_controller.has_method("set_agent_data"):
+			ac.turn_based_controller.set_agent_data(agent_data)
 	else:
 		push_warning("[AgentController] SessionController is null - cannot configure agent navigation")
 
@@ -285,8 +295,12 @@ func _clear_agents():
 	current_round = 0
 	session_active = false
 
-func get_active_agent() -> AgentData:
-	return agents[active_agent_index] if active_agent_index < agents.size() else null
+func get_active_agent() -> Variant:  # Returns AgentData or null
+	if active_agent_index >= 0 and active_agent_index < agents.size():
+		return agents[active_agent_index]
+	if OS.is_debug_build():
+		push_warning("[AgentController] Active agent index %d out of range (0-%d)" % [active_agent_index, agents.size() - 1])
+	return null
 
 func get_all_agents() -> Array[AgentData]:
 	if agents.size() != agent_count or agents.any(func(a): return a == null):

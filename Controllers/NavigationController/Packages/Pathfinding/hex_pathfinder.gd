@@ -9,8 +9,11 @@ extends Node
 signal path_found(path: Array[HexCell])
 signal path_failed(start: HexCell, goal: HexCell)
 
-@export var hex_grid: HexGrid
+@export var hex_grid: HexGrid  # DEPRECATED - use via session_controller
 @export var diagonal_cost := 1.0
+
+# API reference (preferred over direct hex_grid access)
+var session_controller = null
 
 # Core components
 var _astar: AStarPathfinder = null
@@ -31,13 +34,13 @@ func find_path(start: HexCell, goal: HexCell) -> Array[HexCell]:
 		path_failed.emit(start, goal)
 		return []
 
-	if not hex_grid:
-		push_error("HexPathfinder: No HexGrid assigned")
+	if not session_controller:
+		push_error("HexPathfinder: SessionController is required")
 		path_failed.emit(start, goal)
 		return []
 
-	# Use core A* algorithm
-	var path := _astar.find_path(start, goal, hex_grid, diagonal_cost)
+	# Use core A* algorithm with SessionController as grid_provider
+	var path := _astar.find_path(start, goal, session_controller, diagonal_cost)
 
 	if path.is_empty():
 		path_failed.emit(start, goal)
@@ -47,19 +50,24 @@ func find_path(start: HexCell, goal: HexCell) -> Array[HexCell]:
 	return path
 
 func find_path_world(start_pos: Vector2, goal_pos: Vector2) -> Array[HexCell]:
-	if not hex_grid:
+	if not session_controller:
+		push_error("HexPathfinder: SessionController is required")
 		return []
 
-	var start_cell := hex_grid.get_cell_at_world_position(start_pos)
-	var goal_cell := hex_grid.get_cell_at_world_position(goal_pos)
+	var start_cell: HexCell = session_controller.get_cell_at_world_position(start_pos)
+	var goal_cell: HexCell = session_controller.get_cell_at_world_position(goal_pos)
 
 	return find_path(start_cell, goal_cell)
 
 func find_path_to_range(start: HexCell, goal: HexCell, range_cells: int) -> Array[HexCell]:
-	if not hex_grid or not PathValidator.is_cell_valid(start) or not PathValidator.is_cell_valid(goal):
+	if not session_controller:
+		push_error("HexPathfinder: SessionController is required")
 		return []
 
-	var candidates := hex_grid.get_enabled_cells_in_range(goal, range_cells)
+	if not PathValidator.is_cell_valid(start) or not PathValidator.is_cell_valid(goal):
+		return []
+
+	var candidates: Array[HexCell] = session_controller.get_enabled_cells_in_range(goal, range_cells)
 	if candidates.is_empty():
 		return []
 
@@ -87,7 +95,11 @@ func get_path_length(path: Array[HexCell]) -> int:
 	return max(path.size() - 1, 0)
 
 func get_cells_in_movement_range(start: HexCell, movement_points: int) -> Array[HexCell]:
-	if not hex_grid or not PathValidator.is_cell_valid(start):
+	if not session_controller:
+		push_error("HexPathfinder: SessionController is required")
+		return []
+
+	if not PathValidator.is_cell_valid(start):
 		return []
 
 	var reachable := [start]
@@ -101,7 +113,7 @@ func get_cells_in_movement_range(start: HexCell, movement_points: int) -> Array[
 		if cost >= movement_points:
 			continue
 
-		for neighbor in hex_grid.get_enabled_neighbors(current):
+		for neighbor in session_controller.get_enabled_neighbors(current):
 			var new_cost := cost + 1
 
 			if not visited.has(neighbor) or new_cost < visited[neighbor]:

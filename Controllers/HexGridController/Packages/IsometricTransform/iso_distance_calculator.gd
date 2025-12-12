@@ -8,14 +8,26 @@ extends RefCounted
 # Note: cell.world_position is already in isometric screen space (via axial_to_isometric)
 # so we use it directly without additional transformation
 static func calculate_isometric_distance(cell_a: HexCell, cell_b: HexCell) -> float:
+	if not cell_a or not cell_b:
+		push_error("[IsoDistanceCalculator] Cannot calculate distance with null cell(s): a=%s, b=%s" % [cell_a != null, cell_b != null])
+		return 0.0
+
 	return cell_a.world_position.distance_to(cell_b.world_position)
 
 # Calculate logical hex distance (unchanged, uses axial coordinates)
 static func calculate_logical_distance(cell_a: HexCell, cell_b: HexCell) -> int:
+	if not cell_a or not cell_b:
+		push_error("[IsoDistanceCalculator] Cannot calculate logical distance with null cell(s): a=%s, b=%s" % [cell_a != null, cell_b != null])
+		return 0
+
 	return cell_a.distance_to(cell_b)
 
 # Get distance ratio between isometric and logical space
 static func get_distance_ratio(cell_a: HexCell, cell_b: HexCell) -> float:
+	if not cell_a or not cell_b:
+		push_error("[IsoDistanceCalculator] Cannot calculate distance ratio with null cell(s)")
+		return 1.0
+
 	var logical := float(calculate_logical_distance(cell_a, cell_b))
 	if logical == 0.0:
 		return 1.0
@@ -24,6 +36,10 @@ static func get_distance_ratio(cell_a: HexCell, cell_b: HexCell) -> float:
 
 # Calculate weighted distance considering both logical and visual distance
 static func calculate_hybrid_distance(cell_a: HexCell, cell_b: HexCell, alpha: float) -> float:
+	if not cell_a or not cell_b:
+		push_error("[IsoDistanceCalculator] Cannot calculate hybrid distance with null cell(s)")
+		return 0.0
+
 	var logical := float(calculate_logical_distance(cell_a, cell_b))
 	var visual := calculate_isometric_distance(cell_a, cell_b)
 	return lerp(logical, visual, alpha)

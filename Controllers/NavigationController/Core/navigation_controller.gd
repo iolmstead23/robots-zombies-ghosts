@@ -110,7 +110,7 @@ func _ready():
 # INITIALIZATION (called by SessionController)
 # ============================================================================
 
-func initialize(grid: HexGrid, agent_node: CharacterBody2D):
+func initialize(grid: HexGrid, agent_node: CharacterBody2D, session_ctrl = null):
 	# Agent is optional - only needed for real-time navigation (which is disabled)
 	# Turn-based navigation uses agents' individual pathfinders
 	if agent_node != null:
@@ -123,6 +123,7 @@ func initialize(grid: HexGrid, agent_node: CharacterBody2D):
 	hex_pathfinder = HexPathfinder.new()
 	hex_pathfinder.name = "HexPathfinder"
 	hex_pathfinder.hex_grid = grid
+	hex_pathfinder.session_controller = session_ctrl
 	add_child(hex_pathfinder)
 
 	# ========== REAL-TIME NAVIGATION (DISABLED) ==========
