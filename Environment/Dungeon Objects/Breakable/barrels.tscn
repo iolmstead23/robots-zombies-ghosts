@@ -1,0 +1,22 @@
+[gd_scene load_steps=2 format=3 uid="uid://bmdgbb7lsxnxm"]
+
+[ext_resource type="Texture2D" uid="uid://ip7dwcpdpdgy" path="res://Environment/Dungeon Objects/Breakable/barrelsStacked_W.png" id="2_lxvle"]
+
+[node name="Test Barrels 1" type="StaticBody2D"]
+y_sort_enabled = true
+input_pickable = true
+
+[node name="CollisionShape2D" type="CollisionPolygon2D" parent="."]
+y_sort_enabled = true
+position = Vector2(372, 138)
+scale = Vector2(10.399999, 8.999999)
+polygon = PackedVector2Array(2.2115402, 8.444445, -2.8846169, 9.555555, -6.346157, 8.444445, -7.7884636, 5, -6.4423103, 1.666666, -0.86538696, -1.7777786, 2.7884598, -2.7777786, 6.3461533, -2.333334, 8.269234, 0.22222137, 7.3076935, 4, 5, 6.333334)
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+y_sort_enabled = true
+position = Vector2(373, 162)
+texture = ExtResource("2_lxvle")
+offset = Vector2(-4, -173)
+
+[node name="NavigationObstacle2D" type="NavigationObstacle2D" parent="."]
+y_sort_enabled = true
