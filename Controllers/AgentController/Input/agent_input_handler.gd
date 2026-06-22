@@ -12,8 +12,13 @@ class_name AgentInputHandler
 
 var camera: Camera2D
 var is_input_blocked := false
+var registry: AgentRegistry
 
 signal move_requested(world_pos: Vector2)
+
+func initialize(registry_ref: AgentRegistry) -> void:
+	registry = registry_ref
+	registry.subscribe("motion.blocks_input", _on_blocks_input_changed)
 
 func set_camera(cam: Camera2D) -> void:
 	camera = cam
@@ -30,19 +35,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		var world_pos := _get_world_mouse_position(mouse_event.position)
 		move_requested.emit(world_pos)
 
-## Polled every physics frame by AgentCombatComponent to update aiming state.
+## Polled every physics frame by AgentActionPackage to update aiming state.
 func is_aim_pressed() -> bool:
 	if is_input_blocked:
 		return false
 	return Input.is_action_pressed("aim")
 
-## Polled every physics frame by AgentCombatComponent to trigger weapon fire.
+## Polled every physics frame by AgentActionPackage to trigger weapon fire.
 func is_fire_pressed() -> bool:
 	if is_input_blocked:
 		return false
 	return Input.is_action_pressed("fire")
 
-## Polled every physics frame by AgentJumpComponent.
+## Polled every physics frame by AgentMotionPackage.
 func is_jump_pressed() -> bool:
 	return Input.is_action_pressed("jump")
 
@@ -50,3 +55,6 @@ func _get_world_mouse_position(screen_pos: Vector2) -> Vector2:
 	if camera:
 		return camera.get_global_transform_with_canvas().affine_inverse() * screen_pos
 	return get_viewport().get_canvas_transform().affine_inverse() * screen_pos
+
+func _on_blocks_input_changed(blocks: bool) -> void:
+	is_input_blocked = blocks
