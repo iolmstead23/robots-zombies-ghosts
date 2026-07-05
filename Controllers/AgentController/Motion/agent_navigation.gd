@@ -46,6 +46,7 @@ func initialize(
 
 	registry.subscribe("action.demands_walk", _on_demands_walk_changed)
 	registry.subscribe("motion.is_jumping", _on_is_jumping_changed)
+	registry.subscribe("motion.vertical_state", _on_vertical_state_changed)
 
 func navigate_to(world_pos: Vector2) -> void:
 	var map_rid := navigation_agent.get_navigation_map()
@@ -165,6 +166,11 @@ func _on_demands_walk_changed(demands_walk: bool) -> void:
 		return
 	if demands_walk and registry.query("motion.is_running"):
 		registry.publish("motion.is_running", false)
+
+func _on_vertical_state_changed(state: String) -> void:
+	# A scripted environmental fall cancels any active path.
+	if state == "falling":
+		cancel_navigation()
 
 func _on_is_jumping_changed(is_jumping: bool) -> void:
 	if not is_jumping:

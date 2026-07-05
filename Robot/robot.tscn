@@ -2,13 +2,14 @@
 
 [ext_resource type="Script" uid="uid://dswd7f5dhnfii" path="res://Controllers/AgentController/Core/agent_controller.gd" id="1_8v8gi"]
 [ext_resource type="SpriteFrames" uid="uid://ckswuaheqfom0" path="res://Robot/Robot.tres" id="2_be5y7"]
-[ext_resource type="Script" uid="uid://boxes7fsvpnst" path="res://Controllers/AgentController/State/agent_state.gd" id="3_pbk7l"]
-[ext_resource type="Script" uid="uid://dnh2kd2fbyhwq" path="res://Controllers/AgentController/Movement/agent_movement_component.gd" id="4_terxs"]
-[ext_resource type="Script" uid="uid://bdjv3032xj5iv" path="res://Controllers/AgentController/Movement/agent_jump_component.gd" id="5_7h4j4"]
-[ext_resource type="Script" uid="uid://bfxxx3o108a1t" path="res://Controllers/AgentController/Combat/agent_combat_component.gd" id="6_q7a36"]
-[ext_resource type="Script" uid="uid://dkfhfxnl4curd" path="res://Controllers/AgentController/Animation/agent_animation_controller.gd" id="7_4kbmn"]
-[ext_resource type="Script" uid="uid://jqhng3y6alav" path="res://Controllers/AgentController/Navigation/agent_navigation.gd" id="8_l1mqi"]
-[ext_resource type="Script" uid="uid://qdgv337ne5te" path="res://Controllers/AgentController/Input/agent_input_handler.gd" id="9_8567e"]
+[ext_resource type="Script" uid="uid://hjjh01o5ljbu" path="res://Controllers/AgentController/Registry/agent_registry.gd" id="3_registry"]
+[ext_resource type="Script" uid="uid://drledujch213d" path="res://Controllers/AgentController/Motion/agent_motion_package.gd" id="4_motion"]
+[ext_resource type="Script" uid="uid://rxsi7nww3p4e" path="res://Controllers/AgentController/Action/agent_action_package.gd" id="5_action"]
+[ext_resource type="Script" uid="uid://dkfhfxnl4curd" path="res://Controllers/AgentController/Animation/agent_animation_controller.gd" id="6_animation"]
+[ext_resource type="Script" uid="uid://dbcdxncfe82ap" path="res://Controllers/AgentController/Motion/agent_navigation.gd" id="7_navigation"]
+[ext_resource type="Script" uid="uid://qdgv337ne5te" path="res://Controllers/AgentController/Input/agent_input_handler.gd" id="8_input"]
+[ext_resource type="Script" uid="uid://deeyw0hgmspgv" path="res://Controllers/AgentController/State/agent_state_manager.gd" id="9_state"]
+[ext_resource type="Script" path="res://Controllers/AgentController/Interaction/agent_interaction_package.gd" id="10_interaction"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_h2yge"]
 radius = 20.0
@@ -24,7 +25,6 @@ shape = SubResource("CircleShape2D_h2yge")
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=520184921]
 y_sort_enabled = true
 sprite_frames = ExtResource("2_be5y7")
-animation = &"IdleAim_Down"
 
 [node name="NavigationAgent2D" type="NavigationAgent2D" parent="." unique_id=1989240443]
 simplify_path = true
@@ -32,23 +32,26 @@ avoidance_enabled = true
 debug_enabled = true
 debug_path_custom_color = Color(0.070199974, 0.78, 0.08202995, 1)
 
-[node name="AgentState" type="Node" parent="." unique_id=2001736294]
-script = ExtResource("3_pbk7l")
+[node name="AgentRegistry" type="Node" parent="." unique_id=2001736294]
+script = ExtResource("3_registry")
 
-[node name="AgentMovementComponent" type="Node" parent="." unique_id=1197839260]
-script = ExtResource("4_terxs")
+[node name="AgentMotionPackage" type="Node" parent="." unique_id=1197839260]
+script = ExtResource("4_motion")
 
-[node name="AgentJumpComponent" type="Node" parent="." unique_id=1040208342]
-script = ExtResource("5_7h4j4")
+[node name="AgentActionPackage" type="Node" parent="." unique_id=819505478]
+script = ExtResource("5_action")
 
-[node name="AgentCombatComponent" type="Node" parent="." unique_id=819505478]
-script = ExtResource("6_q7a36")
+[node name="AgentStateManager" type="Node" parent="." unique_id=201559278]
+script = ExtResource("9_state")
 
 [node name="AgentAnimationController" type="Node" parent="." unique_id=201559277]
-script = ExtResource("7_4kbmn")
+script = ExtResource("6_animation")
 
 [node name="AgentNavigation" type="Node" parent="." unique_id=836765683]
-script = ExtResource("8_l1mqi")
+script = ExtResource("7_navigation")
 
 [node name="AgentInputHandler" type="Node" parent="." unique_id=1652779906]
-script = ExtResource("9_8567e")
+script = ExtResource("8_input")
+
+[node name="AgentInteractionPackage" type="Node" parent="." unique_id=1652779907]
+script = ExtResource("10_interaction")

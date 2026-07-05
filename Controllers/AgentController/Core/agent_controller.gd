@@ -13,7 +13,8 @@ class_name AgentController
 ##   ├── AgentStateManager
 ##   ├── AgentAnimationController
 ##   ├── AgentNavigation
-##   └── AgentInputHandler
+##   ├── AgentInputHandler
+##   └── AgentInteractionPackage
 ##
 ## Call set_camera(cam) after adding to a scene to enable point-and-click movement.
 
@@ -24,6 +25,7 @@ class_name AgentController
 @onready var animation_controller: AgentAnimationController = $AgentAnimationController
 @onready var navigation: AgentNavigation = $AgentNavigation
 @onready var input_handler: AgentInputHandler = $AgentInputHandler
+@onready var interaction: AgentInteractionPackage = $AgentInteractionPackage
 @onready var animated_sprite: AnimatedSprite2D = $AnimatedSprite2D
 @onready var navigation_agent: NavigationAgent2D = $NavigationAgent2D
 
@@ -32,6 +34,7 @@ var debug_logger: DebugActionLogger
 signal agent_moved(position: Vector2)
 signal agent_state_changed(state: Dictionary)
 signal weapon_discharged(direction: String)
+signal object_interacted(object: Node, kind: String)
 
 func _ready() -> void:
 	_setup_components()
@@ -46,6 +49,7 @@ func _setup_components() -> void:
 	action.initialize(registry, input_handler)
 	state_manager.initialize(registry)
 	animation_controller.initialize(animated_sprite, registry)
+	interaction.initialize(registry)
 	registry.publish("core.is_active", true)
 
 func _connect_signals() -> void:
@@ -53,9 +57,12 @@ func _connect_signals() -> void:
 		if OS.is_debug_build():
 			print_debug("ANIM_FINISHED: %s" % animation_controller.get_current_animation()))
 	motion.jump_landed.connect(_on_jump_landed)
+	motion.fall_started.connect(func(): agent_state_changed.emit(registry.get_snapshot()))
+	motion.fall_recovered.connect(func(): agent_state_changed.emit(registry.get_snapshot()))
 	input_handler.move_requested.connect(navigation.navigate_to)
 	navigation.navigation_completed.connect(_on_navigation_completed)
 	action.weapon_fired.connect(_on_weapon_fired)
+	interaction.interacted.connect(func(obj, kind): object_interacted.emit(obj, kind))
 	animation_controller.animation_speed_changed.connect(func(s):
 		if debug_logger:
 			debug_logger.log_action("ANIM_SPEED", {"speed": s}))
@@ -69,6 +76,8 @@ func _print_signal_connection_summary() -> void:
 	print("[OK] AgentNavigation.navigation_completed → AgentController._on_navigation_completed")
 	print("[OK] AgentActionPackage.weapon_fired → AgentController._on_weapon_fired")
 	print("[OK] AgentMotionPackage.jump_landed → AgentController._on_jump_landed")
+	print("[OK] AgentMotionPackage.fall_started/fall_recovered → AgentController.agent_state_changed")
+	print("[OK] AgentInteractionPackage.interacted → AgentController.object_interacted")
 	print("[OK] AgentAnimationController.animation_speed_changed → DebugActionLogger")
 	print("[OK] AnimatedSprite2D.animation_finished → debug print")
 	print("=== DEBUG LOGGING ENABLED ===")
@@ -90,6 +99,12 @@ func _setup_debug_logger() -> void:
 		debug_logger.log_action("JUMP_START", {"pos": global_position}))
 	motion.jump_landed.connect(func():
 		debug_logger.log_action("JUMP_LAND", {"pos": global_position}))
+	motion.fall_started.connect(func():
+		debug_logger.log_action("FALL_START", {"pos": global_position}))
+	motion.fall_recovered.connect(func():
+		debug_logger.log_action("FALL_RECOVER", {"pos": global_position}))
+	interaction.interacted.connect(func(obj, kind):
+		debug_logger.log_action("INTERACT", {"kind": kind, "target": obj.name if is_instance_valid(obj) else ""}))
 	navigation.navigation_started.connect(func():
 		debug_logger.log_navigation_event("started", {"target": navigation_agent.target_position}))
 	navigation.navigation_completed.connect(func():
@@ -111,6 +126,20 @@ func _physics_process(delta: float) -> void:
 
 func set_camera(cam: Camera2D) -> void:
 	input_handler.set_camera(cam)
+
+## --- Public singleton API for external game systems ---
+
+## Record an interaction with a world object. `kind` is a free-form tag.
+func interact_with(object: Node, kind: String) -> void:
+	interaction.interact_with(object, kind)
+
+## Force the agent into a scripted fall (hazards, scripted events).
+func begin_fall() -> void:
+	motion.begin_environmental_fall()
+
+## End a scripted fall and return the agent to the ground.
+func recover_from_fall() -> void:
+	motion.end_environmental_fall()
 
 func _on_navigation_completed() -> void:
 	agent_moved.emit(global_position)

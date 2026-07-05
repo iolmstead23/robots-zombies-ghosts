@@ -10,7 +10,7 @@ class_name AgentAnimationController
 const ANIM_SPEED := 4.5
 const AIM_SPEED_REDUCTION := 0.6
 
-enum JumpPhase { NONE, ASCENT, AIRBORNE }
+enum JumpPhase { NONE, ASCENT, DESCENT }
 
 var animated_sprite: AnimatedSprite2D
 var registry: AgentRegistry
@@ -72,6 +72,7 @@ func initialize(sprite_ref: AnimatedSprite2D, registry_ref: AgentRegistry) -> vo
 	animated_sprite = sprite_ref
 	registry = registry_ref
 	registry.subscribe("motion.is_jumping", _on_is_jumping_changed)
+	registry.subscribe("motion.vertical_state", _on_vertical_state_changed)
 
 func update_animation() -> void:
 	var anim_type: String = str(registry.query("state.animation"))
@@ -83,7 +84,7 @@ func update_animation() -> void:
 
 	_apply_jump_height_to_sprite()
 
-	if anim_type in ["jump", "run_jump"]:
+	if anim_type in ["jump", "run_jump", "fall"]:
 		_update_jump_animation_phase(anim_name)
 		return
 
@@ -104,8 +105,10 @@ func update_animation() -> void:
 		_play_animation(anim_name, anim_speed)
 
 func _get_animation_name(anim_type: String, direction: String) -> String:
-	if anim_type in animations and direction in animations[anim_type]:
-		return animations[anim_type][direction]
+	# "fall" has no dedicated clip: it reuses the jump clip's descent frames.
+	var lookup := "jump" if anim_type == "fall" else anim_type
+	if lookup in animations and direction in animations[lookup]:
+		return animations[lookup][direction]
 	return ""
 
 func _calculate_animation_speed(anim_type: String) -> float:
@@ -145,49 +148,61 @@ func _play_animation(anim_name: String, speed: float) -> void:
 		animation_speed_changed.emit(speed)
 
 func _is_one_shot_animation(anim_type: String) -> bool:
-	return anim_type in ["jump", "run_jump", "standing_shoot"]
+	return anim_type in ["jump", "run_jump", "fall", "standing_shoot"]
 
+## Drives the jump / fall clip frame lock from the authoritative vertical phase:
+##   ascending  → play the clip forward and hold the MIDDLE frame at the apex
+##   descending → resume playing forward from wherever it was paused, through to
+##                the LAST frame, then hold there until the agent lands / recovers
+## Frames are never snapped directly to a target — the clip always plays through
+## the intervening frames so ascent→descent reads as one continuous motion.
+## A scripted environmental fall ("falling") has no ascent, so it enters the
+## descending branch immediately and plays from frame 0 to the last frame.
 func _update_jump_animation_phase(anim_name: String) -> void:
-	var is_falling: bool = bool(registry.query("motion.is_falling"))
+	var vstate := str(registry.query("motion.vertical_state"))
+	var descending := vstate == "jump_descent" or vstate == "falling"
+	var frame_count := animated_sprite.sprite_frames.get_frame_count(anim_name)
+	# The "middle"/apex frame differs per clip (Jump=3, RunJump=4).
+	_jump_peak_frame = 3 if anim_name.begins_with("Jump_") else 4
+	var last_frame: int = max(frame_count - 1, 0)
 
-	if _jump_phase == JumpPhase.NONE:
-		_jump_phase = JumpPhase.ASCENT
+	# (Re)start the clip on entry or when the directional clip changes
+	# (peak/last frames differ between clips, so never preserve the old frame).
+	if _jump_phase == JumpPhase.NONE or animated_sprite.animation != anim_name:
 		_play_animation(anim_name, ANIM_SPEED)
+		_jump_phase = JumpPhase.ASCENT
 		if OS.is_debug_build():
-			var frame_count := animated_sprite.sprite_frames.get_frame_count(anim_name)
-			print_debug("JUMP_PHASE: NONE → ASCENT | anim=%s | total_frames=%d" % [anim_name, frame_count])
-		return
+			print_debug("JUMP_PHASE: → ASCENT | anim=%s | total_frames=%d" % [anim_name, frame_count])
 
-	if animated_sprite.animation != anim_name:
-		# When switching jump animations (e.g., WalkShoot→Jump during combat+jump),
-		# start from frame 0 instead of preserving the old animation's frame,
-		# since peak frames differ (Jump=3, RunJump=4, etc).
-		animated_sprite.play(anim_name, ANIM_SPEED)
-		if OS.is_debug_build():
-			print_debug("JUMP_ANIM: switched to %s (frame reset to 0)" % anim_name)
-
-	match _jump_phase:
-		JumpPhase.ASCENT:
-			if not animated_sprite.is_playing() or is_falling:
-				_jump_phase = JumpPhase.AIRBORNE
-				# Capture the peak frame for this jump animation.
-				_jump_peak_frame = 3 if anim_name.begins_with("Jump_") else 4
-				if animated_sprite.is_playing():
-					animated_sprite.pause()
-				animated_sprite.frame = _jump_peak_frame
-				if OS.is_debug_build():
-					var frame_count := animated_sprite.sprite_frames.get_frame_count(anim_name)
-					print_debug("JUMP_PHASE: ASCENT → AIRBORNE | anim=%s | peak_frame=%d | total_frames=%d | falling=%s" % [anim_name, _jump_peak_frame, frame_count, is_falling])
-		JumpPhase.AIRBORNE:
-			pass
+	if descending:
+		if _jump_phase != JumpPhase.DESCENT:
+			# Resume playback from the current (paused) frame — plays the
+			# remainder of the clip forward into the last frame instead of
+			# snapping straight there.
+			_jump_phase = JumpPhase.DESCENT
+			animated_sprite.play(anim_name, ANIM_SPEED)
+			if OS.is_debug_build():
+				print_debug("JUMP_PHASE: ASCENT → DESCENT | anim=%s | last_frame=%d | vstate=%s" % [anim_name, last_frame, vstate])
+		if not animated_sprite.is_playing() or animated_sprite.frame >= last_frame:
+			# Reached the landing pose; hold the last frame until grounded.
+			animated_sprite.pause()
+			animated_sprite.frame = last_frame
+	elif not animated_sprite.is_playing() or animated_sprite.frame >= _jump_peak_frame:
+		# Reached the apex pose; hold the middle frame while still ascending.
+		animated_sprite.pause()
+		animated_sprite.frame = _jump_peak_frame
 
 func _on_is_jumping_changed(is_jumping: bool) -> void:
-	if not is_jumping:
+	if not is_jumping and OS.is_debug_build():
+		var current_anim := current_animation
+		var next_state := str(registry.query("state.animation"))
+		print_debug("JUMP: is_jumping=false | will resume state='%s' anim='%s'" % [next_state, current_anim])
+
+## Reset the jump/fall phase once the agent is back on the ground. Covers both
+## jump landing and environmental-fall recovery via the single vertical state.
+func _on_vertical_state_changed(state: String) -> void:
+	if state == "grounded":
 		_jump_phase = JumpPhase.NONE
-		if OS.is_debug_build():
-			var current_anim := current_animation
-			var next_state := str(registry.query("state.animation"))
-			print_debug("JUMP_PHASE: LANDED → NONE | will resume state='%s' anim='%s'" % [next_state, current_anim])
 
 func get_current_animation() -> String:
 	return current_animation

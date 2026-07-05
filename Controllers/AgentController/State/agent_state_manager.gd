@@ -14,8 +14,9 @@ class_name AgentStateManager
 ## reorder the rules; never bury precedence in imperative code.
 ##
 ## Publishes: state.animation
-## Reads from registry: motion.is_airborne, motion.was_running_on_jump,
-##   motion.is_moving, motion.is_running, action.is_shooting, action.is_aiming
+## Reads from registry: motion.is_airborne, motion.vertical_state,
+##   motion.was_running_on_jump, motion.is_moving, motion.is_running,
+##   action.is_shooting, action.is_aiming
 
 var registry: AgentRegistry
 
@@ -61,6 +62,7 @@ func resolve_state() -> String:
 func _read_inputs() -> Dictionary:
 	return {
 		"airborne": bool(registry.query("motion.is_airborne")),
+		"falling": str(registry.query("motion.vertical_state")) == "falling",
 		"was_running_on_jump": bool(registry.query("motion.was_running_on_jump")),
 		"moving": bool(registry.query("motion.is_moving")),
 		"running": bool(registry.query("motion.is_running")),
@@ -73,6 +75,8 @@ func _build_priority_rules() -> Array:
 		# 1. Airborne overrides everything (combat fire is gated off mid-jump).
 		{"state": "run_jump",       "when": func(s): return s.airborne and s.was_running_on_jump},
 		{"state": "jump",           "when": func(s): return s.airborne},
+		# Scripted environmental fall (no jump arc); renders the jump clip's descent.
+		{"state": "fall",           "when": func(s): return s.falling},
 		# 2. Combat overrides grounded locomotion.
 		{"state": "walk_shoot",     "when": func(s): return (s.shooting or s.aiming) and s.moving},
 		{"state": "standing_shoot", "when": func(s): return s.shooting and not s.moving},
